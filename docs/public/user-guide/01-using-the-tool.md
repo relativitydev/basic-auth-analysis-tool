@@ -1,6 +1,6 @@
 # Using the tool (User Guide, section 1 of 8)
 
-This section explains how to install and run `migrate-auth`, how to configure it, and how to read what it writes. For the rules behind each finding, see the Migration Documentation: Part A describes each pattern the tool looks for ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md)), and Part C gives the migration suggestion ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md)) for each pattern and each OAuth 2.0 flow. Where the new secrets go is in [Part B](../migration/part-b-secret-management.md), Secret Management.
+This section explains how to install and run `migrate-auth`, how to configure it, and how to read what it writes. For the rules behind each finding, see the Migration Documentation: Part A describes each pattern the tool looks for ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md), [VB.NET](../migration/part-a-vbnet.md)), and Part C gives the migration suggestion ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md)) for each pattern and each OAuth 2.0 flow. Where the new secrets go is in [Part B](../migration/part-b-secret-management.md), Secret Management.
 
 The other sections of this guide are listed in the [index](index.md).
 
@@ -12,7 +12,7 @@ The other sections of this guide are listed in the [index](index.md).
 - **It never contacts RelativityOne or any network service.** It works offline. It cannot tell you which OAuth2 Clients your RelativityOne instance already has, and it does not check that a URL, a user or a client exists.
 - **It never configures an OAuth2 Client.** The OAuth2 Client settings in the report are guidance. Creating or changing the client is a manual step you do in RelativityOne; see [Configuring the OAuth2 Client](05-configuring-the-oauth2-client.md).
 - **It reports what its catalog searches for.** A construct the catalog does not cover, or a language this release does not analyze, produces no finding. An empty result is not proof that no Basic Authentication exists. See [Limits of the tool](03-limits.md).
-- **This release analyzes C# and PowerShell only.** Files in other languages are counted and are not analyzed. See the [release notes](02-release-notes.md).
+- **This release analyzes C#, PowerShell and VB.NET only.** Files in other languages are counted and are not analyzed. See the [release notes](02-release-notes.md).
 
 ## Installing
 
@@ -20,14 +20,14 @@ A release consists of one file for each platform and a `SHA256SUMS` file that li
 
 | Platform | File you download | What to do after checking the checksum |
 | --- | --- | --- |
-| Windows (x64) | the `win-x64` binary, `migrate-auth-0.2.0-alpha-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
-| Linux (x64) | the `linux-x64` binary, `migrate-auth-0.2.0-alpha-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
-| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-0.2.0-alpha-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
-| macOS on Intel | the `osx-x64` binary, `migrate-auth-0.2.0-alpha-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| Windows (x64) | the `win-x64` binary, `migrate-auth-0.3.0-alpha-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
+| Linux (x64) | the `linux-x64` binary, `migrate-auth-0.3.0-alpha-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
+| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-0.3.0-alpha-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| macOS on Intel | the `osx-x64` binary, `migrate-auth-0.3.0-alpha-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
 
 In this release the macOS binaries are plain binaries, like the Linux one. They are not signed with an Apple Developer ID certificate and not notarized by Apple, so the checksum is the only check that your download is intact. This guide makes no claim that a macOS binary of this release has been run on a particular version of macOS: the macOS binaries are built and checked when the release is assembled. To find which binary your Mac needs, run `uname -m` in Terminal: it prints `arm64` on Apple silicon and `x86_64` on Intel.
 
-Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-0.2.0-alpha-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
+Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-0.3.0-alpha-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
 
 ### Supported operating systems
 
@@ -69,11 +69,11 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 The command checks every file named in `SHA256SUMS` that is present in the current folder, and prints `OK` beside a file whose checksum matches.
 
-**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-0.2.0-alpha-osx-x64`.
+**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-0.3.0-alpha-osx-x64`.
 
 ```bash
-shasum -a 256 migrate-auth-0.2.0-alpha-osx-arm64
-grep migrate-auth-0.2.0-alpha-osx-arm64 SHA256SUMS
+shasum -a 256 migrate-auth-0.3.0-alpha-osx-arm64
+grep migrate-auth-0.3.0-alpha-osx-arm64 SHA256SUMS
 ```
 
 The first command prints the checksum of your download and the second prints the line of `SHA256SUMS` that names the file. The two hexadecimal values must be identical. Check the checksum before you make the file executable or allow it in Gatekeeper: the macOS binaries are not signed or notarized, so macOS cannot vouch for them, and the checksum is the integrity check.
@@ -87,7 +87,7 @@ The Windows binary is not signed. When you start a file you downloaded with a br
 1. In the SmartScreen window, choose **More info**.
 2. Choose **Run anyway**.
 
-If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-0.2.0-alpha-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
+If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-0.3.0-alpha-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
 
 The first launch of a freshly downloaded copy can take longer than later launches. See the [release notes](02-release-notes.md#known-issues).
 
@@ -96,24 +96,24 @@ The first launch of a freshly downloaded copy can take longer than later launche
 Linux does not show a reputation check for a downloaded binary. Make the file executable, then run it:
 
 ```bash
-chmod +x ./migrate-auth-0.2.0-alpha-linux-x64
-./migrate-auth-0.2.0-alpha-linux-x64 --version
+chmod +x ./migrate-auth-0.3.0-alpha-linux-x64
+./migrate-auth-0.3.0-alpha-linux-x64 --version
 ```
 
 ### First run on macOS
 
 The macOS binaries of this release are **not signed with an Apple Developer ID certificate and not notarized by Apple**. macOS therefore cannot tell you who made the file or whether it was changed after it was built, and the checksum you verified above is the only integrity check. Do not continue unless the checksum matches.
 
-1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-0.2.0-alpha-osx-x64`.
+1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-0.3.0-alpha-osx-x64`.
 
 	```bash
-	chmod +x ./migrate-auth-0.2.0-alpha-osx-arm64
+	chmod +x ./migrate-auth-0.3.0-alpha-osx-arm64
 	```
 
 2. Run it once:
 
 	```bash
-	./migrate-auth-0.2.0-alpha-osx-arm64 --version
+	./migrate-auth-0.3.0-alpha-osx-arm64 --version
 	```
 
 	If you downloaded the file with a web browser, macOS Gatekeeper blocks this first run and shows a warning that Apple cannot check the file for malicious software. This is expected for this release. Close the warning with **Done**; do not choose **Move to Trash**.
@@ -124,7 +124,7 @@ The macOS binaries of this release are **not signed with an Apple Developer ID c
 	- **In Terminal.** Remove the quarantine attribute that macOS attaches to a downloaded file, then run the command again:
 
 		```bash
-		xattr -d com.apple.quarantine ./migrate-auth-0.2.0-alpha-osx-arm64
+		xattr -d com.apple.quarantine ./migrate-auth-0.3.0-alpha-osx-arm64
 		```
 
 		If the file does not carry the attribute, the command reports that there is no such attribute and changes nothing.
@@ -135,10 +135,10 @@ If your Mac is managed by your organization, its device management can prevent y
 
 ### Checking that the tool starts
 
-Run the tool with `--version` (on Windows, `.\migrate-auth-0.2.0-alpha-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
+Run the tool with `--version` (on Windows, `.\migrate-auth-0.3.0-alpha-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
 
 ```text
-migrate-auth 0.2.0-alpha (catalog 1.13.0)
+migrate-auth 0.3.0-alpha (catalog 1.19.0)
 ```
 
 `--help` (or `-h`) prints the usage, the two options described below, and the list of commands, and exits.
@@ -187,8 +187,8 @@ Running a stage again invalidates the stages after it: after a new `scan` you ru
 
 - a folder named `vendor` or `third-party`, in any letter case, at any depth (vendored code). `VendorPortal` does not match;
 - a folder named `sample`, `samples`, `example` or `examples`, in any letter case, at any depth, and a file whose name begins with `Sample` or `Example` with a capital first letter (sample and example code). `SampleClient.cs` and `ExampleRunner.cs` match; `sampleClient.cs`, `SamplesCore` and a folder named `demo` do not;
-- test code and generated code, in both languages, as Part A lists for [C#](../migration/part-a-csharp.md#how-confidence-is-assigned) and for [PowerShell](../migration/part-a-powershell.md#how-confidence-is-assigned);
-- for C# only, a folder named `Deployment`. PowerShell does not use this signal: a script under a `Deployment` folder is reported at its full level, because that folder is where deployment scripts are kept.
+- test code and generated code, in all three languages, as Part A lists for [C#](../migration/part-a-csharp.md#how-confidence-is-assigned), for [PowerShell](../migration/part-a-powershell.md#how-confidence-is-assigned) and for [VB.NET](../migration/part-a-vbnet.md#how-confidence-is-assigned);
+- for C# only, a folder named `Deployment`. PowerShell and VB.NET do not use this signal: a script or a source file under a `Deployment` folder is reported at its full level, because that folder is where deployment code is kept.
 
 **Text encodings.** A file that starts with a byte order mark is read as the UTF-8, UTF-16 or UTF-32 form the mark declares. Without a mark, a file is read as UTF-8 when it is valid UTF-8, as UTF-16 when its bytes have the shape of two-byte text, and otherwise as Windows-1252, which covers Latin-1 and the other Western European single-byte files. A file read as Windows-1252 was read by a guess, so it is not hidden: the report counts it and names it (see `legacyEncodedFiles` under [Scan summary](#scan-summary)). A file that contains a null byte or another control character that is not text, or a byte Windows-1252 leaves undefined, is not read this way and is counted among the files that could not be read as text. The line and column of a finding count the decoded characters, so a file with accented characters reports the same column as it would in UTF-8.
 
@@ -240,7 +240,7 @@ The file is a JSON object. This example uses every key:
 
 | Key | Values | Meaning | Where it is read |
 | --- | --- | --- | --- |
-| `enabledLanguages` | A list of language names: `CSharp`, `VBNet`, `JavaScript`, `TypeScript`, `Python`, `Go`, `PowerShell`, `Shell`. | The languages to assess. When the key is absent, all eight are enabled. A language you leave out is not scanned for candidates and has no findings; its files are still counted and are marked as not assessed. Only `CSharp` and `PowerShell` have an analyzer in this release, so enabling another language changes nothing yet. A list that enables no language at all is refused at start-up (exit code 6). This includes a list that names only languages the tool does not know: the tool says that every name was unknown, names them together with the accepted names, and does not start the session. | Repository file first, then user profile. A list in the repository file replaces the profile's. |
+| `enabledLanguages` | A list of language names: `CSharp`, `VBNet`, `JavaScript`, `TypeScript`, `Python`, `Go`, `PowerShell`, `Shell`. | The languages to assess. When the key is absent, all eight are enabled. A language you leave out is not scanned for candidates and has no findings; its files are still counted and are marked as not assessed. Only `CSharp`, `PowerShell` and `VBNet` have an analyzer in this release, so enabling another language changes nothing yet. A list that enables no language at all is refused at start-up (exit code 6). This includes a list that names only languages the tool does not know: the tool says that every name was unknown, names them together with the accepted names, and does not start the session. | Repository file first, then user profile. A list in the repository file replaces the profile's. |
 | `minimumConfidenceLevel` | `Low`, `Medium`, `High`. | The lowest confidence level that appears in the output. The default is `Low`, which shows everything. The setting only hides findings from the output; it never changes the level a finding receives. | Repository file first, then user profile. A level in the repository file replaces the profile's. |
 | `outputPath` | A folder path. | Where the report, the data file and the saved session state are written, when `--documentationDestinationFolderPath` is not given. | User profile only. |
 | `defaultFlow` | `ClientCredentials` or `AuthorizationCode`. | The flow a finding receives when no signal in its file decides one. The default is `ClientCredentials`. | User profile only. |
@@ -269,9 +269,9 @@ When the repository's own configuration file raised the minimum confidence level
 
 Report section **1. Coverage**; JSON `coverage`.
 
-A table lists all eight languages and what this release does for each (`coverage.languages[]`, with `language` and `coverage`): "supported, 18 classes searched" for C# and "supported, 14 classes searched" for PowerShell (`patternClassesSearched` is the number of classes), and "declared unsupported in this release" for the others. An introductory sentence (`coverage.statement`) says that the report is not a guarantee of absence.
+A table lists all eight languages and what this release does for each (`coverage.languages[]`, with `language` and `coverage`): "supported, 18 classes searched" for C#, "supported, 14 classes searched" for PowerShell and "supported, 19 classes searched" for VB.NET (`patternClassesSearched` is the number of classes), and "declared unsupported in this release" for the others. An introductory sentence (`coverage.statement`) says that the report is not a guarantee of absence.
 
-**Declared unsupported constructs** (`declaredUnsupportedConstructs[]`, each with a `construct` and a `reason`) lists what the catalogs of the supported languages do not cover, so that a missing finding is not read as a clean result. Part A explains the same list ([C#](../migration/part-a-csharp.md#declared-unsupported-coverage), [PowerShell](../migration/part-a-powershell.md#declared-unsupported-coverage)).
+**Declared unsupported constructs** (`declaredUnsupportedConstructs[]`, each with a `construct` and a `reason`) lists what the catalogs of the supported languages do not cover, so that a missing finding is not read as a clean result. Part A explains the same list ([C#](../migration/part-a-csharp.md#declared-unsupported-coverage), [PowerShell](../migration/part-a-powershell.md#declared-unsupported-coverage), [VB.NET](../migration/part-a-vbnet.md#declared-unsupported-coverage)).
 
 ### Scan summary
 
@@ -328,7 +328,7 @@ Each finding has a heading of the form `<id> - <file>:<line> - <language> - <pat
 | `flow` | The recommended OAuth 2.0 flow, `ClientCredentials` or `AuthorizationCode`, or null for a Low finding. |
 | `flowDecision` | Why that flow was chosen: `InteractiveSignal`, `FixedSignal` or `Default`; null for a Low finding. |
 | `flowNote` | The text that goes with the decision; null for a Low finding. |
-| `lowReasons` | For a Low finding, why it is Low, as a list of the values `patternClass` (the class is Low by definition), `commentOrStringLiteral` (the match sits in a comment or a string literal), `demotedFile` (the file's name, folder or content marks it as a test, sample, example or generated file, or, for C# only, a deployment file) and `demotedVendoredFile` (the file sits in a folder named `vendor` or `third-party`); see [What the scan reads and what it leaves out](#what-the-scan-reads-and-what-it-leaves-out) for both; more than one when several apply, and empty when the reason was not recorded. Null for a finding that is not Low. The Markdown report states the same on a `Low because` line under the finding's heading, in words: for `patternClass` it reads "this pattern class is Low by definition" and then says why for that class: a definition that builds a credential or an authentication header rather than a call, a credential that goes to a sink that is not an HTTP client, a credential passed to a web command with no scheme named, or, for any other Low class, that as written it does not establish Basic Authentication towards RelativityOne; for `demotedFile` a C# finding reads "the file's name, folder or content marks it as a test, sample, generated or deployment file" and a PowerShell finding reads "the file's name, folder or content marks it as a test, sample or generated file" (the word "deployment" applies to C# only; a PowerShell finding is never demoted for a `Deployment` folder), and for `demotedVendoredFile` it reads "the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own". A file that is demoted for both kinds of reason lists both values, in that order. |
+| `lowReasons` | For a Low finding, why it is Low, as a list of the values `patternClass` (the class is Low by definition), `commentOrStringLiteral` (the match sits in a comment or a string literal), `demotedFile` (the file's name, folder or content marks it as a test, sample, example or generated file, or, for C# only, a deployment file) and `demotedVendoredFile` (the file sits in a folder named `vendor` or `third-party`); see [What the scan reads and what it leaves out](#what-the-scan-reads-and-what-it-leaves-out) for both; more than one when several apply, and empty when the reason was not recorded. Null for a finding that is not Low. The Markdown report states the same on a `Low because` line under the finding's heading, in words: for `patternClass` it reads "this pattern class is Low by definition" and then says why for that class: a definition that builds a credential or an authentication header rather than a call, a credential that goes to a sink that is not an HTTP client, a credential passed to a web command with no scheme named, or, for any other Low class, that as written it does not establish Basic Authentication towards RelativityOne; for `demotedFile` a C# finding reads "the file's name, folder or content marks it as a test, sample, generated or deployment file" and a PowerShell or VB.NET finding reads "the file's name, folder or content marks it as a test, sample or generated file" (the word "deployment" applies to C# only; a PowerShell or VB.NET finding is never demoted for a `Deployment` folder), and for `demotedVendoredFile` it reads "the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own". A file that is demoted for both kinds of reason lists both values, in that order. |
 
 **Confidence.** Every finding receives one level. **High**: the code almost certainly performs Basic Authentication against a live call path. **Medium**: the code matches a Basic Authentication shape, but the credential source or the call path cannot be established from the file alone. **Low**: the match is present but unlikely to be live authenticating code, such as a comment, a test fixture, sample or example code, vendored code or a generated file. [Part A](../migration/part-a-csharp.md#how-confidence-is-assigned) explains how a level is assigned.
 
@@ -405,7 +405,7 @@ Every field of the JSON file that takes one of a fixed set of values is listed h
 | `findings[].flow`, `provenance.defaultFlow` | `ClientCredentials` or `AuthorizationCode`; `flow` is null for a Low finding. |
 | `findings[].flowDecision` | `InteractiveSignal`, `FixedSignal` or `Default`; null for a Low finding. |
 | `findings[].lowReasons` | A list of `patternClass`, `commentOrStringLiteral`, `demotedFile` and `demotedVendoredFile`, in that order when several apply; empty when the reason was not recorded; null for a finding that is not Low. |
-| `findings[].patternClass` | `CS-001` to `CS-019`, without `CS-010`, for C#; `PS-001` to `PS-014` for PowerShell. See Part A ([C#](../migration/part-a-csharp.md#pattern-classes), [PowerShell](../migration/part-a-powershell.md#pattern-classes)). |
+| `findings[].patternClass` | `CS-001` to `CS-019`, without `CS-010`, for C#; `PS-001` to `PS-014` for PowerShell; `VB-001` to `VB-019` for VB.NET. See Part A ([C#](../migration/part-a-csharp.md#pattern-classes), [PowerShell](../migration/part-a-powershell.md#pattern-classes), [VB.NET](../migration/part-a-vbnet.md#pattern-classes)). |
 | `provenance.minimumConfidenceLevelOrigin`, `provenance.enabledLanguagesOrigin` | `built-in default`, `the configuration file in the user profile` or `the configuration file in the repository`. |
 | `provenance.outputPathOrigin` | `the command line`, `the configuration file in the user profile` or `the working directory captured at launch`. |
 | `provenance.defaultFlowOrigin` | `BuiltInDefault` or `Profile`. The other origin fields use the phrases above, and this one uses a code. |
@@ -463,7 +463,7 @@ The codes are stable: a number is never given a new meaning in a later release.
 
 ## Where to go next
 
-- Part A ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md)): what each pattern looks like, how to search for it yourself, and how the tool assigns confidence and a flow.
-- Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md)): the migration suggestion for each pattern and each flow, the same text as the tool's recommendation.
+- Part A ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md), [VB.NET](../migration/part-a-vbnet.md)): what each pattern looks like, how to search for it yourself, and how the tool assigns confidence and a flow.
+- Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md)): the migration suggestion for each pattern and each flow, the same text as the tool's recommendation.
 - [Part B](../migration/part-b-secret-management.md): where the new secrets go.
 - [Limits of the tool](03-limits.md) and the [release notes](02-release-notes.md).

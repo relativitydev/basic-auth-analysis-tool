@@ -13,4 +13,4 @@ This guide explains how to install and run `migrate-auth`, how to read what it w
 | [7. Token expiry](07-token-expiry.md) | The token lifetime and how each flow handles expiry. |
 | [8. More information from Relativity](08-more-from-relativity.md) | Links to Relativity's official documentation. |
 
-The rules behind each finding are in the Migration Documentation: [Part A, rule patterns for C#](../migration/part-a-csharp.md) and [for PowerShell](../migration/part-a-powershell.md), [Part B, Secret Management](../migration/part-b-secret-management.md), and [Part C, migration suggestions for C#](../migration/part-c-csharp.md) and [for PowerShell](../migration/part-c-powershell.md).
+The rules behind each finding are in the Migration Documentation: [Part A, rule patterns for C#](../migration/part-a-csharp.md), [for PowerShell](../migration/part-a-powershell.md) and [for VB.NET](../migration/part-a-vbnet.md), [Part B, Secret Management](../migration/part-b-secret-management.md), and [Part C, migration suggestions for C#](../migration/part-c-csharp.md), [for PowerShell](../migration/part-c-powershell.md) and [for VB.NET](../migration/part-c-vbnet.md).

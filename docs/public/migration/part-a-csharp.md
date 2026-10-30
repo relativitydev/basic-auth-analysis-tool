@@ -14,6 +14,30 @@ Every example uses obvious placeholders such as `"<user>"`, `"<password>"` and `
 
 The catalog covers `.cs` source files only. It describes the constructs by their shape, so a pattern class can match code from a library it does not name.
 
+## Find your code
+
+Start here if you know what your code does and not which class describes it. Each row names a common situation and the class that covers it. Open the class, read its description and its search, and check the match against your code. A situation that is not in the table may still be covered: the classes are listed in full below, and what the tool does not read is in [Declared unsupported coverage](#declared-unsupported-coverage).
+
+| Your code does this | Class |
+| --- | --- |
+| Builds a Relativity SDK user name and password credential, or sets one through the properties of a settings object | [CS-001](#cs-001), [CS-017](#cs-017) |
+| Builds the retired RSAPI client with a user name and password | [CS-002](#cs-002) |
+| Constructs a Relativity SDK entry point directly from a user name, a password and a web service URL | [CS-015](#cs-015) |
+| Builds the `Authorization` header by hand, as a string with the `Basic` scheme | [CS-006](#cs-006) |
+| Writes the `Authorization` header through the framework's header enumeration, with no `"Authorization"` string | [CS-012](#cs-012) |
+| Creates an authentication header value with the scheme `Basic` | [CS-005](#cs-005) |
+| Joins a user name and a password with a colon and encodes the result to Base64 | [CS-009](#cs-009) |
+| Sends a token or key under the `Basic` scheme, with one half of the pair empty | [CS-018](#cs-018) |
+| Adds a credential to a credential cache under the `Basic` scheme | [CS-003](#cs-003) |
+| Assigns a network credential to an HTTP handler or client | [CS-007](#cs-007) |
+| Builds a network credential whose consumer the tool does not recognize, or whose user name and password are assigned in separate statements | [CS-008](#cs-008), [CS-016](#cs-016) |
+| Uses a third-party authenticator type whose name declares the Basic scheme | [CS-004](#cs-004) |
+| Calls a fluent extension method whose name declares the Basic scheme | [CS-014](#cs-014) |
+| Sets a service binding to Basic transport credentials | [CS-013](#cs-013) |
+| Defines its own method that builds the Basic header or the credential | [CS-011](#cs-011) |
+| Binds a credential to a mail, file-transfer, directory or proxy client | [CS-019](#cs-019) |
+
+
 ## How confidence is assigned
 
 Every finding receives exactly one of three levels. The levels depend on what the tool can establish from the file, and never on how sure it is about the rest of your system.
