@@ -180,6 +180,20 @@ A shell script has places a secret commonly lives that look safer than they are,
 
 For Authorization Code, a script that asks a person with `read -s` stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
 
+### JavaScript: bundles, browser storage and the server
+
+JavaScript runs in two places, and the two do not keep a secret the same way. Code that runs in a browser is delivered to the person using it, so nothing in it, and nothing it can read, is a secret from that person.
+
+**A bundle.** A client secret written into a source file that is built into a browser bundle is public: anyone who loads the page can read it, minified or not. This holds for a value that a build step substitutes from an environment variable at build time, because the value is then in the bundle. Do not put the client secret in browser code or in any file that is built into it. **NSerio guidance:** the browser code asks a server-side component of your own, and that component holds the client secret and calls RelativityOne.
+
+**Browser storage.** `localStorage`, `sessionStorage`, IndexedDB and a cookie that script can read are all readable by any script that runs in the page, including a script that came in through a compromised dependency. Do not keep a client secret or a refresh token in them. **NSerio guidance:** keep the tokens on the server, and give the browser only a session cookie that is set by the server with the `HttpOnly`, `Secure` and `SameSite` attributes, so that page script cannot read it. If you decide that an access token must reach the browser, keep it in memory only and give it the shortest lifetime the OAuth2 Client allows.
+
+**A `.env` file.** A file read by Node.js at start-up is plain text on the disk. Keep it outside the repository and out of every build output, as in [Keeping credentials out of source](#keeping-credentials-out-of-source). A bundler may copy values from such a file into a browser bundle, so check what a build step exposes before you use one.
+
+**Node.js.** A Node.js process reads the client secret from its environment or from a vault, as in [Reading secrets from a vault at runtime](#reading-secrets-from-a-vault-at-runtime). Do not pass it as a command-line argument, which other users of the machine can see in the process list, and do not write it to the log or into an error message.
+
+For Authorization Code, a server-side component keeps the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
+
 ### Relativity Secret Store
 
 The Relativity Secret Store is for code that runs inside Relativity, such as custom pages, agents and event handlers, where the code is already trusted by the platform and should not carry a credential of its own. Use it there in place of an external vault.
@@ -311,6 +325,17 @@ If String.IsNullOrEmpty(clientId) OrElse String.IsNullOrEmpty(clientSecret) Then
 End If
 ```
 
+In JavaScript, in a Node.js process, the same read is:
+
+```javascript
+	const clientId = process.env.RELATIVITY_CLIENT_ID;
+	const clientSecret = process.env.RELATIVITY_CLIENT_SECRET;
+
+	if (!clientId || !clientSecret) {
+		throw new Error("RELATIVITY_CLIENT_ID and RELATIVITY_CLIENT_SECRET must be set.");
+	}
+```
+
 **Keep local secret files out of the repository.** If you use a local file for development, add it to `.gitignore` before it is created.
 
 ```text
@@ -428,7 +453,7 @@ The statements about Relativity in this document come from these public Relativi
 
 - [REST API authentication][rest-authentication]: https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm. It supports the address of the token endpoint, `<host>/Relativity/Identity/connect/token`, and the description of the Context User as usually a member of the Relativity Administrators group, though it could be different depending on the API or operation invoked.
 
-The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation, the PowerShell section follows Microsoft's public documentation of the SecretManagement module and of `Export-Clixml`, and the Shell section follows the `curl` and GNU Wget manuals and the behaviour of the shells NSerio checked. They are not Relativity statements.
+The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation, the PowerShell section follows Microsoft's public documentation of the SecretManagement module and of `Export-Clixml`, the Shell section follows the `curl` and GNU Wget manuals and the behaviour of the shells NSerio checked, and the JavaScript section follows the general behaviour of browsers and of Node.js. They are not Relativity statements.
 
 [oauth2-clients]: https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm
 [client-manager-rest]: https://platform.relativity.com/RelativityOne/Content/BD_Identity/OAuth2_Client_Manager__REST_.htm
