@@ -158,6 +158,28 @@ A VB.NET application has places a secret commonly lives that look safer than the
 
 For Authorization Code, an application that asks a person for the password stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
 
+### Shell: the command line, secret files and the keychain
+
+A shell script has places a secret commonly lives that look safer than they are, and each has a limit worth knowing before you choose it.
+
+**The command line.** Everything on a command line is visible to every user of the machine in the process list while the command runs. That includes `curl -u <user>:<secret>`, a `wget` password option, a token given as `-H "Authorization: Bearer <token>"`, and a client secret given as `--data-urlencode "client_secret=<secret>"`. A shell variable that holds options and is expanded unquoted, such as `curl ${options}`, puts them on the command line in the same way. `curl` can read the value from a file instead: `--data-urlencode "client_secret@<file>"` reads the client secret from a file, and `-H @<file>` reads header lines from a file (documented by the `curl` manual from version 7.55; checked by NSerio on 7.81 and 8.17). The file is read whole, a trailing line feed included, so write it with `printf '%s'` and not with `echo`.
+
+**A secret file.** A file that holds the client secret should be created readable by its owner only, which a `umask 077` before the write does, in a subshell so that the setting does not outlive the write:
+
+```sh
+	( umask 077; printf '%s' "${CLIENT_SECRET}" > "${CLIENT_SECRET_FILE}" )
+```
+
+**NSerio guidance:** keep the file outside the repository, never in a tracked `.env` file, and do not export the secret to child processes: an exported variable is inherited by every program the script starts. A script that runs on a shared host should read the secret from the file at the moment it builds the request, and not hold it in a variable longer than the request needs.
+
+**The keychain and the secret tools.** The operating system's keychain (`security find-generic-password` on macOS, `secret-tool lookup` on a Linux desktop) and the secret tools of the vaults above (`pass show`, `gopass show`, `vault kv get`, `aws secretsmanager get-secret-value`, `aws ssm get-parameter`, `az keyvault secret show`, `gcloud secrets versions access`, `op read`, `bw get password`) read a secret that was stored outside the script. The migration tool recognizes these commands as evidence that a script's credential is fixed, which makes Client Credentials the recommended flow. As for the other vaults, give the account the script runs as access to the secret it needs and to nothing else.
+
+**`.netrc` and `.wgetrc`.** `curl --netrc` and `wget` read a credential from a plain-text file in the user's home folder. The file is not encrypted: restrict it to its owner (`chmod 600`), keep it out of every repository, and do not treat it as a secret store for a shared account. The migration tool recognizes the `curl` netrc options as evidence that a credential is fixed, and it does not read the contents of these files.
+
+**The shell's history.** A command typed at a prompt is saved in the history file of an interactive shell, secret included. Do not type a client secret on a command line: read it from a file, or with `read -s`. `read -s` hides the typed input in `bash` and `zsh`; in `ksh93` and `mksh` it does not, and `ksh93` saves the line to its history file even when the script is not interactive, so in those shells read the secret from a file instead.
+
+For Authorization Code, a script that asks a person with `read -s` stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
+
 ### Relativity Secret Store
 
 The Relativity Secret Store is for code that runs inside Relativity, such as custom pages, agents and event handlers, where the code is already trusted by the platform and should not carry a credential of its own. Use it there in place of an external vault.
@@ -406,7 +428,7 @@ The statements about Relativity in this document come from these public Relativi
 
 - [REST API authentication][rest-authentication]: https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm. It supports the address of the token endpoint, `<host>/Relativity/Identity/connect/token`, and the description of the Context User as usually a member of the Relativity Administrators group, though it could be different depending on the API or operation invoked.
 
-The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation, and the PowerShell section follows Microsoft's public documentation of the SecretManagement module and of `Export-Clixml`. They are not Relativity statements.
+The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation, the PowerShell section follows Microsoft's public documentation of the SecretManagement module and of `Export-Clixml`, and the Shell section follows the `curl` and GNU Wget manuals and the behaviour of the shells NSerio checked. They are not Relativity statements.
 
 [oauth2-clients]: https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm
 [client-manager-rest]: https://platform.relativity.com/RelativityOne/Content/BD_Identity/OAuth2_Client_Manager__REST_.htm

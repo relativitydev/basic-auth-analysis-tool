@@ -53,7 +53,9 @@ The match is inside text that documents or explains, such as an XML documentatio
 
 ### Test fixtures and mocks
 
-The match sits in a file the tool recognizes as test code: a folder named for tests or fixtures, a file name that ends in a test or spec suffix or begins or ends with a fake, mock or stub name, or a test attribute on the code. Judge by what the test talks to. If it feeds a fake or a mock and never reaches RelativityOne, no migration is needed, though you may want the fake to model the token flow so the test still represents the code it covers. If it is an integration test that authenticates to a real RelativityOne instance, it needs migrating with everything else, because it stops working when Basic Authentication is switched off. A credential written literally into a test is still a secret to remove.
+**Test code is not Low.** A match in a file the tool recognizes as test code is reported at **Medium** at most, with the recommendation of its class, and the report marks the finding `Test code: yes` (the JSON data file sets `testCode` to `true`). The tool recognizes test code by a folder named `test`, `tests`, `spec` or `fixtures`, a folder whose name ends in `.Test` or `.Tests`, a file name that ends in `.Tests.cs`, `.Test.cs` or `.Spec.cs`, or a test attribute on the code. Judge by what the test talks to. If it feeds a mock and never reaches RelativityOne, no migration is needed, though you may want the mock to model the token flow so the test still represents the code it covers. If it is an integration test that authenticates to a real RelativityOne instance, it needs migrating with everything else, because it stops working when Basic Authentication is switched off: follow the entry of its class. A credential written literally into a test is still a secret to remove.
+
+**A mock is Low.** A match in a file the tool recognizes as a mock, fake or stub is reported at Low, with no recommendation: a file name that begins or ends with `Fake`, `Mock` or `Stub`. The tool recognizes a mock by its file name and by nothing else, so a mock that has a neutral name is reported at the level of its class, or at Medium when it also sits in test code; review it as you would a test. A file that is test code and also a mock, a sample, vendored or generated is Low, and the report still says it is test code. For a Low mock, judge by what it stands in for: if nothing runs it against RelativityOne, no migration is needed.
 
 ### Sample and example code
 
@@ -62,6 +64,10 @@ The match sits in a folder named `sample`, `samples`, `example` or `examples`, i
 ### Vendored and generated files
 
 The match sits in a file produced by a tool (a generated-code header, a generated-code attribute, or a generated or designer file name) or in a folder named `vendor` or `third-party`, which holds third-party code. **Do not edit a generated file by hand:** the next generation overwrites the edit. Fix the source it is generated from (the template, the schema or the generator settings) and regenerate. For vendored code, upgrade the library to a version that supports token authentication, or replace it. A migration is needed when the file runs against RelativityOne in your application. It is not needed when the file is never called, or when it is only reference material.
+
+### Deployment folders
+
+The match sits in a folder named `Deployment`, in any letter case, which the tool treats as installation and release tooling rather than the application's own code. Read the file before you decide, because a deployment folder is also where an installer or a release script that talks to RelativityOne is kept. A migration is needed when the file is the one that runs against RelativityOne in your application or in the deployment itself. It is not needed when the file is never run, or when it only illustrates a pattern. Judge by who runs it and against which server: a deployment script that signs in to RelativityOne with a user name and a password stops working when Basic Authentication is switched off, and it is a script people copy from one environment to the next, so migrate it with everything else. A credential written literally into a deployment script is still a secret to remove.
 
 ### CS-011 · AuthenticationHelperDefinition
 
