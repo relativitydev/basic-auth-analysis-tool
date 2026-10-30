@@ -26,7 +26,7 @@ Every finding receives exactly one of three levels. The levels depend on what th
 
 Five rules apply to every class:
 
-- **A class states a base level, and levels combine by taking the lower.** A class whose construct shows both the scheme and the credential carrier keeps its base level. A class whose construct does not, because the scheme or the credential is in another statement, or because the destination is unknown, lands one level lower. That is why several classes whose rubric level is High are reported as Medium.
+- **A class states a base level, and levels combine by taking the lower.** A class whose construct shows both the scheme and the credential carrier keeps its base level. A class whose construct does not, because the scheme or the credential is in another statement, or because the destination is unknown, lands one level lower. That is why several classes whose base level is High are reported as Medium.
 - **Ambiguity resolves downward.** When two levels are possible, the lower one is used, so that uncertainty goes to manual review and not to a recommendation. A scheme written as a named constant that cannot be resolved in the file gives Medium; a scheme that resolves to something other than Basic gives no finding.
 - **A file's status only lowers the level.** A match is demoted to **Low** when it sits in a comment or in a string body, or in a file the tool recognizes as test, generated, fake, sample, example or vendored code. Nothing raises a level.
 - **A Low match is reported for manual review, with no recommendation and no flow.** It is not evidence that the code does not authenticate. Part C says how to judge each case.
@@ -41,7 +41,7 @@ What marks a file for demotion in C#:
 - **Vendored code:** a folder named `vendor` or `third-party` in any letter case, matched as a whole folder name, so `VendorPortal` does not match and neither does a file called `Vendor.cs`. The tool reads vendored folders, it does not skip them. A vendored file that is not under a folder of those names is not demoted and is judged like any other file.
 - **File content:** a generated-code header, the `GeneratedCode` attribute, or a test attribute such as `[Fact]`, `[Test]`, `[TestMethod]`, `[TestFixture]` or `[Theory]`.
 
-**A literal secret is a separate warning.** When a class captures a credential and the password or token is written literally into the source, the tool also raises an in-code secret warning. The warning is independent of the level: a demoted match keeps it. A value read through an indexer is code, not a literal, and does not raise it.
+**A literal secret is a separate warning.** When a class captures a credential and the password or token is written literally into the source, the tool also raises an in-code secret warning. The warning is independent of the level: a demoted match keeps it. It is read from where the credential sits, not from its value: a literal inside a string, including help or documentation text, raises it, and a literal inside a comment does not. A value read through an indexer is code, not a literal, and does not raise it.
 
 ## Pattern classes
 
@@ -51,7 +51,7 @@ Eighteen classes are registered for C#. Sixteen of them can produce a recommenda
 
 <a id="cs-001"></a>
 
-A Relativity SDK credential object built from a user name and a password, usually handed to the SDK's service factory settings. Both argument forms count: values that arrive in variables or indexer reads, and values written literally into the source.
+A Relativity SDK credential object built from a user name and a password, usually handed to the SDK's service factory settings. Both argument forms count: values that arrive in variables or indexer reads, and values written literally into the source. The type may be written bare, partly qualified (`Security.<Type>`), fully qualified or with `global::`, and the shorthand `new(...)` is read where the declared type stands directly in front of the variable, as in `<Type> variable = new(...)`. A type renamed with a `using` alias is not read; see [Declared unsupported coverage](#declared-unsupported-coverage).
 
 **Example.** Placeholders only:
 
@@ -74,7 +74,7 @@ rg -n --glob '*.cs' 'UsernamePasswordCredentials'
 
 <a id="cs-002"></a>
 
-The retired RSAPI client constructed together with a Relativity SDK user name and password credential. The client's first argument, its address, may be a variable, an indexer read or a construction such as `new Uri(...)` with at most one further level of nested parentheses; an address nested deeper is not read. The recommendation differs from CS-001 because the RSAPI client itself is retired: the call moves to Object Manager rather than only changing its credential.
+The retired RSAPI client constructed together with a Relativity SDK user name and password credential. The client's first argument, its address, may be a variable, an indexer read or a construction such as `new Uri(...)` with at most one further level of nested parentheses; an address nested deeper is not read. The recommendation differs from CS-001 because the RSAPI client itself is retired: the call moves to Object Manager rather than only changing its credential. The client may be written bare, partly qualified, fully qualified or with `global::`, and so may the nested credential type; the client may also be declared in front of its variable with the shorthand, as in `RSAPIClient client = new(address, new UsernamePasswordCredentials(...))`. A nested credential written with the shorthand `new(user, password)` is not read.
 
 **Example.** Placeholders only:
 
@@ -85,7 +85,7 @@ var client = new RSAPIClient(new Uri("<host>/Relativity.Services"), new Username
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'RSAPIClient\s*\('
+rg -n --glob '*.cs' 'RSAPIClient'
 ```
 
 **Confidence.** **High.** The credential type is nested inside the client construction, so the construct shows both the scheme and the credential carrier; a client built with a credential variable instead, such as `new RSAPIClient(uri, bearerCredentials)`, does not match. **Low** in a comment, in a string body, or in a test, generated or fake file. This class replaces CS-001 on the same construct. It does not match an RSAPI client obtained without a visible credential; that form is listed under [Declared unsupported coverage](#declared-unsupported-coverage). See [How confidence is assigned](#how-confidence-is-assigned).
@@ -96,7 +96,7 @@ rg -n --glob '*.cs' 'RSAPIClient\s*\('
 
 <a id="cs-003"></a>
 
-A credential added to a credential cache under the Basic scheme, so that an HTTP client sends Basic Authentication to that address. The address may be a `new Uri(...)` construction or a variable or indexer read, and the four-argument overload that takes a host and a port before the scheme counts too.
+A credential added to a credential cache under the Basic scheme, so that an HTTP client sends Basic Authentication to that address. The address may be a `new Uri(...)` construction or a variable or indexer read, and the four-argument overload that takes a host and a port before the scheme counts too. The address may be a variable, an indexer read, or a construction such as `new Uri(...)`, `new System.Uri(...)` or the shorthand `new(...)` with at most one further level of nested parentheses, and the constructed credential may be written bare, partly qualified, fully qualified or with `global::`. A credential written as the shorthand `new(user, password)` in the last argument is not read.
 
 **Example.** Placeholders only:
 
@@ -109,7 +109,7 @@ cache.Add("<host>", port, "Basic", new NetworkCredential("<user>", "<password>")
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'CredentialCache'
+rg -n --glob '*.cs' 'CredentialCache|\.Add\s*\(.*"Basic"'
 ```
 
 **Confidence.** **High** when the scheme argument is the text `Basic`, or a named constant in the same file that resolves to it. If the scheme resolves to something else, the tool reports nothing. If it cannot be resolved, because the constant is declared more than once or comes from elsewhere, the level is **Medium**. The scheme argument and the constructed credential are required; an `Add` whose third argument is not a constructed credential is not matched. This class replaces CS-008 on the credential constructed inside the cache entry's own call, so one cache entry is one finding; a credential constructed in another statement and passed to the cache by a variable is still CS-008 at its own place. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -120,7 +120,7 @@ rg -n --glob '*.cs' 'CredentialCache'
 
 <a id="cs-004"></a>
 
-An authenticator type from an HTTP library whose name declares both the Basic scheme and the authenticator role, constructed with a user name and a password. The class is defined by the shape of the name, not by one library.
+An authenticator type from an HTTP library whose name declares both the Basic scheme and the authenticator role, constructed with a user name and a password. The class is defined by the shape of the name, not by one library. The type may be written bare, partly qualified (`Security.<Type>`), fully qualified or with `global::`, and the shorthand `new(...)` is read where the declared type stands directly in front of the variable, as in `<Type> variable = new(...)`.
 
 **Example.** Placeholders only:
 
@@ -142,7 +142,7 @@ rg -n --glob '*.cs' 'Basic\w*Authenticator'
 
 <a id="cs-005"></a>
 
-An HTTP authentication header value constructed with a scheme argument that is, or resolves to, `Basic`.
+An HTTP authentication header value constructed with a scheme argument that is, or resolves to, `Basic`. The type may be written bare, partly qualified (`Security.<Type>`), fully qualified or with `global::`, and the shorthand `new(...)` is read where the declared type stands directly in front of the variable, as in `<Type> variable = new(...)`. The shorthand assignment to the header property, `Authorization = new("Basic", credential)`, is not read.
 
 **Example.** Placeholders only:
 
@@ -153,10 +153,10 @@ client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basi
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'new\s+AuthenticationHeaderValue\s*\('
+rg -n --glob '*.cs' 'AuthenticationHeaderValue'
 ```
 
-**Confidence.** **Medium.** The rubric names an explicitly constructed Basic `Authorization` header as High, but this construct does not by itself show that the header reaches an outbound request, so it lands at Medium. If the scheme is a named constant that cannot be resolved in the file, the level stays Medium. If the scheme resolves to something other than Basic, the tool reports nothing. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
+**Confidence.** **Medium.** The confidence rules name an explicitly constructed Basic `Authorization` header as High, but this construct does not by itself show that the header reaches an outbound request, so it lands at Medium. If the scheme is a named constant that cannot be resolved in the file, the level stays Medium. If the scheme resolves to something other than Basic, the tool reports nothing. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
 
 **Which flow.** Look in the same file as the match for the signals listed under [Flow signals](#flow-signals). An interactive-user signal points to Authorization Code. A fixed-credential signal points to Client Credentials. With no signal, the default applies, and the default is Client Credentials. Signals are read in the same file as the match only, so a login page or a credential source in another file is not seen; follow the credential to where it comes from before you decide. The encoded credential is usually built a few lines away. A prompt, login form or password control in the same file points to Authorization Code; a configuration, environment variable or secret-store read points to Client Credentials. See [the migration entries in Part C](part-c-csharp.md#cs-005-migration).
 
@@ -186,7 +186,7 @@ rg -n --glob '*.cs' '"Authorization"'
 
 <a id="cs-007"></a>
 
-A network credential built from a user name and a password and assigned to an HTTP client or handler. Assigning the default or integrated credentials does not match, because that is integrated Windows authentication.
+A network credential built from a user name and a password and assigned to an HTTP client or handler. Assigning the default or integrated credentials does not match, because that is integrated Windows authentication. The handler type and the credential may be written bare, partly qualified, fully qualified or with `global::`. The constructor may carry parentheses before the initializer, `new HttpClientHandler() { ... }` or `new SocketsHttpHandler(settings) { ... }`, and the shorthand is read in `HttpClientHandler handler = new() { ... }`, in `HttpClientHandler handler = new(options) { ... }` and in `HttpClientHandler handler = new();` followed by the property write `handler.Credentials = new NetworkCredential(...)`.
 
 **Example.** Placeholders only:
 
@@ -197,7 +197,7 @@ var handler = new HttpClientHandler { Credentials = new NetworkCredential("<user
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'Credentials\s*=\s*new\s+NetworkCredential'
+rg -n --glob '*.cs' 'Credentials\s*=\s*new\s+[\w.:]*NetworkCredential'
 ```
 
 **Confidence.** **Medium.** The credential type serves several protocols, so it does not declare Basic Authentication by itself, and the level is Medium. Only an HTTP client or handler counts as the destination; a credential built for a mail, file-transfer or directory client is CS-019 and is Low. This class replaces CS-008 when both match the same construct. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -208,7 +208,7 @@ rg -n --glob '*.cs' 'Credentials\s*=\s*new\s+NetworkCredential'
 
 <a id="cs-008"></a>
 
-A network credential built from a user name and a secret when no other class in the same file accounts for it. What remains is a credential whose consumer the tool does not recognize, such as the legacy web client, web request and SOAP proxy classes, where the framework performs the exchange and no Basic scheme or Base64 text appears in the file.
+A network credential built from a user name and a secret when no other class in the same file accounts for it. What remains is a credential whose consumer the tool does not recognize, such as the legacy web client, web request and SOAP proxy classes, where the framework performs the exchange and no Basic scheme or Base64 text appears in the file. The type may be written bare, partly qualified (`Security.<Type>`), fully qualified or with `global::`, and the shorthand `new(...)` is read where the declared type stands directly in front of the variable, as in `<Type> variable = new(...)`. A credential created by an object initializer that carries both halves is not read; see [Declared unsupported coverage](#declared-unsupported-coverage).
 
 **Example.** Placeholders only:
 
@@ -219,7 +219,7 @@ var credential = new NetworkCredential("<user>", "<password>");
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'new\s+NetworkCredential\s*\('
+rg -n --glob '*.cs' 'NetworkCredential'
 ```
 
 **Confidence.** **Medium.** The credential type does not declare a scheme and no recognized HTTP consumer is present, so the level is Medium. This class is replaced by CS-007 where an HTTP client or handler binding is present, by CS-003 where the credential is constructed inside a credential cache entry, and by CS-019, at Low, where a mail, file-transfer, directory or proxy sink is present. A non-HTTP sink that is not one of those still produces a Medium finding here. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -230,7 +230,7 @@ rg -n --glob '*.cs' 'new\s+NetworkCredential\s*\('
 
 <a id="cs-009"></a>
 
-A user name and a password joined with a colon, built by concatenation, formatting, joining or interpolation, and passed to a Base64 encoder within a few lines, or written inside the encoder's own argument. Both halves of the pair must be present; a pair with an empty half is CS-018.
+A user name and a password joined with a colon, built by concatenation, formatting, joining or interpolation, and passed to a Base64 encoder within a few lines, or written inside the encoder's own argument. Both halves of the pair must be present; a pair with an empty half is CS-018. Each half of the pair may be a variable, a member access such as `userBox.Text`, a call such as `Console.ReadLine()` or `Secrets.Read(index)`, or an indexer read such as `parts[0]`; a call may hold one further level of nested parentheses. The pair can be written inside the encoder's call or in a statement before it. A half written as a quoted literal is not read as a half by this class: a pair with an empty literal half is CS-018.
 
 **Example.** Placeholders only:
 
@@ -279,7 +279,7 @@ rg -n --glob '*.cs' '(public|private|internal|protected|static)\s.*\w*(Credentia
 
 <a id="cs-012"></a>
 
-The `Authorization` header set through the framework's header enumeration on a web client or web request, so no `"Authorization"` string appears in the file. Both writes count: the indexer, and the collection's `Add` or `Set` call with the enumeration member as the first argument. This is the form that older integrations use.
+The `Authorization` header set through the framework's header enumeration on a web client or web request, so no `"Authorization"` string appears in the file. Both writes count: the indexer, and the collection's `Add` or `Set` call with the enumeration member as the first argument. This is the form that older integrations use. The enumeration member may be written fully qualified, with `global::` or partly qualified. The value may also be one interpolated string that holds the scheme word and the credential in one hole, `$"Basic {encoded}"`; a scheme other than Basic written there, such as `$"Bearer {token}"`, gives no finding. The scheme may also be held in a named constant, in four spellings: the bare constant, `SCHEME + " " + encoded`; the constant written with a type or namespace qualifier, `AuthConstants.SCHEME + " " + encoded` or `global::App.AuthConstants.SCHEME + " " + encoded`; the constant inside an interpolation hole, `$"{SCHEME} {encoded}"`; and the qualified constant inside an interpolation hole, `$"{AuthConstants.SCHEME} {encoded}"`. The credential may be a variable, a member access or an indexer read. A constant the file declares is resolved: one that resolves to something other than Basic gives no finding. A constant the file does not declare, a qualified one included, cannot be resolved and gives Medium. A qualified constant that has `Bearer`, `Negotiate`, `Digest`, `Ntlm` or `Kerberos` anywhere in its spelling, in any letter case, gives no finding.
 
 **Example.** Placeholders only:
 
@@ -303,7 +303,7 @@ rg -n --glob '*.cs' 'HttpRequestHeader\.Authorization'
 
 <a id="cs-013"></a>
 
-A service binding set to Basic transport credentials, optionally followed within five lines by a user name and password assigned on the client's credentials. This is the only form where the scheme is written in a member name.
+A service binding set to Basic transport credentials, optionally followed within five lines by a user name and password assigned on the client's credentials. This is the only form where the scheme is written in a member name. The enumeration member may be written bare, partly qualified, fully qualified or with `global::`, as in `ClientCredentialType = System.ServiceModel.HttpClientCredentialType.Basic`.
 
 **Example.** Placeholders only:
 
@@ -316,7 +316,7 @@ client.ClientCredentials.UserName.Password = "<password>";
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'ClientCredentialType\s*=\s*HttpClientCredentialType\.Basic'
+rg -n --glob '*.cs' 'ClientCredentialType\s*=\s*[\w.:]*HttpClientCredentialType\.Basic'
 ```
 
 **Confidence.** **Medium.** The binding states Basic outright, but the credential carrier is usually in a different statement, so the class lands at Medium. The credential window is optional: a binding whose credentials live in a configuration file is still reported, because the binding is in the code. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -349,7 +349,7 @@ rg -n --glob '*.cs' '\.WithBasicAuth\s*\('
 
 <a id="cs-015"></a>
 
-A Relativity SDK entry point constructed directly from a user name, a password and a web service URL. Only the three-argument form counts, because the same type has other constructors that authenticate by other means, and a static factory, `ImportAPI.CreateByRsaBearerToken(webServiceUrl)`, that takes no token and uses the identity of the hosting process.
+A Relativity SDK entry point constructed directly from a user name, a password and a web service URL. Only the three-argument form counts, because the same type has other constructors that authenticate by other means, and a static factory, `ImportAPI.CreateByRsaBearerToken(webServiceUrl)`, that takes no token and uses the identity of the hosting process. The type may be written bare, partly qualified (`Security.<Type>`), fully qualified or with `global::`, and the shorthand `new(...)` is read where the declared type stands directly in front of the variable, as in `<Type> variable = new(...)`.
 
 **Example.** Placeholders only:
 
@@ -360,7 +360,7 @@ var importApi = new ImportAPI("<user>", "<password>", "<web service URL>");
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'new\s+ImportAPI\s*\('
+rg -n --glob '*.cs' 'ImportAPI'
 ```
 
 **Confidence.** **High.** The type name and the credential pair declare the scheme and the carrier. A construction that passes only a URL, and a call to the factory, are not reported, since they carry no credential pair. The recommendation in Part C names that factory, says it takes no token and applies to a process hosted by the Relativity service account such as an agent, and records that no documented `ImportAPI` factory accepts a token acquired by a standalone or desktop process (known issue 12 in the [release notes](../user-guide/02-release-notes.md#known-issues)). **Low** in a comment, in a string body, or in a test, generated or fake file. The tool recognizes the entry point shown above. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -371,7 +371,7 @@ rg -n --glob '*.cs' 'new\s+ImportAPI\s*\('
 
 <a id="cs-016"></a>
 
-A network credential whose user name is set in an object initializer and whose password arrives by a later property assignment, within five lines. The pair never appears in one expression.
+A network credential whose user name is set in an object initializer and whose password arrives by a later property assignment, within five lines. The pair never appears in one expression. The credential type may be written bare, partly qualified, fully qualified or with `global::`, and the constructor may carry empty parentheses before the initializer, `new NetworkCredential() { UserName = ... }`. The shorthand `new() { ... }` form is not read; see [Declared unsupported coverage](#declared-unsupported-coverage).
 
 **Example.** Placeholders only:
 
@@ -383,7 +383,7 @@ credential.Password = password;
 **How to search.** This finds candidate files; open each match and check it against the description above.
 
 ```bash
-rg -n --glob '*.cs' 'new\s+NetworkCredential\s*\{'
+rg -n --glob '*.cs' 'NetworkCredential\s*(\(\s*\))?\s*\{'
 ```
 
 **Confidence.** **Medium.** The credential type declares no scheme and the two halves are in separate statements, so the level is Medium. A credential that is bound to a mail or other non-HTTP client is a near miss and is not a migration target; confirm the destination before acting. **Low** in a comment, in a string body, or in a test, generated or fake file. See [How confidence is assigned](#how-confidence-is-assigned).
@@ -440,7 +440,7 @@ rg -n --glob '*.cs' 'ToBase64String'
 
 <a id="cs-019"></a>
 
-A network credential bound to a client that is not an HTTP client: mail, file transfer, directory or proxy. It is a near-miss class. It exists so that these credentials stop being reported as migration targets.
+A network credential bound to a client that is not an HTTP client: mail, file transfer, directory or proxy. It is a near-miss class. It exists so that these credentials stop being reported as migration targets. The sink is decided by its own type, so the credential is reported here wherever it is bound: in the initializer of the sink, `new SmtpClient(host, port) { Credentials = new NetworkCredential(user, password) }`, with or without constructor parentheses and with other members around the credential; in a shorthand declaration, `SmtpClient mailer = new(host, port) { ... }` or `SmtpClient mailer = new(host, port);` followed by the binding; and in a later statement. A credential completed across statements and then bound by an initializer or a later assignment is read the same way. The sink and the credential may be written bare, partly qualified, fully qualified or with `global::`, and a file-transfer request is read when it is obtained from `WebRequest.Create(...)` or `FtpWebRequest.Create(...)` and given its type by a cast in front of the call, `(FtpWebRequest)WebRequest.Create(...)`, or by `as FtpWebRequest` after it, qualified or not. A web request given another type, such as `as HttpWebRequest`, carries an HTTP credential and is not read here.
 
 **Example.** Placeholders only:
 
@@ -520,5 +520,11 @@ The catalog states what it does not cover, so that a missing finding is not read
 - **C# code embedded inside another file type, such as a Razor view, or code written in a related .NET language such as VB.NET.** This analyzer only scans plain C# source files; other file types and other languages are not covered by it.
 - **Code inside a preprocessor conditional block (such as "#if"/"#endif"), and certain unusual string literal forms (an interpolated raw string, or a raw string opened with more than one "$").** These are known gaps in how the tool reads C# text into code versus comments and strings, rather than a limitation of any one detection rule. Code inside a block that is switched off with a literal `false` condition is not demoted either; it is reported as ordinary code.
 - **A Base64-encoded value made of two parts separated by a colon that is not actually a credential.** The tool cannot always tell such values apart from an encoded user name and password pair, so a non-credential value with this same shape may occasionally be reported and should be dismissed on review.
-- **A user name and password joined by a colon and converted to Base64 by the project's own helper method, rather than by the standard library's Base64 conversion.** The tool recognizes the standard library's conversion only, so a colon-joined pair converted by a differently named helper is not matched on its own. A header value that names the scheme, written next to that conversion, is still reported - review any code that builds an Authorization header through its own encoding helper.
-- **A C# source file saved in an older single-byte text encoding, such as Latin-1 or Windows-1252, rather than in UTF-8 or UTF-16.** The tool reads source files as UTF-8 or UTF-16 text only and does not guess at any other encoding, so a file that holds accented or other non-ASCII characters in such an encoding cannot be read: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. Convert those files to UTF-8 and scan again, or review them by hand.
+- **An interpolated string that writes a literal brace as a doubled opening brace.** The tool reads the doubled opening brace as the start of an interpolated expression followed by an inner brace, not as a literal brace. Text between a balanced pair is read as code, so a construct written there can be reported as if it were live code, and an unpaired doubled brace can make the tool read a later stretch of the file as the inside of that expression until it finds the end. The loss is a false finding or a demoted one in the lines near such a literal.
+- **A user name and password joined by a colon and converted to Base64 by the project's own helper method, rather than by the standard library's Base64 conversion, or by that conversion called without its type name through a "using static" directive.** The tool recognizes the standard library's conversion only, written with its type name, so a colon-joined pair converted by a differently named helper, or by the conversion reached without its type name, is not matched on its own. A header value that names the scheme, written next to that conversion, is still reported - review any code that builds an Authorization header through its own encoding helper.
+- **A credential type, client, authenticator, header type or SDK entry point that the file renames with a "using" alias, or an enumeration member or conversion reached through "using static" without its type.** The type name appears only on the "using" line, and following a rename means resolving what a name refers to, which the tool does not do. A use written under the alias, or a member written without its type, is not recognized, so a file that does nothing else is missed - search for such aliases and review those files by hand.
+- **A credential or client created with the shorthand "new(...)" where the type name does not stand in front of the variable (an assignment to an existing variable, a return, an argument, a property initializer, a credential written as the last argument of a credential-cache entry).** Without the type name nothing in the text marks the call as one of the recognized kinds. The form with the declared type directly in front of the variable, "Type x = new(...)", is recognized. The shorthand assignment to the header property, "Authorization = new("Basic", credential)", is left out for the same reason: reading it would match on a property name that other types also carry.
+- **A credential cache entry added by a collection initializer, and a credential created by an object initializer that carries both the user name and the password in the one initializer.** The first has no "Add" call for the tool to match on, so only the credential inside it is reported, as a plain credential construction. The second is read by no rule: the rule for a credential completed in a later statement needs the password there, and the construction rule needs constructor arguments. Review such code by hand.
+- **A scheme named by a constant written with a type or namespace qualifier, as the scheme argument of a credential-cache entry, of an authentication header value or of a header written by name, or in the interpolated spelling of a header written by name; a header-enumeration value built from a constant that carries the scheme and the space and is concatenated directly, or formatted with the standard library's format call; a qualified constant that names another scheme in any segment of its spelling, in the header-enumeration value.** A qualified constant is read only where the header is written through the header enumeration, concatenated or in an interpolation hole, and the other classes are widened when the shape is shown to them. A constant that carries the scheme and the space is not read when it is concatenated directly, because that shape would otherwise match every two-operand concatenation written into an Authorization header. A qualified constant is never resolved, so one that names another scheme without Bearer, Negotiate, Digest, Ntlm or Kerberos anywhere in its spelling is reported at Medium as if it were Basic, and one that has such a word in its spelling but names Basic is not reported. Review such code by hand.
+- **A Windows Presentation Foundation password control reached through a call with a nested call in its argument, a constructed operand or a parenthesized operand in the stored "as" form ("Find(Get("x")) as PasswordBox", "new Factory() as PasswordBox", "(expression) as PasswordBox").** The operand of the cast or "as" is bounded, so the signal that a person typed a password into the control does not fire on these three operands and the finding is decided as if the signal were absent. That can only move the result toward the default flow; it never assigns a flow the file does not show.
+- **A C# source file saved in a single-byte text encoding other than Windows-1252 (for example a Cyrillic or Central European code page), rather than in UTF-8, UTF-16 or Windows-1252.** A file that is not UTF-8 or UTF-16 is read as Windows-1252, which covers Latin-1 and the other Western European files. A file in another single-byte code page that holds a byte Windows-1252 leaves undefined cannot be read that way: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. One that holds only bytes Windows-1252 defines is read, but its accented or other non-ASCII characters come out as different characters; a credential written in plain ASCII is still found, and one whose value holds such a character is read with the wrong character. Convert those files to UTF-8 and scan again, or review them by hand.
