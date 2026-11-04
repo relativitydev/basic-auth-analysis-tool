@@ -123,6 +123,20 @@ public static class MarkdownReportRenderer
 	public const string BELOW_THRESHOLD_SEGMENT_FORMAT =
 		"{0:N0} recognized {1} below the minimum confidence level ({2}) and not shown";
 
+	/// <summary>
+	/// Said under the findings table, in the summary, when the configuration disabled a language that has
+	/// files in the repository: the table lists findings only for the languages that were assessed, and
+	/// without this line a reader cannot tell that a language was left out on purpose.
+	/// </summary>
+	public const string DISABLED_LANGUAGES_NOTE_FORMAT = "Not assessed, because the configuration disabled {0}.";
+
+	/// <summary>
+	/// Said under the findings table when the threshold hides findings that carry a literal credential.
+	/// The console warns about each of them; the report does not list them, so it says that they exist.
+	/// </summary>
+	public const string HIDDEN_LITERAL_CREDENTIALS_FORMAT =
+		"Of the findings not shown at the minimum confidence level ({0}), {1:N0} {2} a literal credential. The console warned about {3}. Lower the minimum confidence level to list {3} in this report.";
+
 	/// <summary>Section 2's line for the folders the walk does not enter. Always written, with a zero, like every count of the report.</summary>
 	public const string EXCLUDED_FOLDERS_FORMAT =
 		"Folders excluded from the walk and not read: {0:N0}. They are excluded by design and are not skipped items.";
@@ -239,6 +253,10 @@ public static class MarkdownReportRenderer
 	private const string _FILES_WORD = "files";
 	private const string _FINDING_IS_WORD = "finding is";
 	private const string _FINDINGS_ARE_WORD = "findings are";
+	private const string _CARRIES_WORD = "carries";
+	private const string _CARRY_WORD = "carry";
+	private const string _IT_WORD = "it";
+	private const string _THEM_WORD = "them";
 	private const string _FOLDERS_WORD = "folders";
 	private const string _TABLE_CELL_BAR = "|";
 	private const string _ESCAPED_TABLE_CELL_BAR = "\\|";
@@ -398,10 +416,58 @@ public static class MarkdownReportRenderer
 			{
 				WriteSummaryRow(writer, finding, content.Catalog);
 			}
+
+			WriteDisabledLanguagesNote(writer, content);
 		}
 
 		writer.WriteLine();
 		WriteRaisedThresholdStatement(writer, content);
+		WriteHiddenLiteralCredentialsStatement(writer, content, minimumLevel);
+	}
+
+	/// <summary>
+	/// The line that names the languages the configuration disabled, written under the table when there
+	/// are findings. With nothing reported the same fact is already said by the zero-findings sentence.
+	/// </summary>
+	private static void WriteDisabledLanguagesNote(TextWriter writer, ReportContent content)
+	{
+		IReadOnlySet<AssessedLanguage> scanEnabledLanguages = content.ScanEnabledLanguages.ToHashSet();
+		string[] disabledNames =
+		[
+			.. content.ScanSummary.Rows
+				.Where(row => row.FileCount > 0
+					&& LanguageAssessment.StateOf(content.Catalog, row.LanguageName, scanEnabledLanguages) == LanguageAssessmentState.DisabledByConfiguration)
+				.Select(row => EscapeForMarkdown(row.LanguageName))
+		];
+
+		if (disabledNames.Length > 0)
+		{
+			writer.WriteLine();
+			WriteFormatted(writer, DISABLED_LANGUAGES_NOTE_FORMAT, string.Join(_VALUE_SEPARATOR, disabledNames));
+		}
+	}
+
+	/// <summary>
+	/// Says how many findings a raised threshold hides although they carry a literal credential. Nothing
+	/// is written when none are hidden, so a report that hides no such finding is unchanged.
+	/// </summary>
+	private static void WriteHiddenLiteralCredentialsStatement(TextWriter writer, ReportContent content, ConfidenceLevel minimumLevel)
+	{
+		int hiddenCount = ThresholdFilter.CountHiddenWithLiteralCredential(content.Findings, minimumLevel);
+
+		if (hiddenCount > 0)
+		{
+			bool isOne = hiddenCount == 1;
+
+			WriteFormatted(
+				writer,
+				HIDDEN_LITERAL_CREDENTIALS_FORMAT,
+				ConfidenceLevels.Name(minimumLevel),
+				hiddenCount,
+				isOne ? _CARRIES_WORD : _CARRY_WORD,
+				isOne ? _IT_WORD : _THEM_WORD);
+			writer.WriteLine();
+		}
 	}
 
 	private static void WriteSummaryRow(TextWriter writer, Finding finding, LanguageCatalog catalog)

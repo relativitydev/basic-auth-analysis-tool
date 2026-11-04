@@ -166,7 +166,14 @@ public enum AnalyzerContractViolationCode
 	/// property of a bracketed hole only: an identifier-extent hole has no closing token to count
 	/// against, and an empty opener would match at every position.
 	/// </summary>
-	InterpolationNestingOpeningWithoutClosing = 38
+	InterpolationNestingOpeningWithoutClosing = 38,
+
+	/// <summary>
+	/// <see cref="QuoteRule.DoubledInterpolationOpeningIsLiteral"/> is set without both an
+	/// <see cref="QuoteRule.InterpolationOpening"/> and an <see cref="QuoteRule.InterpolationClosing"/>.
+	/// A doubled opener can only be read as literal where a bracketed hole exists to be opened.
+	/// </summary>
+	DoubledInterpolationOpeningWithoutBracketedHole = 39
 }
 
 /// <summary>One violation, naming its code and the subject it was found on.</summary>
@@ -305,6 +312,12 @@ public static class AnalyzerContractValidator
 			&& (string.IsNullOrEmpty(quoteRule.InterpolationNestingOpening) || !declaresBracketedHole))
 		{
 			Record(violations, AnalyzerContractViolationCode.InterpolationNestingOpeningWithoutClosing, quoteRule.Opening);
+		}
+
+		if (quoteRule.DoubledInterpolationOpeningIsLiteral
+			&& (string.IsNullOrEmpty(quoteRule.InterpolationOpening) || !declaresBracketedHole))
+		{
+			Record(violations, AnalyzerContractViolationCode.DoubledInterpolationOpeningWithoutBracketedHole, quoteRule.Opening);
 		}
 	}
 

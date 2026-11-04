@@ -17,7 +17,7 @@ public sealed class LowReasonVocabularyTests
 	private const string _HELPER_SENTENCE =
 		"this pattern class is Low by definition: it is a definition that builds a credential or an authentication header, not a call, so the migration belongs in the helper and its callers show no credential";
 	private const string _UNSCHEMED_SENTENCE =
-		"this pattern class is Low by definition: the credential is passed to a web command with no scheme named, so as written the call does not send it as Basic to RelativityOne";
+		"this pattern class is Low by definition: the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 	private const string _GENERIC_SENTENCE =
 		"this pattern class is Low by definition: as written it does not establish Basic Authentication towards RelativityOne";
 	private const string _REMOVED_WORDING = "rarely live authenticating code";
@@ -72,6 +72,25 @@ public sealed class LowReasonVocabularyTests
 		Assert.Equal(_DEMOTED_FILE_POWERSHELL_SENTENCE, sentence);
 		Assert.DoesNotContain(_DEPLOYMENT_WORD, sentence, StringComparison.Ordinal);
 		Assert.DoesNotContain(_DEPLOYMENT_WORD, joined, StringComparison.Ordinal);
+	}
+
+	/// <summary>The demoted-file sentence of VBNet leaves out "deployment", as for every language but C#.</summary>
+	[Fact]
+	public void ADemotedVBNetFileIsNeverCalledADeploymentFile()
+	{
+		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.VBNet);
+
+		Assert.Equal(_DEMOTED_FILE_POWERSHELL_SENTENCE, sentence);
+		Assert.DoesNotContain(_DEPLOYMENT_WORD, sentence, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void ThePs012ReasonDoesNotClaimThatNoBasicCredentialIsSent()
+	{
+		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass, "PS-012");
+
+		Assert.Contains("against a server that asks for Basic it is", sentence, StringComparison.Ordinal);
+		Assert.DoesNotContain("so as written the call does not send it", sentence, StringComparison.Ordinal);
 	}
 
 	[Fact]

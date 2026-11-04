@@ -72,6 +72,16 @@ public static class ThresholdFilter
 	}
 
 	/// <summary>
+	/// How many findings the configured minimum hides although they carry a literal credential: the ones
+	/// the console warns about and the report does not list. It counts the complement of
+	/// <see cref="IsReported"/>, so it cannot disagree with what the renderers write.
+	/// </summary>
+	public static int CountHiddenWithLiteralCredential(ImmutableArray<Finding> findings, ConfidenceLevel minimumLevel)
+	{
+		return findings.Count(finding => finding.LiteralCredentialSignal && !IsReported(finding, minimumLevel));
+	}
+
+	/// <summary>
 	/// One destination-certainty group of the reported set, in the report's total order.
 	/// Filtering never reorders: the sequence is walked, not sorted.
 	/// </summary>

@@ -129,6 +129,7 @@ public sealed class RecommendationRenderer
 	private const string _CLASS_SUBSECTION_FORMAT = "\"{0} \u00b7 {1}\" under ";
 	private const string _SECTION_IN_PART_C_FORMAT = "\"{0}\" in Part C for {1}{2}.";
 	private const string _CSHARP_DISPLAY_NAME = "C#";
+	private const string _VBNET_DISPLAY_NAME = "VB.NET";
 
 	/// <summary>
 	/// The names the Part C documents carry in their titles where they differ from the canonical language
@@ -136,7 +137,8 @@ public sealed class RecommendationRenderer
 	/// </summary>
 	private static readonly Dictionary<AssessedLanguage, string> _documentTitleNamesByLanguage = new()
 	{
-		[AssessedLanguage.CSharp] = _CSHARP_DISPLAY_NAME
+		[AssessedLanguage.CSharp] = _CSHARP_DISPLAY_NAME,
+		[AssessedLanguage.VBNet] = _VBNET_DISPLAY_NAME
 	};
 
 	/// <summary>

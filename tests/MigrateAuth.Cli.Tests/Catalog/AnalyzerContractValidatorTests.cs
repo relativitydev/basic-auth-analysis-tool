@@ -352,6 +352,50 @@ public sealed class AnalyzerContractValidatorTests
 		Assert.Empty(AnalyzerContractValidator.Validate(analyzer));
 	}
 
+	[Fact]
+	public void ADoubledOpeningFlagWithoutABracketedHoleIsAViolation()
+	{
+		QuoteRule noHole = new()
+		{
+			Opening = _QUOTE_DELIMITER,
+			Closing = _QUOTE_DELIMITER,
+			NewlinePolicy = NewlinePolicy.Forbidden,
+			DoubledInterpolationOpeningIsLiteral = true
+		};
+		QuoteRule noClosing = new()
+		{
+			Opening = _QUOTE_DELIMITER,
+			Closing = _QUOTE_DELIMITER,
+			NewlinePolicy = NewlinePolicy.Forbidden,
+			InterpolationOpening = _INTERPOLATION_OPENING,
+			InterpolationIdentifierExtent = BuildLexicalBudgetExpression(_IDENTIFIER_PATTERN),
+			DoubledInterpolationOpeningIsLiteral = true
+		};
+
+		foreach (QuoteRule rule in new[] { noHole, noClosing })
+		{
+			Assert.Contains(
+				AnalyzerContractValidator.Validate(BuildProbeAnalyzer(BuildCompleteTemplateProvider().Object, quoteRule: rule)),
+				violation => violation.Code == AnalyzerContractViolationCode.DoubledInterpolationOpeningWithoutBracketedHole);
+		}
+	}
+
+	[Fact]
+	public void ADoubledOpeningFlagBesideABracketedHoleIsWellFormed()
+	{
+		QuoteRule rule = new()
+		{
+			Opening = _QUOTE_DELIMITER,
+			Closing = _QUOTE_DELIMITER,
+			NewlinePolicy = NewlinePolicy.Forbidden,
+			InterpolationOpening = _INTERPOLATION_OPENING,
+			InterpolationClosing = _INTERPOLATION_CLOSING,
+			DoubledInterpolationOpeningIsLiteral = true
+		};
+
+		Assert.Empty(AnalyzerContractValidator.Validate(BuildProbeAnalyzer(BuildCompleteTemplateProvider().Object, quoteRule: rule)));
+	}
+
 	private static QuoteRule BuildNestingBracketedRule(string nestingOpening)
 	{
 		return new QuoteRule

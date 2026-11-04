@@ -257,7 +257,7 @@ public sealed partial class LexicalScanner
 	}
 
 	/// <summary>
-	/// ONE STEP, AND THE ORDER OF THESE SEVEN IS THE DESIGN.
+	/// ONE STEP, AND THE ORDER OF THESE EIGHT IS THE DESIGN.
 	///
 	/// A suspended sub-range comes first because while one is open the literal's own closing does
 	/// not apply at all. The escape comes before the closing, or an escaped quote closes the
@@ -265,7 +265,10 @@ public sealed partial class LexicalScanner
 	/// pair closes it, and it inverts the mask's polarity for the rest of the line rather than merely
 	/// mis-reading two
 	/// characters. The closing comes before the sub-range opening, so a literal whose closing and
-	/// whose sub-range opening share a character still closes. And the newline comes last, so a
+	/// whose sub-range opening share a character still closes. The DOUBLED interpolation opening
+	/// comes after the closing and before the sub-range opening and the hole, so a doubled opener
+	/// is literal text and is paired from the left: <c>{{{x}}}</c> reads the pair, a hole, then two
+	/// closing body characters. And the newline comes last, so a
 	/// rule that admits none has already had every chance to end the literal properly.
 	/// </summary>
 	private void StepThroughTheBody(ScanContext context, LiteralOccurrence occurrence, LiteralCursor cursor)
@@ -275,6 +278,7 @@ public sealed partial class LexicalScanner
 			|| TryConsumeAnEscape(context, occurrence, cursor)
 			|| TryConsumeADoubledClosing(context, occurrence, cursor)
 			|| TryCloseTheLiteral(context, occurrence, cursor)
+			|| TryConsumeADoubledInterpolationOpening(context, occurrence, cursor)
 			|| TryOpenASuspendedSubRange(context, occurrence, cursor)
 			|| TryEnterAnInterpolationHole(context, occurrence, cursor)
 			|| TryMeetARawNewline(context, occurrence, cursor);
@@ -320,6 +324,35 @@ public sealed partial class LexicalScanner
 		}
 
 		return inside;
+	}
+
+	/// <summary>
+	/// A doubled interpolation opening is literal text, not the start of a hole, where the rule
+	/// declares it. The pair is consumed whole and from the left, so a third opener is the one
+	/// that opens the hole. This step belongs to the literal's body only: a hole's code region is
+	/// scanned as code and never reaches it.
+	/// </summary>
+	private bool TryConsumeADoubledInterpolationOpening(
+		ScanContext context,
+		LiteralOccurrence occurrence,
+		LiteralCursor cursor)
+	{
+		QuoteRule rule = occurrence.Rule;
+		string? opening = rule.InterpolationOpening;
+		bool consumed =
+			occurrence.Interpolates
+			&& rule.DoubledInterpolationOpeningIsLiteral
+			&& !string.IsNullOrEmpty(opening)
+			&& MatchesAt(context.Text, cursor.Position, opening, _delimiterComparison)
+			&& MatchesAt(context.Text, cursor.Position + opening.Length, opening, _delimiterComparison);
+
+		if (consumed)
+		{
+			context.Mark(cursor.Position, opening!.Length * 2, LexicalZone.StringBody);
+			cursor.Position += opening.Length * 2;
+		}
+
+		return consumed;
 	}
 
 	private bool TryOpenASuspendedSubRange(ScanContext context, LiteralOccurrence occurrence, LiteralCursor cursor)

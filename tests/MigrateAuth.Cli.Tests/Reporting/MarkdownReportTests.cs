@@ -228,7 +228,7 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>The alpha label written out, so the assertion does not compare the constant with itself.</summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.2.0-alpha";
+	private const string _EXPECTED_ALPHA_VERSION = "0.3.0-alpha";
 
 	[Fact]
 	public void TheProvenanceCarriesTheAlphaLabelledToolVersionLiteral()

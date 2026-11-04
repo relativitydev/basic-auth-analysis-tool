@@ -153,6 +153,18 @@ internal static class MatchBoundTimingHarness
 		};
 	}
 
+	/// <summary>The `VBNet` harness as a target: its shapes stand where <see cref="VBNetMatchBoundStressSet.RelativePathOf"/> puts them.</summary>
+	internal static MatchBoundTimingTarget ForVBNet(VBNetRecognitionHarness harness)
+	{
+		return new MatchBoundTimingTarget
+		{
+			Analyzer = harness.Analyzer,
+			EmissionPoint = harness.EmissionPoint,
+			ContextFor = (text, path) => harness.ContextFor(text, path),
+			RelativePathOf = VBNetMatchBoundStressSet.RelativePathOf
+		};
+	}
+
 	internal static MatchBoundShapeTiming Measure(MatchBoundTimingTarget target, MatchBoundStressShape shape)
 	{
 		FileRecognitionContext context = target.ContextFor(shape.Text, target.RelativePathOf(shape));

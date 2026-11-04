@@ -44,6 +44,27 @@ public abstract class PartASearchTests
 		Assert.True(withoutSearch.Length == 0, $"Part A gives no search for: {string.Join(", ", withoutSearch)}");
 	}
 
+	/// <summary>
+	/// The "Find your ..." table sends a reader who knows the situation and not the class to a class: every class of the
+	/// analyzer is a link in it, and every link names a class of the analyzer, compared without regard to letter case.
+	/// </summary>
+	[Fact]
+	public void TheScenarioTableLinksEveryClassOfTheAnalyzerAndNothingElse()
+	{
+		string partA = File.ReadAllText(_language.PartAPath());
+		int start = partA.IndexOf("## Find your ", StringComparison.Ordinal);
+		Assert.True(start >= 0, "Part A has no \"Find your ...\" table.");
+		int end = partA.IndexOf("\n## ", start + 1, StringComparison.Ordinal);
+		string section = partA[start..end];
+
+		HashSet<string> linked = new(
+			System.Text.RegularExpressions.Regex.Matches(section, @"\]\(#([a-z]+-[0-9]+)\)").Select(match => match.Groups[1].Value),
+			StringComparer.OrdinalIgnoreCase);
+		HashSet<string> declared = new(Rules().Keys, StringComparer.OrdinalIgnoreCase);
+
+		Assert.True(declared.SetEquals(linked), $"The table links [{string.Join(", ", linked.Order(StringComparer.Ordinal))}] but the analyzer declares [{string.Join(", ", declared.Order(StringComparer.Ordinal))}].");
+	}
+
 	/// <summary>Every search is written in the syntax that rg, grep -E and the test's engine read the same way.</summary>
 	[Fact]
 	public void EverySearchUsesOnlySyntaxThatGrepAndRipgrepShare()
@@ -186,5 +207,39 @@ public sealed class PowerShellPartASearchTests : PartASearchTests
 			.GetCustomAttributes<InlineDataAttribute>()
 			.SelectMany(row => row.GetData(theory))
 			.Select(values => (string)values[0]);
+	}
+}
+
+/// <summary>
+/// The searches of Part A for VB.NET, checked against the forms the analyzer's own tests read: the one fixture of each class and every cell of the
+/// type-by-form table of <see cref="VBNetAnalyzerTests"/>, which are the forms the catalog decides one by one.
+/// </summary>
+public sealed class VBNetPartASearchTests : PartASearchTests
+{
+	public VBNetPartASearchTests()
+		: base(DocumentedLanguage.VBNet)
+	{
+	}
+
+	internal override ImmutableArray<SearchableForm> CoveredForms()
+	{
+		ImmutableArray<SearchableForm>.Builder forms = ImmutableArray.CreateBuilder<SearchableForm>();
+
+		foreach ((string patternClass, ConfidenceLevel level, string source) in VBNetAnalyzerTests.ClassFixtures())
+		{
+			forms.Add(new SearchableForm(patternClass, $"{patternClass} fixture at {level}", source));
+		}
+
+		int row = 0;
+
+		foreach (object[] values in VBNetAnalyzerTests.CoveredForms())
+		{
+			row++;
+			string patternClass = (string)values[0];
+
+			forms.Add(new SearchableForm(patternClass, $"{patternClass} covered form {row}", (string)values[2]));
+		}
+
+		return forms.ToImmutable();
 	}
 }

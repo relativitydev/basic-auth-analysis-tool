@@ -659,6 +659,27 @@ public sealed class PowerShellAnalyzerTests
 		AssertFires(near, _PS_010, ConfidenceLevel.Medium);
 	}
 
+	/// <summary>
+	/// The assignment of the encoder's result, with the pair inside the encoder's own call, is the commonest spelling of all, and a script that holds one usually goes on
+	/// for more than ten lines. The line window between a pair and an encoder that follows it terminates when the text after the call holds ten line breaks and no
+	/// second encoder, so the file is not lost to the match bound.
+	/// </summary>
+	[Theory]
+	[InlineData("$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(\"$($u):$($p)\"))", _PS_010)]
+	[InlineData("$encoded=[Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(\"$($u):$($p)\"))", _PS_010)]
+	[InlineData("$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($u + ':' + $p))", _PS_010)]
+	[InlineData("$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(\":\" + $t))", _PS_011)]
+	[InlineData("$encoded=[Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(\":\" + $t))", _PS_011)]
+	public void AnAssignmentOfTheEncodersResultWithAPairInItsCallIsReadWhateverFollowsIt(string statement, string patternClass)
+	{
+		foreach (int followingLines in new[] { 0, 9, 10, 11, 12, 40 })
+		{
+			string source = statement + "\n" + string.Concat(Enumerable.Range(0, followingLines).Select(line => $"Write-Output {line}\n"));
+
+			AssertFires(source, patternClass, ConfidenceLevel.Medium);
+		}
+	}
+
 	[Theory]
 	[InlineData("$pair = \":\" + $accessToken\n$encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))")]
 	[InlineData("$enc = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($token + ':' + ''))")]

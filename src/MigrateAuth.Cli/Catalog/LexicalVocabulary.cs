@@ -228,6 +228,15 @@ public sealed record QuoteRule
 	public string? InterpolationNestingOpening { get; init; }
 
 	/// <summary>
+	/// A doubled <see cref="InterpolationOpening"/> in the literal's body is literal text and
+	/// opens no hole, as in a C# interpolated string where <c>{{</c> is one literal brace. The
+	/// scanner pairs openers from the left, so <c>{{{x}}}</c> reads the pair, a hole, then two
+	/// closing body characters. Legal only beside both <see cref="InterpolationOpening"/> and
+	/// <see cref="InterpolationClosing"/>. Default <c>false</c>: a doubled opener has no special reading.
+	/// </summary>
+	public bool DoubledInterpolationOpeningIsLiteral { get; init; }
+
+	/// <summary>
 	/// The SECOND hole kind, an identifier-extent kind whose end is a declared identifier
 	/// expression, handed over already constructed.
 	///

@@ -17,19 +17,18 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// <c>ReportStage</c>, composed exactly as <c>Program</c> composes them, each behind one
 /// <c>Run</c> call, on the clock the product ships with.
 ///
-/// TWO SHAPES, BECAUSE ONE NUMBER PER STAGE WOULD BE A LIE ABOUT THE OTHER SHAPE. Throughput depends
-/// on match density and not only on file count, and the four stages divide the work completely
+/// TWO SHAPES, BECAUSE ONE NUMBER PER STAGE WOULD BE A LIE ABOUT THE OTHER SHAPE. Throughput
+/// depends on match density and not only on file count, and the four stages divide the work
 /// differently at the two ends. A repository where 2 % of files are candidates is what ordinary
-/// repositories look like in practice. A repository where every file is a candidate is the worst
-/// case the scan tests already generate. Both are reported and neither is presented as the figure.
+/// repositories look like; a repository where every file is a candidate is the worst case. Both
+/// are reported and neither is presented as the figure.
 ///
-/// THE SIZE IS 3,000 FILES AND THAT IS A CHOICE ABOUT THE SUITE, NOT ABOUT THE PRODUCT. It is large
-/// enough that a stage's duration is signal rather than scheduling noise, and small enough to run on
-/// every build.
+/// THE SIZE IS 3,000 FILES: large enough that a stage's duration is signal rather than scheduling
+/// noise, and small enough to run on every build.
 ///
-/// WHAT IS ASSERTED IS THE REQUIRED FLOOR AND NOTHING ELSE. A test that compared this machine against a
-/// recorded figure would fail whenever a laptop was busy, and a test that fails for that reason gets
-/// deleted. The measured table is reported; the assertion is the requirement.
+/// WHAT IS ASSERTED IS THE REQUIRED FLOOR AND NOTHING ELSE. A test that compared this machine
+/// against a recorded figure would fail whenever a laptop was busy. The measured table is
+/// reported; the assertion is the requirement.
 /// </summary>
 public sealed class StageTimingTests
 {

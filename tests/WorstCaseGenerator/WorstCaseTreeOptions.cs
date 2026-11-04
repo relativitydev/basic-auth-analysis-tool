@@ -45,6 +45,12 @@ public sealed record WorstCaseTreeOptions
 	/// </summary>
 	public int PowerShellScriptBasisPoints { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are Visual Basic sources (<c>.vb</c>) instead, drawn on a stream of their own after the PowerShell share, so
+	/// every other file keeps its kind. Zero, the default, writes no Visual Basic file, so a tree asked for nothing else is byte for byte the tree without this share.
+	/// </summary>
+	public int VBNetSourceBasisPoints { get; init; }
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 

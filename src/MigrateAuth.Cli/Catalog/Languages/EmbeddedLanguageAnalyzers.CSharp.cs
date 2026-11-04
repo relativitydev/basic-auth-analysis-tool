@@ -908,7 +908,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			EscapeCharacter = _ESCAPE_CHARACTER,
 			InterpolationOpening = _INTERPOLATION_OPENING,
 			InterpolationClosing = _INTERPOLATION_CLOSING,
-			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING
+			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING,
+			DoubledInterpolationOpeningIsLiteral = true
 		};
 
 		return rule;
@@ -925,7 +926,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			DoubledClosingEscapes = true,
 			InterpolationOpening = _INTERPOLATION_OPENING,
 			InterpolationClosing = _INTERPOLATION_CLOSING,
-			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING
+			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING,
+			DoubledInterpolationOpeningIsLiteral = true
 		};
 
 		return rule;

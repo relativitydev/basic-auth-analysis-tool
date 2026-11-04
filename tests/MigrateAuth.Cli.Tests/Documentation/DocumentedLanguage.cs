@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Tests.Catalog;
 
@@ -42,6 +44,20 @@ public sealed record DocumentedLanguage(
 		PowerShellRenderedTexts.UNDECLARED_PATTERN_CLASS,
 		"powershell",
 		"*.ps1");
+
+	/// <summary>The third language: Part A and Part C of VB.NET.</summary>
+	public static readonly DocumentedLanguage VBNet = new(
+		"VB.NET",
+		"VBNet",
+		AssessedLanguage.VBNet,
+		"part-a-vbnet.md",
+		"part-c-vbnet.md",
+		VBNetRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"vbnet",
+		"*.vb");
+
+	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()
