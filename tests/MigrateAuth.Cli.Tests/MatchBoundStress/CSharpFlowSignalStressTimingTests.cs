@@ -31,15 +31,17 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// timing procedure measures the same text. The elapsed times are written to the test output, never
 /// asserted as thresholds beyond the bound. The test is in a serialized collection because the bound
 /// is charged in wall-clock time (see <see cref="TimingSensitiveStressCollection"/>).
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
 [Collection(TimingSensitiveStressCollection.NAME)]
-public sealed class CSharpFlowSignalStressTests
+public sealed class CSharpFlowSignalStressTimingTests
 {
 	private const int _MATCH_ENUMERATION_CAP = 2_000_000;
 
 	private readonly ITestOutputHelper _output;
 
-	public CSharpFlowSignalStressTests(ITestOutputHelper output)
+	public CSharpFlowSignalStressTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}

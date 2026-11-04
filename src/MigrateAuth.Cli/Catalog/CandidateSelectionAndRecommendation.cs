@@ -45,7 +45,8 @@ public delegate RecommendationTemplate? RecommendationTemplateProvider(string pa
 /// <summary>
 /// Contract element 5. Preselection anchors for candidate selection, and a template provider for
 /// recommendations indexed by class. One element of the contract carrying both, because the
-/// contract has six top-level elements and these two are one of them.
+/// contract has six required top-level elements, and these two are one of them (a seventh, the
+/// construct precedence, is optional).
 ///
 /// The anchors are an unordered set. An analyzer cannot declare that one anchor is tried
 /// before another, because the order in which the engine looks is not an analyzer's decision.
@@ -76,4 +77,16 @@ public sealed class CandidateSelectionAndRecommendation
 	/// whitespace-only.
 	/// </summary>
 	public FrozenDictionary<CredentialFlow, string>? LanguageFallbackTextByFlow { get; init; }
+
+	/// <summary>
+	/// OPTIONAL. The dialects of this language's files and how one is resolved per file; null when the
+	/// language declares none. See <see cref="FileDialects"/>.
+	/// </summary>
+	public FileDialects? FileDialects { get; init; }
+
+	/// <summary>
+	/// OPTIONAL. How the engine follows a same-file wrapper function; null when the language declares none.
+	/// See <see cref="WrapperTracking"/>.
+	/// </summary>
+	public WrapperTracking? WrapperTracking { get; init; }
 }

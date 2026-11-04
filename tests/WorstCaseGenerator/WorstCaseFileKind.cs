@@ -31,5 +31,11 @@ public enum WorstCaseFileKind
 	PowerShellShebangScript = 8,
 
 	/// <summary>A Visual Basic source file with the <c>.vb</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a VBNet share holds any.</summary>
-	VBNetSource = 9
+	VBNetSource = 9,
+
+	/// <summary>A Shell script with the <c>.sh</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a Shell share holds any.</summary>
+	ShellScript = 10,
+
+	/// <summary>An extensionless Shell script whose first line is a <c>bash</c> shebang, so only its first line attributes it. Only a tree asked for a Shell share holds any.</summary>
+	ShellShebangScript = 11
 }

@@ -115,7 +115,10 @@ internal static class VBNetDeclaredCoverage
 				"the type name does not appear as a constructor call in the text"),
 			Entry(
 				"a type, client, authenticator, header type or SDK entry point that the file renames with an import alias of the type, or a user type with the same simple name as an SDK type",
-				"following a rename is a symbol resolution the tool does not do; an alias of a namespace with the type written in full is read, and a user type with the same name as an SDK type is read as the SDK type, which can be a false positive"),
+				"following a rename is a symbol resolution the tool does not do; an alias of a namespace with the type written in full is read, and a user type with the same name as an SDK type is read as the SDK type unless the same file declares it close to the use, which can be a false positive for a type declared in another file or farther away"),
+			Entry(
+				"a system token returned by a call whose own argument holds a further call, handed as the password of the SDK entry point",
+				"the tool recognizes a token returned by a call whose arguments hold no call of their own; with a deeper call it is reported as a user name and password, a false positive to dismiss on review"),
 			Entry(
 				"arguments written out of order with names, such as a password given by name before the user name, and a named argument that ends the call without a closing parenthesis",
 				"the tool reads named arguments in order only; out of order the two halves would be swapped and the credential would be misread"),
@@ -151,14 +154,8 @@ internal static class VBNetDeclaredCoverage
 				"a user name and password joined by a colon and encoded by the project's own Base64 helper, by an encoder called without its type name, or built up across several statements",
 				"the tool recognizes the standard library's conversion by name only; widening it to any call with Base64 in its name would read every conversion as the end of a credential pair. A header value that names the scheme, written next to the conversion, is still reported"),
 			Entry(
-				"a colon written as a character literal in a pair written inside the encoder call, and in a pair assembled before the encoder",
-				"the first is not read; the second is reported as a token carried under the Basic scheme and not as an encoded pair"),
-			Entry(
-				"a half whose last member is `Length`, `Count` or `Size`, or a second half whose last member is `Port` written inside the encoder call, in the spellings where the check that declines it is not applied",
+				"a half whose last member is `Length`, `Count` or `Size`, or a second half whose last member is `Port` written inside the encoder call, where the second half is named with a credential word, in the spellings of the pair where the check that declines it is not applied",
 				"the pair is reported as an encoded user name and password, so a name and a size can be reported as a credential pair"),
-			Entry(
-				"`vbNullString` as the first operand of a pair joined with `&` or `+` inside the encoder call",
-				"it is not read as an empty half; the pair is reported as an encoded user name and password and not as a token carried under the Basic scheme"),
 			Entry(
 				"a user name and password joined by a separator held in a named constant",
 				"the colon is not in the text of the pair; a colon written as a literal is read"),
@@ -178,8 +175,14 @@ internal static class VBNetDeclaredCoverage
 				"an enumeration member reached through an import of the enumeration type without its name, and a header-enumeration value built from a constant that carries the scheme and the space and joined directly",
 				"the member name carries no type to anchor on, and reading a bare concatenation would read every two-part value written into an Authorization header"),
 			Entry(
-				"a user name and password joined by a colon and encoded that are not a credential, such as a host and a port",
+				"a user name and password joined by a colon and encoded that are not a credential, such as a user name and a token expiry",
 				"the tool cannot always tell such values apart from an encoded user name and password, so a value with this shape may occasionally be reported and should be dismissed on review"),
+			Entry(
+				"a user name and password joined by a colon and encoded, where the second half is held under a name that carries no credential word, such as `pin` or `passphrase`",
+				"the tool reads the second half of an encoded pair only when its name carries a credential word, so that a pair of two ordinary values is not reported; a credential kept under a neutral name is not reported as an encoded pair, and a header value that names the scheme next to it is still read"),
+			Entry(
+				"an Authorization header written with a value held in a variable whose name carries `pass`, `pwd` or `apikey` in lower case followed directly by a digit, such as `pass2`",
+				"the name is not read as carrying a credential word, while the same word with a capital first letter, such as `Pass2`, is read"),
 			Entry(
 				"flow evidence the tool does not list: a login control declared in markup, a password control declared in XAML, a custom credential prompt, a vault command other than the ones it knows, and an instance-setting key that reaches the call through a helper's parameter",
 				"only the signals with a stable shape in the code are read; a file whose evidence is of another kind is assigned the default flow")

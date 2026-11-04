@@ -12,9 +12,9 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Pipeline;
 
 /// <summary>
-/// A FINDING DEMOTED BY A VENDORED FOLDER NAMES VENDORED CODE AS ITS REASON, AND A FINDING DEMOTED BY
-/// ANYTHING ELSE KEEPS THE GENERIC ONE - through the real pipeline over the embedded catalog, in the
-/// Markdown report and in the data artifact.
+/// A FINDING DEMOTED BY A VENDORED FOLDER NAMES VENDORED CODE AS ITS REASON, AND A FINDING DEMOTED BY A
+/// DEPLOYMENT FOLDER NAMES THAT - through the real pipeline over the embedded catalog, in the
+/// Markdown report and in the data artifact. A test kind adds no reason and sets the test-code marker.
 ///
 /// The same construct is placed five times so the only thing that differs between the findings is the
 /// folder it sits in, and one of them sits in a vendored folder that is also a test folder.
@@ -27,7 +27,7 @@ public sealed class VendoredLowReasonPipelineTests
 	private const string _DEPLOYMENT_FILE = "Deployment/Library.cs";
 	private const string _OWN_CODE_FILE = "src/Library.cs";
 	private const string _VENDORED_VALUE = "demotedVendoredFile";
-	private const string _GENERIC_VALUE = "demotedFile";
+	private const string _DEPLOYMENT_VALUE = "demotedDeploymentFolder";
 
 	private const string _content =
 		"class HighFindingFixture\n{\n\tvoid Build()\n\t{\n\t\tvar credentials = new UsernamePasswordCredentials(options.UserName, options.Password);\n\t}\n}\n";
@@ -41,41 +41,42 @@ public sealed class VendoredLowReasonPipelineTests
 
 		Assert.Equal(LowConfidenceReasons.DemotedVendoredFile, FindingIn(findings, _VENDORED_FILE).LowReasons);
 		Assert.Equal(LowConfidenceReasons.DemotedVendoredFile, FindingIn(findings, _THIRD_PARTY_FILE).LowReasons);
-		Assert.Equal(LowConfidenceReasons.DemotedFile, FindingIn(findings, _DEPLOYMENT_FILE).LowReasons);
+		Assert.Equal(LowConfidenceReasons.DemotedDeploymentFolder, FindingIn(findings, _DEPLOYMENT_FILE).LowReasons);
 		Assert.Equal(LowConfidenceReasons.None, FindingIn(findings, _OWN_CODE_FILE).LowReasons);
 	}
 
 	[Fact]
-	public void AVendoredFolderThatIsAlsoATestFolderStatesBothReasons()
+	public void AVendoredFolderThatIsAlsoATestFolderStaysLowStatesTheVendoredReasonOnlyAndIsMarkedAsTestCode()
 	{
 		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		Finding finding = FindingIn(harness.State.Findings, _VENDORED_AND_TEST_FILE);
 
-		Assert.Equal(LowConfidenceReasons.DemotedFile | LowConfidenceReasons.DemotedVendoredFile, finding.LowReasons);
+		Assert.Equal(ConfidenceLevel.Low, finding.Level);
+		Assert.Equal(LowConfidenceReasons.DemotedVendoredFile, finding.LowReasons);
+		Assert.True(finding.TestCode);
+		Assert.False(FindingIn(harness.State.Findings, _VENDORED_FILE).TestCode);
 	}
 
 	[Fact]
-	public void TheMarkdownReportNamesVendoredCodeForAVendoredFindingAndTheGenericReasonForADemotedFile()
+	public void TheMarkdownReportNamesVendoredCodeForAVendoredFindingAndTheDeploymentReasonForADeploymentFolder()
 	{
 		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		string report = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport).ReplaceLineEndings("\n");
 		string vendoredLine = ReasonLine(LowConfidenceReasons.DemotedVendoredFile);
-		string genericLine = ReasonLine(LowConfidenceReasons.DemotedFile);
-		string bothLine = ReasonLine(LowConfidenceReasons.DemotedFile | LowConfidenceReasons.DemotedVendoredFile);
+		string deploymentLine = ReasonLine(LowConfidenceReasons.DemotedDeploymentFolder);
 
-		Assert.Equal(2, CountOf(report, vendoredLine + "\n"));
-		Assert.Equal(1, CountOf(report, genericLine + "\n"));
-		Assert.Equal(1, CountOf(report, bothLine + "\n"));
+		Assert.Equal(3, CountOf(report, $"{vendoredLine}\n"));
+		Assert.Equal(1, CountOf(report, $"{deploymentLine}\n"));
 		Assert.DoesNotContain(
 			"vendor",
-			LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile),
+			LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedDeploymentFolder),
 			StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
-	public void TheDataArtifactCarriesTheVendoredValueApartFromTheGenericOne()
+	public void TheDataArtifactCarriesTheVendoredValueApartFromTheDeploymentOne()
 	{
 		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
@@ -83,8 +84,10 @@ public sealed class VendoredLowReasonPipelineTests
 
 		Assert.Equal([_VENDORED_VALUE], ArtifactFindingIn(artifact, _VENDORED_FILE).LowReasons!);
 		Assert.Equal([_VENDORED_VALUE], ArtifactFindingIn(artifact, _THIRD_PARTY_FILE).LowReasons!);
-		Assert.Equal([_GENERIC_VALUE], ArtifactFindingIn(artifact, _DEPLOYMENT_FILE).LowReasons!);
-		Assert.Equal([_GENERIC_VALUE, _VENDORED_VALUE], ArtifactFindingIn(artifact, _VENDORED_AND_TEST_FILE).LowReasons!);
+		Assert.Equal([_DEPLOYMENT_VALUE], ArtifactFindingIn(artifact, _DEPLOYMENT_FILE).LowReasons!);
+		Assert.Equal([_VENDORED_VALUE], ArtifactFindingIn(artifact, _VENDORED_AND_TEST_FILE).LowReasons!);
+		Assert.True(ArtifactFindingIn(artifact, _VENDORED_AND_TEST_FILE).TestCode);
+		Assert.False(ArtifactFindingIn(artifact, _VENDORED_FILE).TestCode);
 		Assert.Null(ArtifactFindingIn(artifact, _OWN_CODE_FILE).LowReasons);
 	}
 

@@ -1592,20 +1592,20 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	{
 		FrozenSet<FileNameSignal> signals = new[]
 		{
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_G },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_DESIGNER },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_GENERATED },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_TESTS },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_TEST },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_SPEC },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_FAKE },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_MOCK },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_STUB },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_MOCK },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_STUB },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_FAKE },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_SAMPLE },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_EXAMPLE }
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_G, Kind = DemotionKind.Generated },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_DESIGNER, Kind = DemotionKind.Generated },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_GENERATED, Kind = DemotionKind.Generated },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_TESTS, Kind = DemotionKind.Test },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_TEST, Kind = DemotionKind.Test },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX_SPEC, Kind = DemotionKind.Test },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_FAKE, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_MOCK, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _TEST_DOUBLE_PREFIX_STUB, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_MOCK, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_STUB, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_DOUBLE_SUFFIX_FAKE, Kind = DemotionKind.Mock },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_SAMPLE, Kind = DemotionKind.Sample },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_EXAMPLE, Kind = DemotionKind.Sample }
 		}.ToFrozenSet();
 
 		return signals;
@@ -1615,29 +1615,31 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	{
 		FrozenSet<FolderNameSignal> signals = new[]
 		{
-			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_TEST, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_TESTS, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_SPEC, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_FIXTURES, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_SAMPLE, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_SAMPLES, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_EXAMPLE, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_EXAMPLES, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_VENDOR, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
-			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_THIRD_PARTY, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_TEST, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_TESTS, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_SPEC, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_NAME_FIXTURES, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_SAMPLE, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample },
+			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_SAMPLES, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample },
+			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_EXAMPLE, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample },
+			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_EXAMPLES, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample },
+			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_VENDOR, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored },
+			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_THIRD_PARTY, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored },
 			// The Deployment demotion lives here, not in the shared path-shaped set. It is a demotion, never an exclusion.
-			new FolderNameSignal { FolderName = _DEPLOYMENT_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive },
+			new FolderNameSignal { FolderName = _DEPLOYMENT_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Deployment },
 			new FolderNameSignal
 			{
 				FolderName = _TEST_FOLDER_SUFFIX_TEST,
 				Match = FolderNameMatch.Suffix,
-				Sensitivity = CaseSensitivity.Insensitive
+				Sensitivity = CaseSensitivity.Insensitive,
+				Kind = DemotionKind.Test
 			},
 			new FolderNameSignal
 			{
 				FolderName = _TEST_FOLDER_SUFFIX_TESTS,
 				Match = FolderNameMatch.Suffix,
-				Sensitivity = CaseSensitivity.Insensitive
+				Sensitivity = CaseSensitivity.Insensitive,
+				Kind = DemotionKind.Test
 			}
 		}.ToFrozenSet();
 
@@ -1651,17 +1653,20 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new ContentMarker
 			{
 				Expression = CSharpPatternExpressions.GeneratedHeaderContentMarker(),
-				Zone = ContentMarkerZone.AnyZone
+				Zone = ContentMarkerZone.AnyZone,
+				Kind = DemotionKind.Generated
 			},
 			new ContentMarker
 			{
 				Expression = CSharpPatternExpressions.GeneratedCodeAttributeContentMarker(),
-				Zone = ContentMarkerZone.CodeOnly
+				Zone = ContentMarkerZone.CodeOnly,
+				Kind = DemotionKind.Generated
 			},
 			new ContentMarker
 			{
 				Expression = CSharpPatternExpressions.TestAttributeContentMarker(),
-				Zone = ContentMarkerZone.CodeOnly
+				Zone = ContentMarkerZone.CodeOnly,
+				Kind = DemotionKind.Test
 			}
 		];
 

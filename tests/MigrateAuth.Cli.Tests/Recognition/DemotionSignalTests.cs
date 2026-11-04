@@ -75,7 +75,11 @@ public sealed class DemotionSignalTests
 	[InlineData(_CSHARP_DEPLOYMENT_FOLDER_PATH_IN_OTHER_CASING)]
 	public void CSharpDemotesTheDeploymentFolderCaseInsensitively(string relativePath)
 	{
-		Assert.Equal(ConfidenceLevel.Low, CSharpLevelUnder(relativePath));
+		RecognizedConstruct construct = Assert.Single(
+			new CSharpRecognitionHarness().Recognize(_CSHARP_CREDENTIAL_CONSTRUCTION_IN_CODE, relativePath));
+
+		Assert.Equal(ConfidenceLevel.Low, construct.Level);
+		Assert.Equal(LowConfidenceReasons.DemotedDeploymentFolder, construct.LowReasons);
 	}
 
 	[Fact]
@@ -100,12 +104,26 @@ public sealed class DemotionSignalTests
 	/// two sets a signal came from changes who was entitled to declare it and changes nothing
 	/// about what it does.
 	/// </summary>
-	[Theory]
-	[InlineData(_ANALYZER_DECLARED_FOLDER_PATH)]
-	[InlineData(_ANALYZER_DECLARED_FILE_NAME_PATH)]
-	public void TheAnalyzersOwnSignalsDemoteOnTheSameTerms(string relativePath)
+	[Fact]
+	public void TheAnalyzersOwnGeneratedFolderSignalDemotesToLowWithTheGeneratedReason()
 	{
-		Assert.Equal(ConfidenceLevel.Low, LevelUnder(relativePath));
+		RecognizedConstruct construct = Assert.Single(
+			new RecognitionHarness().Recognize(_CREDENTIAL_CONSTRUCTION_IN_CODE, _ANALYZER_DECLARED_FOLDER_PATH));
+
+		Assert.Equal(ConfidenceLevel.Low, construct.Level);
+		Assert.Equal(LowConfidenceReasons.DemotedGeneratedFile, construct.LowReasons);
+		Assert.False(construct.TestCode);
+	}
+
+	[Fact]
+	public void TheAnalyzersOwnTestFileNameSignalDemotesToMediumAndMarksTestCode()
+	{
+		RecognizedConstruct construct = Assert.Single(
+			new RecognitionHarness().Recognize(_CREDENTIAL_CONSTRUCTION_IN_CODE, _ANALYZER_DECLARED_FILE_NAME_PATH));
+
+		Assert.Equal(ConfidenceLevel.Medium, construct.Level);
+		Assert.Equal(LowConfidenceReasons.None, construct.LowReasons);
+		Assert.True(construct.TestCode);
 	}
 
 	/// <summary>

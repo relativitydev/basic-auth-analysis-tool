@@ -61,14 +61,16 @@ internal sealed class FindingHarness
 		string patternClassIdentifier,
 		int anchorOffset,
 		ConfidenceLevel level = ConfidenceLevel.High,
-		bool literalCredentialSignal = false)
+		bool literalCredentialSignal = false,
+		bool testCode = false)
 	{
 		RecognizedConstruct construct = new()
 		{
 			PatternClassIdentifier = patternClassIdentifier,
 			AnchorOffset = anchorOffset,
 			Level = level,
-			LiteralCredentialSignal = literalCredentialSignal
+			LiteralCredentialSignal = literalCredentialSignal,
+			TestCode = testCode
 		};
 
 		return construct;

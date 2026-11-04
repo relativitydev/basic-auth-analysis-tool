@@ -32,7 +32,7 @@ public sealed class DeploymentFolderPerLanguagePipelineTests
 		$"class A\n{{\n\tvoid B() => {PipelineLanguageAnalyzer.TEMPLATED_CONSTRUCT}(user, credential);\n}}\n";
 
 	[Fact]
-	public void ACSharpHighConstructUnderDeploymentReportsLowDemotedFile()
+	public void ACSharpHighConstructUnderDeploymentReportsLowDemotedDeploymentFolder()
 	{
 		using PipelineHarness harness = PipelineHarness.CreateOverTheEmbeddedCatalog();
 
@@ -43,7 +43,7 @@ public sealed class DeploymentFolderPerLanguagePipelineTests
 		Finding demoted = FindingIn(harness.State.Findings, _CSHARP_DEPLOYMENT_FILE);
 
 		Assert.Equal(ConfidenceLevel.Low, demoted.Level);
-		Assert.Equal(LowConfidenceReasons.DemotedFile, demoted.LowReasons);
+		Assert.Equal(LowConfidenceReasons.DemotedDeploymentFolder, demoted.LowReasons);
 		Assert.Equal(ConfidenceLevel.High, FindingIn(harness.State.Findings, _CSHARP_OWN_CODE_FILE).Level);
 	}
 

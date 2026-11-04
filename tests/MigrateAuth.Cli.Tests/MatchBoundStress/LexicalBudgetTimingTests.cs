@@ -108,6 +108,272 @@ public sealed class LexicalBudgetTimingTests
 		Assert.All(timings, timing => Assert.True(timing.WorstExpressionMilliseconds < LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS, timing.Name));
 	}
 
+	/// <summary>
+	/// The Shell ceiling the gate asserts for the openings, the arithmetic read-aheads and the first line: the budget in force, which no benign file may come near spending. On a build with the JIT optimizer disabled the generated expressions
+	/// run several times slower than in the product, so the ceiling there is ten times the budget, which still catches an expression that has lost its bound. What the rule that set
+	/// the budget asks (ten times the worst benign figure, rounded up to the next 250 ms, must not exceed the budget) is asserted on the optimized build by
+	/// <see cref="TheRuleOfTheLexicalBudgetHoldsOnTheWorstBenignChargeIncludingTheArithmeticReadAhead"/>.
+	/// </summary>
+	internal const double SHELL_UNOPTIMIZED_CEILING_MILLISECONDS = MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE * LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS;
+
+	internal const string SHELL_REPORT_PATH_VARIABLE_NAME = "MIGRATE_AUTH_LEXICAL_BUDGET_REPORT_SHELL";
+
+	private const string _CONTIGUOUS_MATCH_ANCHOR = "\\G";
+
+	private const int _SHELL_LEXICAL_EXPRESSION_COUNT = 3;
+
+	private static readonly Lazy<ImmutableArray<ShellLexicalTiming>> _shellScanTimings =
+		new(() => ShellLexicalBudgetMeasurements.MeasureEveryShape(ShellMatchBoundStressSet.Build()));
+
+	[Fact]
+	public void TheShellDraftDeclaresTheThreeExpressionsTheLexicalBudgetCoversWithTheBudgetAsTheirTimeoutAndTheOpeningsAnchoredWithTheContiguousMatchAnchor()
+	{
+		Assert.Equal(_SHELL_LEXICAL_EXPRESSION_COUNT, ShellDraftExpressions.LexicalExpressions.Length);
+		Assert.All(ShellDraftExpressions.LexicalExpressions, entry => Assert.Equal(LexicalEnginePolicy.LEXICAL_BUDGET, entry.Expression.MatchTimeout));
+		Assert.StartsWith(_CONTIGUOUS_MATCH_ANCHOR, ShellDraftExpressions.EX_SH_01, StringComparison.Ordinal);
+		Assert.StartsWith(_CONTIGUOUS_MATCH_ANCHOR, ShellDraftExpressions.EX_SH_02, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void NoShellHereDocumentOpeningOrFirstLineSpendsTheLexicalBudgetAndTheFiguresAreRecorded()
+	{
+		ImmutableArray<ShellLexicalTiming> scans = _shellScanTimings.Value;
+		ImmutableArray<(string Name, double Milliseconds, bool Matched)> firstLines =
+		[
+			.. ShellFirstLineStressSet.Build().Select(shape => (
+				shape.Name,
+				ShellLexicalBudgetMeasurements.TimeTheFirstLineExpression(ShellDraftExpressions.Ex04(), shape.Line),
+				ShellDraftExpressions.Ex04().IsMatch(shape.Line)))
+		];
+		string report = DescribeShell(scans, firstLines);
+
+		_output.WriteLine(report);
+		WriteTheShellReportWhereRequested(report);
+
+		double ceiling = TheShellCeiling();
+
+		Assert.All(firstLines, firstLine => Assert.Equal(firstLine.Name.StartsWith(ShellFirstLineStressSet.VALID_SHAPE_NAME_PREFIX, StringComparison.Ordinal), firstLine.Matched));
+		Assert.All(firstLines, firstLine => Assert.True(firstLine.Milliseconds < ceiling, $"{firstLine.Name}: {firstLine.Milliseconds:F4} ms against {ceiling:F1} ms"));
+		Assert.All(scans, scan => Assert.True(scan.ChargedMilliseconds < ceiling, $"{scan.ShapeName}: {scan.ChargedMilliseconds:F4} ms charged against {ceiling:F1} ms"));
+		Assert.All(scans, scan => Assert.False(scan.TrippedTheBudget, scan.ShapeName));
+	}
+
+	/// <summary>
+	/// THE RULE THAT SET THE BUDGET HOLDS ON THE OPTIMIZED BUILD OF EVERY SYSTEM THE TEST RUNS ON: ten times the worst benign charged figure of a file (the openings, the arithmetic read-aheads and the first-line expression),
+	/// rounded up to the next 250 ms, is within the budget in force, so the figure the rule states is the figure enforced. The worst figure is the whole charge a file can be put through, measured with the
+	/// profile that reads executed strings as well as with the one that does not. The unoptimized build's figures are not the product's, and the rule is reported there but not asserted.
+	/// </summary>
+	[Fact]
+	public void TheRuleOfTheLexicalBudgetHoldsOnTheWorstBenignChargeIncludingTheArithmeticReadAhead()
+	{
+		ImmutableArray<ShellLexicalTiming> scans = _shellScanTimings.Value;
+		double worstFirstLine = ShellFirstLineStressSet.Build().Max(shape => ShellLexicalBudgetMeasurements.TimeTheFirstLineExpression(ShellDraftExpressions.Ex04(), shape.Line));
+		double figure = Math.Max(scans.Max(scan => scan.ChargedMilliseconds), worstFirstLine);
+		double roundedBudget = RoundedBudgetOf(figure);
+
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Worst benign charged per file (openings, arithmetic read-aheads, first line) {0:F4} ms; the rule gives {1:F0} ms; budget in force {2} ms",
+			figure,
+			roundedBudget,
+			LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS));
+
+		if (ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized())
+		{
+			Assert.True(
+				roundedBudget <= LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS,
+				$"Ten times {figure:F4} ms rounds up to {roundedBudget:F0} ms, above the budget of {LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS} ms");
+		}
+	}
+
+	private static double RoundedBudgetOf(double figure)
+	{
+		return Math.Ceiling(figure * MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE / MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS) * MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS;
+	}
+
+	/// <summary>
+	/// The arithmetic-context opening is charged to the lexical budget: its evaluation is the read-ahead that answers whether a double parenthesis is closed as arithmetic, made once for every run it passes and never once per opening.
+	/// Its own row is the worst share of the charge it takes in a file, and with the openings it is held to the same ceiling as the charge as a whole. The here-document opening's own context predicate, which the budget does not charge, is held to the per-file design target.
+	/// </summary>
+	[Fact]
+	public void TheShellArithmeticContextOpeningIsChargedToTheBudgetAndItsWorstBenignCostIsRecordedAsItsOwnRow()
+	{
+		ImmutableArray<ShellLexicalTiming> scans = _shellScanTimings.Value;
+		ShellLexicalTiming worst = scans.OrderByDescending(scan => scan.ArithmeticChargedMilliseconds).First();
+		ShellLexicalTiming worstPredicate = scans.OrderByDescending(scan => scan.PredicateMilliseconds).First();
+		double predicateCeiling = ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
+			? ShellMatchBoundTimingTests.TARGET_WORST_FILE_MILLISECONDS
+			: ShellMatchBoundTimingTests.UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
+
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Arithmetic-context opening (read-ahead), charged to the budget, own row: worst benign per-file {0:F4} ms on {1}; budget {2} ms",
+			worst.ArithmeticChargedMilliseconds,
+			worst.ShapeName,
+			LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS));
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"OpeningContextPredicate (here-document opening), own row, not charged: worst benign per-file {0:F4} ms on {1} ({2} calls); ceiling {3:F1} ms",
+			worstPredicate.PredicateMilliseconds,
+			worstPredicate.ShapeName,
+			worstPredicate.PredicateCalls,
+			predicateCeiling));
+
+		Assert.All(scans, scan => Assert.True(scan.ArithmeticChargedMilliseconds <= scan.ChargedMilliseconds, scan.ShapeName));
+		Assert.All(scans, scan => Assert.True(scan.PredicateMilliseconds < predicateCeiling, $"{scan.ShapeName}: {scan.PredicateMilliseconds:F4} ms against {predicateCeiling:F1} ms"));
+	}
+
+	[Fact]
+	public void TheShellLineCommentOpeningPredicateWorstBenignCostIsRecordedAsItsOwnRow()
+	{
+		ImmutableArray<ShellLexicalTiming> scans = _shellScanTimings.Value;
+		ShellLexicalTiming worst = scans.OrderByDescending(scan => scan.CommentPredicateMilliseconds).First();
+		double ceiling = ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
+			? ShellMatchBoundTimingTests.TARGET_WORST_FILE_MILLISECONDS
+			: ShellMatchBoundTimingTests.UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
+
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"OpeningContextPredicate (line comment, PR-SH-01), own row: worst benign per-file {0:F4} ms on {1} ({2} calls); ceiling {3:F1} ms",
+			worst.CommentPredicateMilliseconds,
+			worst.ShapeName,
+			worst.CommentPredicateCalls,
+			ceiling));
+
+		Assert.All(scans, scan => Assert.True(scan.CommentPredicateMilliseconds < ceiling, $"{scan.ShapeName}: {scan.CommentPredicateMilliseconds:F4} ms against {ceiling:F1} ms"));
+	}
+
+	private static double TheShellCeiling()
+	{
+		return ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
+			? LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS
+			: SHELL_UNOPTIMIZED_CEILING_MILLISECONDS;
+	}
+
+	private static string DescribeShell(
+		ImmutableArray<ShellLexicalTiming> scans,
+		ImmutableArray<(string Name, double Milliseconds, bool Matched)> firstLines)
+	{
+		StringBuilder report = new();
+
+		AppendTheShellHeaderLines(report);
+		AppendTheShellShapeRows(report, scans);
+		AppendTheShellFirstLineRows(report, firstLines);
+		AppendTheShellFigureAndRuleLines(report, scans, firstLines);
+
+		return report.ToString();
+	}
+
+	private static void AppendTheShellHeaderLines(StringBuilder report)
+	{
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"# Lexical budget of the Shell draft: {0} warm-up and {1} measured iterations per shape, the worst reported; build {2}",
+			ShellLexicalBudgetMeasurements.WARM_UP_ITERATIONS,
+			ShellLexicalBudgetMeasurements.MEASURED_ITERATIONS,
+			ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized() ? "optimized (Release)" : "JIT optimizer disabled (Debug), so the figures are not the product's"));
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"# Environment: {0}; {1}; {2} logical processors; runtime {3}",
+			Environment.OSVersion,
+			System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture,
+			Environment.ProcessorCount,
+			Environment.Version));
+		report.AppendLine("shape\tcharacters\tcharged_ms\tarithmetic_charged_ms\twhole_scan_ms\tpredicate_ms\tpredicate_calls\tcomment_predicate_ms\tcomment_predicate_calls\tabandoned\ttripped");
+	}
+
+	private static void AppendTheShellShapeRows(
+		StringBuilder report,
+		ImmutableArray<ShellLexicalTiming> scans)
+	{
+		foreach (ShellLexicalTiming scan in scans)
+		{
+			report.AppendLine(string.Format(
+				CultureInfo.InvariantCulture,
+				"{0}\t{1}\t{2:F4}\t{3:F4}\t{4:F1}\t{5:F4}\t{6}\t{7:F4}\t{8}\t{9}\t{10}",
+				scan.ShapeName,
+				scan.SizeInCharacters,
+				scan.ChargedMilliseconds,
+				scan.ArithmeticChargedMilliseconds,
+				scan.WholeScanMilliseconds,
+				scan.PredicateMilliseconds,
+				scan.PredicateCalls,
+				scan.CommentPredicateMilliseconds,
+				scan.CommentPredicateCalls,
+				scan.Abandoned,
+				scan.TrippedTheBudget));
+		}
+	}
+
+	private static void AppendTheShellFirstLineRows(
+		StringBuilder report,
+		ImmutableArray<(string Name, double Milliseconds, bool Matched)> firstLines)
+	{
+		foreach ((string name, double milliseconds, bool matched) in firstLines)
+		{
+			report.AppendLine(string.Format(CultureInfo.InvariantCulture, "first line {0}: {1} characters, worst expression {2:F4} ms, matched {3}", name, ShellFirstLineStressSet.LINE_LENGTH_IN_CHARACTERS, milliseconds, matched));
+		}
+	}
+
+	private static void AppendTheShellFigureAndRuleLines(
+		StringBuilder report,
+		ImmutableArray<ShellLexicalTiming> scans,
+		ImmutableArray<(string Name, double Milliseconds, bool Matched)> firstLines)
+	{
+		ShellLexicalTiming worstCharged = scans.OrderByDescending(scan => scan.ChargedMilliseconds).First();
+		ShellLexicalTiming worstPredicate = scans.OrderByDescending(scan => scan.PredicateMilliseconds).First();
+		ShellLexicalTiming worstArithmetic = scans.OrderByDescending(scan => scan.ArithmeticChargedMilliseconds).First();
+		ShellLexicalTiming worstCommentPredicate = scans.OrderByDescending(scan => scan.CommentPredicateMilliseconds).First();
+		(string Name, double Milliseconds, bool Matched) worstFirstLine = firstLines.OrderByDescending(firstLine => firstLine.Milliseconds).First();
+		double figure = Math.Max(worstCharged.ChargedMilliseconds, worstFirstLine.Milliseconds);
+		double roundedBudget = RoundedBudgetOf(figure);
+
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Worst benign charged per file, openings and arithmetic read-aheads (EX-SH-01, EX-SH-02, the arithmetic context): {0:F4} ms on {1}; first-line expression (EX-SH-04): {2:F4} ms on {3}",
+			worstCharged.ChargedMilliseconds,
+			worstCharged.ShapeName,
+			worstFirstLine.Milliseconds,
+			worstFirstLine.Name));
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Shell lexical-budget figure: worst benign per-file {0:F4} ms; x{1} = {2:F4} ms; rounded up to a multiple of {3} ms = {4:F0} ms; budget in force = {5} ms",
+			figure,
+			MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE,
+			figure * MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE,
+			MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS,
+			roundedBudget,
+			LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS));
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Rule of the budget (ten times the worst benign figure, rounded up to the next 250 ms, within the budget in force): {0}",
+			roundedBudget <= LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS ? "holds" : "does not hold"));
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Arithmetic-context opening (read-ahead), own row, charged to the budget: worst benign per-file {0:F4} ms on {1}; OpeningContextPredicate (here-document opening), own row, not charged: {2:F4} ms on {3} ({4} calls)",
+			worstArithmetic.ArithmeticChargedMilliseconds,
+			worstArithmetic.ShapeName,
+			worstPredicate.PredicateMilliseconds,
+			worstPredicate.ShapeName,
+			worstPredicate.PredicateCalls));
+		report.AppendLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"OpeningContextPredicate (line comment, PR-SH-01), own row, not charged to the budget: worst benign per-file {0:F4} ms on {1} ({2} calls)",
+			worstCommentPredicate.CommentPredicateMilliseconds,
+			worstCommentPredicate.ShapeName,
+			worstCommentPredicate.CommentPredicateCalls));
+	}
+
+	private static void WriteTheShellReportWhereRequested(string report)
+	{
+		string? reportPath = Environment.GetEnvironmentVariable(SHELL_REPORT_PATH_VARIABLE_NAME);
+
+		if (!string.IsNullOrWhiteSpace(reportPath))
+		{
+			File.WriteAllText(reportPath, report, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+		}
+	}
+
 	private static FirstLineTiming TimeTheAttribution(
 		LanguageAttribution attribution,
 		Regex firstLineExpression,

@@ -23,6 +23,13 @@ public sealed record DocumentedLanguage(
 	string ExampleFenceLabel,
 	string SourceFileGlob)
 {
+	/// <summary>The two variants of how an Authorization Code entry says the code is received, as the labels each language's templates write them.</summary>
+	public ImmutableArray<(string Element, string Marker)> AuthorizationCodeVariantMarkers { get; init; } =
+	[
+		("the server-side variant", PublicDocumentChecks.SERVER_SIDE_VARIANT_MARKER),
+		("the desktop variant", PublicDocumentChecks.DESKTOP_VARIANT_MARKER)
+	];
+
 	/// <summary>The first language: Part A and Part C of C#.</summary>
 	public static readonly DocumentedLanguage CSharp = new(
 		"C#",
@@ -56,8 +63,26 @@ public sealed record DocumentedLanguage(
 		"vbnet",
 		"*.vb");
 
+	/// <summary>The fourth language: Part A and Part C of Shell.</summary>
+	public static readonly DocumentedLanguage Shell = new(
+		"Shell",
+		"Shell",
+		AssessedLanguage.Shell,
+		"part-a-shell.md",
+		"part-c-shell.md",
+		ShellRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"sh",
+		"*.sh")
+	{
+		AuthorizationCodeVariantMarkers =
+		[
+			("the manual copy variant", PublicDocumentChecks.MANUAL_COPY_VARIANT_MARKER),
+			("the loopback listener variant", PublicDocumentChecks.LOOPBACK_LISTENER_VARIANT_MARKER)
+		]
+	};
+
 	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
-	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet];
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()

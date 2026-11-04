@@ -39,7 +39,7 @@ public sealed class FolderSuffixDemotionTests
 	[Fact]
 	public void ASuffixFolderSignalFiresOnASegmentEndingWithTheSuffix()
 	{
-		Assert.Equal(ConfidenceLevel.Low, LevelUnderSuffixSignal(_SEGMENT_ENDING_IN_THE_SUFFIX_PATH));
+		Assert.Equal(ConfidenceLevel.Medium, LevelUnderSuffixSignal(_SEGMENT_ENDING_IN_THE_SUFFIX_PATH));
 	}
 
 	/// <summary>
@@ -110,7 +110,8 @@ public sealed class FolderSuffixDemotionTests
 				{
 					FolderName = signalText,
 					Match = match,
-					Sensitivity = CaseSensitivity.Insensitive
+					Sensitivity = CaseSensitivity.Insensitive,
+					Kind = DemotionKind.Test
 				}
 			}.ToFrozenSet(),
 			GenerationMarkerExpressions = [],

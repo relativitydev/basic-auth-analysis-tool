@@ -244,7 +244,7 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 			// which keeps the demoted-file reason reachable through the pipeline without the shared engine.
 			FolderNameSignals = new[]
 			{
-				new FolderNameSignal { FolderName = DEMOTED_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive }
+				new FolderNameSignal { FolderName = DEMOTED_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Deployment }
 			}.ToFrozenSet(),
 			GenerationMarkerExpressions = [],
 			ContentMarkers = []

@@ -64,8 +64,12 @@ internal static partial class PowerShellPatternExpressions
 	/// <summary>
 	/// THE ASSIGNMENT OF A CREDENTIAL TO A MEMBER, the rare conjunct of a receiver and its assignment: <c>Credentials = </c> with its credential value, read as one group
 	/// so that the receiver can be looked for behind it once the value has been accepted, which is the only moment it is worth the search.
+	/// THE VALUE IS ATOMIC. The receiver look-behind that follows reads only the text before the member name and the value's own text read back, so
+	/// whether it holds is the same for every extent the value could take: the first extent the value finds either lets the look-behind hold, and the match is that
+	/// one, or no extent does. An atomic group keeps the first extent and its captures and gives up the others, which could never have been the answer; it spares the
+	/// look-behind from being run again, window and all, for each of them.
 	/// </summary>
-	private const string _CREDENTIALS_ASSIGNED_WITH_A_VALUE = _CREDENTIALS_ASSIGNMENT_TAIL + @"(?<value>" + _CREDENTIAL_ASSIGNED + @")";
+	private const string _CREDENTIALS_ASSIGNED_WITH_A_VALUE = _CREDENTIALS_ASSIGNMENT_TAIL + @"(?<value>(?>" + _CREDENTIAL_ASSIGNED + @"))";
 
 	/// <summary>The text of the assignment, as the receiver look-behind ends on it: the member, the sign and the value group read again.</summary>
 	private const string _CREDENTIALS_ASSIGNMENT_READ_BACK = @"Credentials[ \t]*=[ \t]*(?-i:\k<value>)";

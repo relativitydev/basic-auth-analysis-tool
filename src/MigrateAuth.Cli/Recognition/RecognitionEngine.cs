@@ -200,16 +200,25 @@ public sealed class RecognitionEngine
 			completed = FileDemotionSignals.TryEvaluate(context, _matchBoundWatch, out demotion);
 		}
 
+		VariableReferenceIndex references = new(context.NormalizedText, context.Mask);
+
 		if (completed)
 		{
-			completed = RecognizeEveryDetectionRule(context, symbols, demotion, classifiedMatches);
+			completed = RecognizeEveryDetectionRule(context, symbols, references, demotion, classifiedMatches);
+		}
+
+		if (completed)
+		{
+			// Before subsumption: a construct inside a same-file wrapper moves from the definition to its calls.
+			completed = WrapperResolution.TryApply(context, symbols, references, _matchBoundWatch, classifiedMatches);
 		}
 
 		return completed;
 	}
 
 	/// <summary>
-	/// Subsumption first, then the flow signals, on the same <see cref="MatchBoundWatch"/> and
+	/// Subsumption first, then the one-finding-per-construct precedence the analyzer declared, if it declared one
+	/// (<see cref="ConstructPrecedenceReduction"/>), then the flow signals, on the same <see cref="MatchBoundWatch"/> and
 	/// only when a surviving construct is High or Medium. The findings cap is applied later, in
 	/// composition, so this runs whether or not the file's findings are admitted under it.
 	///
@@ -222,8 +231,12 @@ public sealed class RecognitionEngine
 	/// </summary>
 	private RecognitionResult ReduceAndEvaluateFlow(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
 	{
-		ImmutableArray<RecognizedConstruct> constructs =
-			SubsumptionReduction.Reduce(context.Analyzer.SubsumptionRelation, classifiedMatches);
+		ImmutableArray<RecognizedConstruct> constructs = ConstructPrecedenceReduction.Apply(
+			context.Analyzer.ConstructPrecedence,
+			context.Analyzer.LexicalProfile.CodeEscapeCharacter,
+			context.NormalizedText,
+			context.Mask,
+			SubsumptionReduction.Reduce(context.Analyzer.SubsumptionRelation, classifiedMatches));
 
 		FlowEvidence evidence = FlowEvidence.None;
 		bool tripped = false;
@@ -262,6 +275,7 @@ public sealed class RecognitionEngine
 	private bool RecognizeEveryDetectionRule(
 		FileRecognitionContext context,
 		FileSymbolTable symbols,
+		VariableReferenceIndex references,
 		FileDemotion demotion,
 		List<ClassifiedMatch> classifiedMatches)
 	{
@@ -278,6 +292,7 @@ public sealed class RecognitionEngine
 					PatternClassIdentifier = patternClassIdentifier,
 					Rule = rule,
 					Symbols = symbols,
+					References = references,
 					Demotion = demotion
 				},
 				classifiedMatches))
@@ -667,7 +682,9 @@ public sealed class RecognitionEngine
 			? ReadTheSymbolicVerdict(state, match)
 			: SymbolicVerdictResponse.NoEffect;
 
-		bool recognized = anchorResolved && response is not SymbolicVerdictResponse.SuppressesFinding;
+		bool recognized = anchorResolved
+			&& response is not SymbolicVerdictResponse.SuppressesFinding
+			&& !IsNeverSent(state, match);
 
 		if (recognized)
 		{
@@ -682,11 +699,35 @@ public sealed class RecognitionEngine
 				AnchorOffset = anchorOffset,
 				Level = level,
 				LiteralCredentialSignal = ReadTheLiteralCredentialSignal(state, match),
+				TestCode = state.Demotion.FiredKinds.HasFlag(DemotionKinds.Test),
 				LowReasons = ReadTheLowReasons(state, anchorZone, level)
 			};
 		}
 
 		return recognized;
+	}
+
+	/// <summary>
+	/// A CONSTRUCT THAT BUILDS A VARIABLE NOTHING EVER READS IS NOT AN INSTANCE OF ITS CLASS, and is dropped on
+	/// the same terms as a suppressing symbolic verdict: no construct, and no Low one. Only a rule that declares a
+	/// <see cref="DetectionRule.VariableUse"/>, on a match where its group participated, is asked; the
+	/// variable must be referenced somewhere in the file outside the match's own span (before it counts as much as
+	/// after), at a position not known to be a comment.
+	/// </summary>
+	private static bool IsNeverSent(RuleRecognitionState state, Match match)
+	{
+		bool neverSent = false;
+
+		if (state.Rule.VariableUse is RuleVariableUse use)
+		{
+			Group variable = match.Groups[use.VariableGroupName];
+
+			neverSent = variable.Success
+				&& variable.Length > 0
+				&& !state.References.ReferencedOutside(variable.Value, match.Index, match.Index + match.Length);
+		}
+
+		return neverSent;
 	}
 
 	/// <summary>
@@ -728,7 +769,7 @@ public sealed class RecognitionEngine
 
 			if (credentialGroup.Success && credentialGroup.Length > 0)
 			{
-				signal = IsWhollyLiteral(credentialGroup, state.Context.Mask);
+				signal = IsWhollyLiteral(credentialGroup, state.Context.Mask, state.Rule.CredentialPosition.ReadsABareWordAsLiteral);
 			}
 		}
 
@@ -741,23 +782,33 @@ public sealed class RecognitionEngine
 	/// <see cref="LexicalZone.Delimiter"/>, and at least one position must be
 	/// <see cref="LexicalZone.StringBody"/> - a capture holding only delimiters, such as an empty
 	/// literal's quotes, carries no body to report on.
+	///
+	/// THE BARE-WORD READING, where the rule declares it. A bare word is code, so
+	/// <see cref="LexicalZone.Code"/> also qualifies and the position that must exist is any one that is
+	/// not a delimiter. That the capture holds no expansion is the expression's guarantee, not this
+	/// method's. A rule that does not declare it is read exactly as the four-clause rule says.
+	///
+	/// A LITERAL PAIR OR A LITERAL Basic TOKEN IS READ HERE TOO and needs no
+	/// further clause: a capture of either, with no expansion, is wholly literal by this rule. The token is
+	/// never decoded, because the signal comes from the zone and never from the value.
 	/// </summary>
-	private static bool IsWhollyLiteral(Group group, ZoneMask mask)
+	private static bool IsWhollyLiteral(Group group, ZoneMask mask, bool readsABareWordAsLiteral)
 	{
 		bool everyPositionQualifies = true;
-		bool anyPositionIsStringBody = false;
+		bool anyPositionCarriesTheValue = false;
 
 		for (int position = group.Index; position < group.Index + group.Length; position++)
 		{
 			bool trustworthy = mask.IsTrustworthyAt(position);
 			LexicalZone zone = mask.ZoneAt(position);
-			bool qualifies = trustworthy && zone is LexicalZone.StringBody or LexicalZone.Delimiter;
+			bool carriesTheValue = zone is LexicalZone.StringBody || (readsABareWordAsLiteral && zone is LexicalZone.Code);
+			bool qualifies = trustworthy && (carriesTheValue || zone is LexicalZone.Delimiter);
 
-			anyPositionIsStringBody = anyPositionIsStringBody || (trustworthy && zone is LexicalZone.StringBody);
+			anyPositionCarriesTheValue = anyPositionCarriesTheValue || (trustworthy && carriesTheValue);
 			everyPositionQualifies = everyPositionQualifies && qualifies;
 		}
 
-		return everyPositionQualifies && anyPositionIsStringBody;
+		return everyPositionQualifies && anyPositionCarriesTheValue;
 	}
 
 	private static SymbolicVerdictResponse ReadTheSymbolicVerdict(RuleRecognitionState state, Match match)
@@ -802,7 +853,10 @@ public sealed class RecognitionEngine
 		candidates.ProposeWhen(
 			response is SymbolicVerdictResponse.ProposesMediumLevel,
 			ConfidenceLevel.Medium);
-		candidates.ProposeWhen(state.Demotion.IsDemoted, ConfidenceLevel.Low);
+		candidates.ProposeWhen(state.Demotion.FiredKinds.HasFlag(DemotionKinds.Test), ConfidenceLevel.Medium);
+		candidates.ProposeWhen(
+			(state.Demotion.FiredKinds & ~DemotionKinds.Test) != DemotionKinds.None,
+			ConfidenceLevel.Low);
 
 		return candidates.Minimum();
 	}
@@ -826,11 +880,20 @@ public sealed class RecognitionEngine
 			reasons |= anchorZone is LexicalZone.Comment or LexicalZone.StringBody
 				? LowConfidenceReasons.CommentOrStringLiteral
 				: LowConfidenceReasons.None;
-			reasons |= state.Demotion.FiresOtherwise ? LowConfidenceReasons.DemotedFile : LowConfidenceReasons.None;
-			reasons |= state.Demotion.FiresOnVendoredFolder ? LowConfidenceReasons.DemotedVendoredFile : LowConfidenceReasons.None;
+			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Mock, LowConfidenceReasons.DemotedMockFile);
+			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Sample, LowConfidenceReasons.DemotedSampleFile);
+			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Vendored, LowConfidenceReasons.DemotedVendoredFile);
+			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Generated, LowConfidenceReasons.DemotedGeneratedFile);
+			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Deployment, LowConfidenceReasons.DemotedDeploymentFolder);
 		}
 
 		return reasons;
+	}
+
+	/// <summary>A Low-proposing kind that fired is a reason; Test proposes Medium, so it has none.</summary>
+	private static LowConfidenceReasons ReasonOf(DemotionKinds firedKinds, DemotionKinds kind, LowConfidenceReasons reason)
+	{
+		return firedKinds.HasFlag(kind) ? reason : LowConfidenceReasons.None;
 	}
 
 	private static ImmutableArray<string> PatternClassesInEngineOrder(ILanguageAnalyzer analyzer)
@@ -888,6 +951,8 @@ public sealed class RecognitionEngine
 		internal required DetectionRule Rule { get; init; }
 
 		internal required FileSymbolTable Symbols { get; init; }
+
+		internal required VariableReferenceIndex References { get; init; }
 
 		internal required FileDemotion Demotion { get; init; }
 	}

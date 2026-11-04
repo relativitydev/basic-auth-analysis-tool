@@ -31,6 +31,9 @@ public sealed record FileNameSignal
 	public required string Text { get; init; }
 
 	public CaseSensitivity Sensitivity { get; init; } = CaseSensitivity.Sensitive;
+
+	/// <summary>What this file name says about the file: test code, a mock, a sample, generated code, and so on.</summary>
+	public required DemotionKind Kind { get; init; }
 }
 
 /// <summary>A folder convention belonging to the language itself, not to repository layout.</summary>
@@ -47,13 +50,8 @@ public sealed record FolderNameSignal
 
 	public CaseSensitivity Sensitivity { get; init; } = CaseSensitivity.Sensitive;
 
-	/// <summary>
-	/// Whether this folder names third-party code the repository carries rather than its own. It
-	/// changes nothing about the level a firing signal proposes - Low, like every other one - and
-	/// only which reason the report gives: <see cref="LowConfidenceReasons.DemotedVendoredFile"/>
-	/// instead of <see cref="LowConfidenceReasons.DemotedFile"/>.
-	/// </summary>
-	public bool MarksVendoredCode { get; init; }
+	/// <summary>What this folder says about the files under it: test code, a mock, vendored code, and so on.</summary>
+	public required DemotionKind Kind { get; init; }
 }
 
 /// <summary>
@@ -79,6 +77,9 @@ public sealed record ContentMarker
 	public required Regex Expression { get; init; }
 
 	public required ContentMarkerZone Zone { get; init; }
+
+	/// <summary>What this marker says about the file: a test-framework marker is Test, a generated header is Generated.</summary>
+	public required DemotionKind Kind { get; init; }
 }
 
 /// <summary>

@@ -37,9 +37,10 @@ public sealed class PowerShellMatchBoundTimingTests
 	{
 		PowerShellRecognitionHarness harness = new();
 		MatchBoundTimingTarget target = MatchBoundTimingHarness.ForPowerShell(harness);
+		bool tableRequested = MatchBoundTimingHarness.TimingTableIsRequested(REPORT_PATH_VARIABLE_NAME);
 		ImmutableArray<MatchBoundShapeTiming> timings =
 		[
-			.. PowerShellMatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(target, shape))
+			.. PowerShellMatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(target, shape, tableRequested))
 		];
 
 		string report = MatchBoundTimingHarness.Describe(

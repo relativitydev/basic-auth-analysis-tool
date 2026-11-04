@@ -34,6 +34,11 @@ public sealed class WorstCaseTreeGeneratorTests
 	private const string _POWERSHELL_SHEBANG_LINE = "#!/usr/bin/env pwsh";
 	private const string _POWERSHELL_SCRIPT_EXTENSION = ".ps1";
 	private const int _POWERSHELL_BASIS_POINTS = 1_000;
+	private const int _VBNET_BASIS_POINTS = 1_000;
+	private const int _SHELL_BASIS_POINTS = 1_000;
+	private const string _SHELL_LANGUAGE_NAME = "Shell";
+	private const string _SHELL_SHEBANG_LINE = "#!/usr/bin/env bash";
+	private const string _SHELL_SCRIPT_EXTENSION = ".sh";
 	private const char _LINE_FEED = '\n';
 
 	[Fact]
@@ -136,7 +141,8 @@ public sealed class WorstCaseTreeGeneratorTests
 		{
 			OversizeFileCount = _OVERSIZE_FILE_COUNT,
 			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS,
-			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS
+			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS,
+			ShellScriptBasisPoints = _SHELL_BASIS_POINTS
 		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
@@ -211,6 +217,86 @@ public sealed class WorstCaseTreeGeneratorTests
 	}
 
 	[Fact]
+	public void ATreeAskedForNoShellHoldsNoShellFileAndTheShellShareReplacesOrdinaryFilesOnly()
+	{
+		WorstCaseTreeOptions withoutShellShare = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS, VBNetSourceBasisPoints = _VBNET_BASIS_POINTS };
+		WorstCaseTreeOptions withShellShare = withoutShellShare with { ShellScriptBasisPoints = _SHELL_BASIS_POINTS };
+		List<(WorstCaseFileKind Before, WorstCaseFileKind After)> pairs = KindPairsOf(withoutShellShare, withShellShare);
+
+		Assert.DoesNotContain(pairs, pair => pair.Before is WorstCaseFileKind.ShellScript or WorstCaseFileKind.ShellShebangScript);
+		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal(WorstCaseFileKind.Filler, pair.Before));
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.ShellScript);
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.ShellShebangScript);
+	}
+
+	[Fact]
+	public void ATreeWithNoShellShareIsByteIdenticalWhetherTheShellShareIsLeftOutOrSetToZero()
+	{
+		using TemporaryFolder first = TemporaryFolder.Create();
+		using TemporaryFolder second = TemporaryFolder.Create();
+		WorstCaseTreeOptions baseline = new() { Seed = _SEED, OutputRoot = first.Path, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS, VBNetSourceBasisPoints = _VBNET_BASIS_POINTS };
+		WorstCaseTreeOptions explicitZero = baseline with { OutputRoot = second.Path, ShellScriptBasisPoints = 0 };
+
+		WorstCaseTreeGenerator.Generate(baseline);
+		WorstCaseTreeGenerator.Generate(explicitZero);
+
+		List<string> firstFiles = RelativeFilesOf(first.Path);
+		List<string> secondFiles = RelativeFilesOf(second.Path);
+
+		Assert.Equal(firstFiles, secondFiles);
+		Assert.All(firstFiles, relative => Assert.Equal(File.ReadAllBytes(Path.Combine(first.Path, relative)), File.ReadAllBytes(Path.Combine(second.Path, relative))));
+		Assert.DoesNotContain(firstFiles, relative => relative.EndsWith(_SHELL_SCRIPT_EXTENSION, StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void AShellFileIsAttributedToShellByItsExtensionOrByItsFirstLineAlone()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { ShellScriptBasisPoints = _SHELL_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(folder.Path);
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.ShellScript));
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.ShellShebangScript));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.ShellScript), path =>
+		{
+			(RepositoryRelativePath relativePath, string firstLine) = ResolveScannedFile(repository, folder.Path, path);
+
+			Assert.EndsWith(_SHELL_SCRIPT_EXTENSION, path, StringComparison.Ordinal);
+			Assert.Equal(_SHELL_LANGUAGE_NAME, attribution.Attribute(relativePath, firstLine).LanguageName);
+		});
+		Assert.All(PathsOf(plans, WorstCaseFileKind.ShellShebangScript), path =>
+		{
+			(RepositoryRelativePath relativePath, string firstLine) = ResolveScannedFile(repository, folder.Path, path);
+
+			Assert.Equal(string.Empty, Path.GetExtension(path));
+			Assert.Equal(_SHELL_SHEBANG_LINE, firstLine);
+			Assert.Equal(_SHELL_LANGUAGE_NAME, attribution.Attribute(relativePath, firstLine).LanguageName);
+		});
+	}
+
+	[Fact]
+	public void AShareOfTheShellFilesIsPreselectedByTheShippedShellAnchorsAndTheRestIsNot()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { ShellScriptBasisPoints = _SHELL_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		ILanguageAnalyzer shellAnalyzer = LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName[_SHELL_LANGUAGE_NAME];
+		WorstCaseTreeGenerator.Generate(options);
+
+		List<bool> preselected = PathsOf(plans, WorstCaseFileKind.ShellScript)
+			.Concat(PathsOf(plans, WorstCaseFileKind.ShellShebangScript))
+			.Select(path => CandidatePreselection.IsCandidate(shellAnalyzer, File.ReadAllText(Path.Combine(folder.Path, path))))
+			.ToList();
+
+		Assert.Contains(true, preselected);
+		Assert.Contains(false, preselected);
+	}
+
+	[Fact]
 	public void TheShebangFormIsExtensionlessAndItsFirstLineAloneAttributesItToPowerShell()
 	{
 		using TemporaryFolder folder = TemporaryFolder.Create();
@@ -267,6 +353,30 @@ public sealed class WorstCaseTreeGeneratorTests
 	private static int SkippedCountOf(PipelineHarness harness, SkippedItemCategory category)
 	{
 		return harness.State.MergedSkippedItems().Single(tally => tally.Category == category).Count;
+	}
+
+	private static List<string> RelativeFilesOf(string folderPath)
+	{
+		return Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(folderPath, path)).Order(StringComparer.Ordinal).ToList();
+	}
+
+	private static (RepositoryRelativePath RelativePath, string FirstLine) ResolveScannedFile(RepositoryFolderPath repository, string folderPath, string path)
+	{
+		string firstLine = File.ReadAllText(Path.Combine(folderPath, path)).Split(_LINE_FEED)[0];
+
+		Assert.True(RepositoryRelativePath.TryFromScannedPath(repository, path, out RepositoryRelativePath relativePath));
+
+		return (relativePath, firstLine);
+	}
+
+	private static List<WorstCaseFilePlan> PlansOf(WorstCaseTreeOptions options)
+	{
+		return Enumerable.Range(0, options.FileCount).Select(index => WorstCaseTreePlanner.PlanFile(options, index)).ToList();
+	}
+
+	private static List<(WorstCaseFileKind Before, WorstCaseFileKind After)> KindPairsOf(WorstCaseTreeOptions optionsWithoutShellShare, WorstCaseTreeOptions optionsWithShellShare)
+	{
+		return [.. Enumerable.Range(0, optionsWithoutShellShare.FileCount).Select(index => (WorstCaseTreePlanner.KindOf(optionsWithoutShellShare, index), WorstCaseTreePlanner.KindOf(optionsWithShellShare, index)))];
 	}
 
 	private static List<string> PathsOf(List<WorstCaseFilePlan> plans, WorstCaseFileKind kind)

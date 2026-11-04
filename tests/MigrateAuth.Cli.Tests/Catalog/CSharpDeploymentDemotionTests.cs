@@ -33,7 +33,7 @@ public sealed class CSharpDeploymentDemotionTests
 
 		Assert.Equal(FolderNameMatch.ExactName, signal.Match);
 		Assert.Equal(CaseSensitivity.Insensitive, signal.Sensitivity);
-		Assert.False(signal.MarksVendoredCode);
+		Assert.Equal(DemotionKind.Deployment, signal.Kind);
 	}
 
 	[Fact]

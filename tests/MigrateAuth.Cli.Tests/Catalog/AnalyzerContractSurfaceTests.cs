@@ -12,9 +12,8 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// A language analyzer supplies exactly the six contract elements, whose rule element
-/// carries eight fields per class, and
-/// never orders, numbers or writes.
+/// A language analyzer supplies exactly the six required contract elements and one optional seventh, whose rule element
+/// carries eight fields per class, and never orders, numbers or writes.
 ///
 /// The counts are asserted here; the rest of
 /// what the contract forbids is enforced by the shape of the types rather than by a prohibition, and
@@ -22,13 +21,16 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// </summary>
 public sealed class AnalyzerContractSurfaceTests
 {
-	private const int _EXPECTED_TOP_LEVEL_ELEMENT_COUNT = 6;
+	private const int _EXPECTED_TOP_LEVEL_ELEMENT_COUNT = 7;
 	private const int _EXPECTED_DETECTION_RULE_FIELD_COUNT = 8;
-	private const int _EXPECTED_CONTENT_MARKER_FIELD_COUNT = 2;
+	private const int _EXPECTED_CONTENT_MARKER_FIELD_COUNT = 3;
 	private const string _PROPERTY_GETTER_PREFIX = "get_";
 	private const string _INIT_ONLY_MODIFIER_NAME = "IsExternalInit";
 	private const string _UNTERMINATED_RULE_TOKEN = "Unterminated";
 	private const string _RECURSION_RULE_TOKEN = "Recursion";
+	private const int _EXPECTED_SHELL_HERE_DOCUMENT_RULE_COUNT = 2;
+	private const string _SHELL_PROFILE_NAME_PREFIX = "Shell";
+	private const string _IMMEDIATE_BODY_START_NAME = nameof(HereDocumentBodyStart.AfterTheOpening);
 
 	private static readonly Type[] _contractTypes =
 	[
@@ -40,12 +42,16 @@ public sealed class AnalyzerContractSurfaceTests
 		typeof(LanguageShapedDemotionSignals),
 		typeof(CandidateSelectionAndRecommendation),
 		typeof(SubsumptionRule),
+		typeof(ConstructPrecedence),
+		typeof(StatementNesting),
 		typeof(QuoteRule),
 		typeof(LineCommentRule),
 		typeof(BlockCommentRule),
 		typeof(LiteralPrefixRule),
 		typeof(SuspendedSubRange),
 		typeof(CapturedTerminator),
+		typeof(ArmBlockRule),
+		typeof(ArithmeticContextRule),
 		typeof(PreselectionAnchor),
 		typeof(RecommendationTemplate),
 		typeof(FileNameSignal),
@@ -55,19 +61,58 @@ public sealed class AnalyzerContractSurfaceTests
 	];
 
 	[Fact]
-	public void AnalyzerSuppliesExactlySixTopLevelElements()
+	public void AnalyzerSuppliesExactlySevenTopLevelElementsAndTheSeventhIsOptional()
 	{
 		PropertyInfo[] elements = typeof(ILanguageAnalyzer).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
 		Assert.Equal(_EXPECTED_TOP_LEVEL_ELEMENT_COUNT, elements.Length);
+		Assert.Contains(elements, element => element.PropertyType == typeof(ConstructPrecedence));
+	}
+
+	/// <summary>
+	/// The seventh element is optional and only the `Shell` analyzer declares it; every other shipped profile declares
+	/// none. The mechanism is pinned on test-local profiles (the one-finding-per-construct
+	/// tests), and `Shell`'s declaration is the one under <c>src/</c> that uses it.
+	/// </summary>
+	[Fact]
+	public void OnlyTheShellAnalyzerDeclaresAConstructPrecedence()
+	{
+		IReadOnlyList<ILanguageAnalyzer> analyzers = [.. LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()];
+		ILanguageAnalyzer shell = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Shell"));
+
+		Assert.NotNull(shell.ConstructPrecedence);
+		Assert.All(analyzers.Where(analyzer => analyzer != shell), analyzer => Assert.Null(analyzer.ConstructPrecedence));
 	}
 
 	[Fact]
-	public void RuleElementCarriesExactlyEightFieldsPerPatternClass()
+	public void RuleElementCarriesExactlyEightRequiredFieldsPerPatternClass()
 	{
 		PropertyInfo[] fields = typeof(DetectionRule).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+		PropertyInfo[] requiredAndEarlierOptionalFields = [.. fields.Where(field => field.Name != nameof(DetectionRule.VariableUse))];
 
-		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT, fields.Length);
+		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT, requiredAndEarlierOptionalFields.Length);
+	}
+
+	/// <summary>
+	/// The ninth field is OPTIONAL and none by default, so a rule that declares none reads exactly as one with
+	/// eight fields, and the eight above are exactly the ones counted.
+	/// </summary>
+	[Fact]
+	public void TheNinthRuleFieldIsTheOptionalVariableUseAndNoneByDefault()
+	{
+		DetectionRule rule = new()
+		{
+			Expression = new Regex(string.Empty),
+			AnchorPosition = MatchAnchor.AtMatchStart(),
+			BaseLevel = ConfidenceLevel.Low,
+			SelfSufficiency = SelfSufficiency.RequiresCallPathToBeEstablished,
+			SymbolicVerdictInterpretation = SymbolicVerdictInterpretation.NotSubjectToSymbolicResolution,
+			DestinationCertainty = DestinationCertainty.Unknown,
+			DisplayName = "Probe rule without a variable use"
+		};
+
+		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT + 1, typeof(DetectionRule).GetProperties(BindingFlags.Public | BindingFlags.Instance).Length);
+		Assert.Null(rule.VariableUse);
 	}
 
 	[Fact]
@@ -163,6 +208,9 @@ public sealed class AnalyzerContractSurfaceTests
 		Assert.Equal(
 			typeof(ContentMarkerZone),
 			typeof(ContentMarker).GetProperty(nameof(ContentMarker.Zone))!.PropertyType);
+		Assert.Equal(
+			typeof(DemotionKind),
+			typeof(ContentMarker).GetProperty(nameof(ContentMarker.Kind))!.PropertyType);
 		Assert.All(
 			properties,
 			property => Assert.False(typeof(Delegate).IsAssignableFrom(property.PropertyType)));
@@ -249,6 +297,69 @@ public sealed class AnalyzerContractSurfaceTests
 		Assert.Contains(NewlinePolicy.Forbidden, policies);
 		Assert.Contains(NewlinePolicy.EscapedContinues, policies);
 		Assert.Contains(NewlinePolicy.Allowed, policies);
+	}
+
+	/// <summary>
+	/// THE ONLY SHIPPED RULES THAT USE THE WHOLE-LINE ANCHORINGS AND THE DEFERRED BODY START ARE `Shell`'S TWO. This lists the anchorings and the
+	/// body start of every rule every shipped analyzer declares and shows that the
+	/// `<<` rule (a whole-line closing) and the `<<-` rule (a whole-line closing after leading tabs), both with their body after the opening line, are the
+	/// only ones that do, and that no other rule declares a whole-line closing or a deferred body start.
+	/// </summary>
+	[Fact]
+	public void OnlyTheTwoShellHereDocumentRulesDeclareAWholeLineAnchoringAndADeferredBodyStart()
+	{
+		IReadOnlyList<string> listing = ListEveryShippedRuleAnchoringAndBodyStart();
+		string[] usingTheAmendment =
+		[
+			.. listing.Where(line => line.Contains(nameof(PositionalAnchoring.WholeLine), StringComparison.Ordinal)
+				|| !line.EndsWith(_IMMEDIATE_BODY_START_NAME, StringComparison.Ordinal))
+		];
+
+		Assert.NotEmpty(listing);
+		Assert.Equal(_EXPECTED_SHELL_HERE_DOCUMENT_RULE_COUNT, usingTheAmendment.Length);
+		Assert.All(usingTheAmendment, line =>
+		{
+			Assert.StartsWith(_SHELL_PROFILE_NAME_PREFIX, line, StringComparison.Ordinal);
+			Assert.EndsWith(nameof(HereDocumentBodyStart.AfterTheOpeningLine), line, StringComparison.Ordinal);
+		});
+		Assert.Single(usingTheAmendment, line => line.Contains($"|{PositionalAnchoring.WholeLine}|", StringComparison.Ordinal));
+		Assert.Single(usingTheAmendment, line => line.Contains($"|{PositionalAnchoring.WholeLineAfterLeadingTabs}|", StringComparison.Ordinal));
+
+		IEnumerable<QuoteRule> capturedTerminatorRulesOfOtherLanguages = LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()
+			.Where(analyzer => !analyzer.LexicalProfile.ProfileName.StartsWith(_SHELL_PROFILE_NAME_PREFIX, StringComparison.Ordinal))
+			.SelectMany(analyzer => analyzer.LexicalProfile.QuoteRulesInEngineOrder)
+			.Where(rule => rule.CapturedTerminator is not null);
+
+		Assert.All(capturedTerminatorRulesOfOtherLanguages, rule =>
+			Assert.DoesNotContain(rule.ClosingAnchoring, new[] { PositionalAnchoring.WholeLine, PositionalAnchoring.WholeLineAfterLeadingTabs }));
+	}
+
+	private static IReadOnlyList<string> ListEveryShippedRuleAnchoringAndBodyStart()
+	{
+		List<string> listing = [];
+
+		foreach (ILanguageAnalyzer analyzer in LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct())
+		{
+			LexicalProfile profile = analyzer.LexicalProfile;
+
+			listing.AddRange(profile.LineCommentRulesInEngineOrder.Select(rule =>
+				$"{profile.ProfileName}|line {rule.Opening}|{rule.OpeningAnchoring}|{PositionalAnchoring.Anywhere}|{_IMMEDIATE_BODY_START_NAME}"));
+			listing.AddRange(profile.BlockCommentRulesInEngineOrder.Select(rule =>
+				$"{profile.ProfileName}|block {rule.Opening}|{rule.OpeningAnchoring}|{rule.ClosingAnchoring}|{_IMMEDIATE_BODY_START_NAME}"));
+			listing.AddRange(profile.QuoteRulesInEngineOrder.Select(rule =>
+				$"{profile.ProfileName}|quote {rule.Opening}|{rule.OpeningAnchoring}|{rule.ClosingAnchoring}|{DescribeBodyStart(rule)}"));
+		}
+
+		return listing;
+	}
+
+	private static string DescribeBodyStart(QuoteRule rule)
+	{
+		HereDocumentBodyStart bodyStart = rule.CapturedTerminator?.BodyStart ?? HereDocumentBodyStart.AfterTheOpening;
+
+		return bodyStart is HereDocumentBodyStart.AfterTheOpening
+			? _IMMEDIATE_BODY_START_NAME
+			: bodyStart.ToString();
 	}
 
 	private static IReadOnlyList<PropertyInfo> ReadEveryContractProperty()

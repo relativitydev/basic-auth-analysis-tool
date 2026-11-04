@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Findings;
 using MigrateAuth.Cli.Recognition;
+using MigrateAuth.Cli.Tests.Catalog;
 using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
@@ -145,6 +146,7 @@ public sealed class VBNetPartAProseClaimTests
 		DoesNotRead(_VB_006, "A `TryParse`", "Dim header As AuthenticationHeaderValue = Nothing\nAuthenticationHeaderValue.TryParse(\"Basic \" & encodedCredentials, header)"),
 		DoesNotRead(_VB_006, "a `Parse` of a variable that the tool cannot see the scheme of", "Dim header = AuthenticationHeaderValue.Parse(headerText)"),
 		DoesNotRead(_VB_006, "A scheme that resolves to `Bearer` gives no finding", "Dim header = New AuthenticationHeaderValue(\"Bearer\", accessToken)"),
+		Reads(_VB_006, "A file whose only construct is the header value", ConfidenceLevel.Medium, "Private Function BuildHeader(encoded As String) As AuthenticationHeaderValue\n\tReturn New AuthenticationHeaderValue(\"Basic\", encoded)\nEnd Function"),
 
 		// VB-007
 		Reads(_VB_007, "A write of the `Authorization` header by name, with a Basic value", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", \"Basic \" & encodedCredentials)"),
@@ -167,6 +169,8 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_007, "is read only where the name carries a credential word", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", widgetPassword)"),
 		DoesNotRead(_VB_007, "A name that carries the word `bearer` or `access_token` is read as a bearer value and is not reported", "client.Headers.Add(\"Authorization\", bearerPassword)\nclient.Headers.Add(\"Authorization\", access_token)"),
 		DoesNotRead(_VB_007, "A value held under a neutral name is not read", "client.Headers.Add(\"Authorization\", widgetValue)"),
+		Reads(_VB_007, "so `relayPassHeader` and `forward_pass_header` are read", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", relayPassHeader)\nclient.Headers.Add(\"Authorization\", forward_pass_header)"),
+		DoesNotRead(_VB_007, "while `Bypass`, `Compass` and `passport` are not", "client.Headers.Add(\"Authorization\", Bypass)\nclient.Headers.Add(\"Authorization\", Compass)\nclient.Headers.Add(\"Authorization\", passport)"),
 
 		// VB-008
 		Reads(_VB_008, "made through the framework's header enumeration", ConfidenceLevel.Medium, "client.Headers(HttpRequestHeader.Authorization) = \"Basic \" & encoded"),
@@ -191,8 +195,17 @@ public sealed class VBNetPartAProseClaimTests
 		DoesNotRead(_VB_010, "a token-named value is not the second half of a pair", "Dim importApi As New ImportAPI(userName, accessToken, webServiceUrl)"),
 		Reads(_VB_010, "through an `Imports` alias of its namespace", ConfidenceLevel.High, "Imports Sdk = Vendor.Import\nDim importApi As New Sdk.ImportAPI(userName, password, webServiceUrl)"),
 		Reads(_VB_010, "A type of another vendor whose name ends in `ImportAPI` and takes three arguments is read as this one", ConfidenceLevel.High, "Dim a As New OtherVendorImportAPI(first, second, third)"),
-		Reads(_VB_010, "declared as a class or structure in the same file, is still reported here", ConfidenceLevel.High, "Class ImportAPI\nEnd Class\nDim importApi As New ImportAPI(userName, password, webServiceUrl)"),
-		Reads(_VB_010, "when it is spelled as a call whose name carries `Token`, is still reported as a user-and-password pair", ConfidenceLevel.High, "Dim importApi As New ImportAPI(userName, GetSystemToken(), webServiceUrl)"),
+		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(), webServiceUrl)"),
+		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(scope), webServiceUrl)"),
+		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, Me.Tokens.FetchPlatformToken(), webServiceUrl)"),
+		Reads(_VB_010, "a call that also carries one of those words, such as `GetPasswordToken()`, is read", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, GetPasswordToken(), webServiceUrl)"),
+		DoesNotRead(_VB_010, "is not read when it is written without a namespace", $"{VBNetEntryPointFixtureSources.OWN_CLASS}{VBNetEntryPointFixtureSources.CONSTRUCTION}"),
+		DoesNotRead(_VB_010, "is not read when it is written without a namespace", $"{VBNetEntryPointFixtureSources.OWN_STRUCTURE}{VBNetEntryPointFixtureSources.CONSTRUCTION}"),
+		Reads(_VB_010, "written with a namespace it is read", ConfidenceLevel.High, $"{VBNetEntryPointFixtureSources.OWN_CLASS}{VBNetEntryPointFixtureSources.QUALIFIED_CONSTRUCTION}"),
+		Reads(_VB_010, "declared in another file or farther than", ConfidenceLevel.High, VBNetEntryPointFixtureSources.CONSTRUCTION),
+		Reads(_VB_010, "farther than about one thousand characters from the use", ConfidenceLevel.High, VBNetEntryPointFixtureSources.OwnClassFarBeforeTheUse()),
+		Reads(_VB_010, "from the use, is still reported here; dismiss such a finding on review", ConfidenceLevel.High, VBNetEntryPointFixtureSources.OwnClassFarAfterTheUse()),
+		Reads(_VB_010, "is still reported as a user-and-password pair", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(Resolve(scope)), webServiceUrl)"),
 
 		// VB-011
 		Reads(_VB_011, "written on a receiver", ConfidenceLevel.High, "settings.RelativityUsername = userName\nsettings.RelativityPassword = password"),
@@ -250,21 +263,27 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_014, "to a half followed by `.ToString()`", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & password.Length.ToString()\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		Reads(_VB_014, "to a second half ending in `Port` written inside the encoder call", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Port))"),
 		Reads(_VB_014, "or to a second half ending in `Length`, `Count` or `Size` written inside the encoder call with `&`, `+`, an interpolated string or `String.Concat`", ConfidenceLevel.Medium, "Dim a As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Length))\nDim b As String = Convert.ToBase64String(Encoding.ASCII.GetBytes($\"{userName}:{password.Length}\"))\nDim c As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Concat(userName, \":\", password.Count)))"),
-		DoesNotRead(_VB_014, "inside the encoder call it is not read at all", "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
-		DoesNotReadAs(_VB_014, "inside the encoder call it is not read at all", _VB_015, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
-		DoesNotRead(_VB_014, "in a pair assembled before the encoder it is reported as VB-015 instead", "Dim pair As String = userName & \":\"c & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		ReadsAs(_VB_014, "in a pair assembled before the encoder it is reported as VB-015 instead", _VB_015, ConfidenceLevel.Medium, "Dim pair As String = userName & \":\"c & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		DoesNotRead(_VB_014, "so a pair encoded by your own helper is not read", "Dim encoded As String = WidgetEncoder.Encode(userName & \":\" & password)"),
-		Reads(_VB_014, "A value of the same shape that is not a credential, such as a host and a port, can be reported", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(hostName & \":\" & endpointNumber))"),
+		Reads(_VB_014, "is read like a colon written as a string", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
+		DoesNotReadAs(_VB_014, "is read like a colon written as a string", _VB_015, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
+		Reads(_VB_014, "is read like a colon written as a string", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\"c & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		DoesNotReadAs(_VB_014, "is read like a colon written as a string", _VB_015, "Dim pair As String = userName & \":\"c & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_014, "so `txtPassword.Text` and `password.ToString()` are read", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & txtPassword.Text\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_014, "so `txtPassword.Text` and `password.ToString()` are read", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.ToString))"),
+		DoesNotRead(_VB_014, "and `siteName` is not", "Dim pair As String = itemLabel & \":\" & siteName\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		DoesNotRead(_VB_014, "A pair whose second half carries no credential word is not read", "Dim pair As String = loginName & \":\" & pin\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_014, "such as a user name and a token expiry, can be reported", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & tokenExpiry\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		DoesNotRead(_VB_014, "A pair assembled across several statements is not read", "Dim pair As String = userName\npair &= \":\"\npair &= password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 
 		// VB-015
 		Reads(_VB_015, "a pair with one empty half is encoded to Base64", ConfidenceLevel.Medium, "Dim pair As String = \"\" & \":\" & accessToken\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		Reads(_VB_015, "`String.Empty`", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Empty & \":\" & accessToken))"),
 		Reads(_VB_015, "`vbNullString`", ConfidenceLevel.Medium, "Dim pair As String = vbNullString & \":\" & accessToken\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		DoesNotRead(_VB_015, "`vbNullString` as the first operand of a pair joined with `&` or `+` inside the encoder call is not read as an empty half", "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(vbNullString & \":\" & accessToken))"),
-		ReadsAs(_VB_015, "the pair is reported as VB-014, an encoded user name and password", _VB_014, ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(vbNullString & \":\" & accessToken))"),
-		Reads(_VB_015, "A user name and password joined with a character-literal colon and assembled before the encoder are reported here, although neither half is empty", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\"c & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_015, "`vbNullString` is read as the first operand inside the encoder call too", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(vbNullString & \":\" & accessToken))"),
+		DoesNotReadAs(_VB_015, "`vbNullString` is read as the first operand inside the encoder call too", _VB_014, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(vbNullString & \":\" & accessToken))"),
+		Reads(_VB_015, "The colon may also be written as a character literal", ConfidenceLevel.Medium, "Dim first As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(\":\"c & accessToken))\nDim last As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(accessToken & \":\"c))"),
+		Reads(_VB_015, "is read the same way", ConfidenceLevel.Medium, "Dim first As String = Convert.ToBase64String(Encoding.ASCII.GetBytes($\":{accessToken}\"))\nDim last As String = Convert.ToBase64String(Encoding.ASCII.GetBytes($\"{accessToken}:\"))"),
+		Reads(_VB_015, "may be continued over several lines with an underscore", ConfidenceLevel.Medium, "Dim pair As String = String.Concat(\"\", \":\", _\n\t\taccessToken)\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		Reads(_VB_015, "a variable assigned an empty literal in the ten statements above", ConfidenceLevel.Medium, "Dim blank As String = \"\"\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(blank & \":\" & accessToken))"),
 		Reads(_VB_015, "or no operand at all, with the colon first or last", ConfidenceLevel.Medium, "Dim first As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(\":\" & accessToken))\nDim last As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(accessToken & \":\"))"),
 		Reads(_VB_015, "including `String.Format`, `String.Concat`, `String.Join` and interpolation", ConfidenceLevel.Medium, "Dim a = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Format(\"{0}:{1}\", \"\", accessToken)))\nDim b = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Concat(\"\", \":\", accessToken)))\nDim c = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Join(\":\", \"\", accessToken)))\nDim d = Convert.ToBase64String(Encoding.ASCII.GetBytes($\":{accessToken}\"))"),

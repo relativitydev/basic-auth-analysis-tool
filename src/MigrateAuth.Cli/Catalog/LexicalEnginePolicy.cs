@@ -42,6 +42,25 @@ public static class LexicalEnginePolicy
 	public const int MAXIMUM_NESTING_RECOVERIES_PER_FILE = 8;
 
 	/// <summary>
+	/// How many characters before a quoted string or a here-document opening the scanner looks back for the
+	/// command position that begins the words of an executed-string context, and the most words it reads between
+	/// that position and the opening. The look-back costs at most this much per opening, so a file of openings
+	/// costs a bounded multiple of its length; a command whose words begin farther back, or that has more words, is
+	/// not read as an executed-string context and its strings stay string zones, with no anomaly recorded.
+	/// </summary>
+	public const int EXECUTED_STRING_LOOKBACK_CHARACTERS = 256;
+
+	/// <summary>The most words of one command the executed-string context reads before the opening it asks about.</summary>
+	public const int EXECUTED_STRING_MAXIMUM_COMMAND_WORDS = 32;
+
+	/// <summary>
+	/// How many executed strings may be read one inside another, a body read as code that holds a string it again
+	/// reads as code. It is the recursion bound of the interpolation holes, the engine's one nesting number; a string
+	/// nested beyond it stays a string zone and records no anomaly.
+	/// </summary>
+	public const int MAXIMUM_EXECUTED_STRING_NESTING_DEPTH = MAXIMUM_INTERPOLATION_RECURSION_DEPTH;
+
+	/// <summary>
 	/// In milliseconds so the constant carries its unit in its name. The per-file, per-stage
 	/// budget for the three analyzer-declared expressions evaluated outside the recognition
 	/// engine's match bound: a here-document opening and an interpolation identifier extent
@@ -49,7 +68,7 @@ public static class LexicalEnginePolicy
 	/// attribution). Each of the three also declares this figure as its own regex timeout, because
 	/// a cooperative watch cannot interrupt one stuck match.
 	/// </summary>
-	public const int PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS = 250;
+	public const int PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS = 1000;
 
 	/// <summary>
 	/// The budget itself. Read as a <see cref="TimeSpan"/> everywhere, so that a retuning

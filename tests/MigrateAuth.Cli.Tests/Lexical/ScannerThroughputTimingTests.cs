@@ -5,6 +5,7 @@ using System.Text;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Lexical;
 using MigrateAuth.Cli.Reading;
+using MigrateAuth.Cli.Tests.MatchBoundStress;
 
 using Xunit;
 using Xunit.Abstractions;
@@ -23,12 +24,16 @@ namespace MigrateAuth.Cli.Tests.Lexical;
 /// interpolation nested to the bound, suspended sub-ranges, variable-length runs that nearly
 /// close, and lines at the length ceiling.
 ///
-/// NOTHING HERE ASSERTS A WALL-CLOCK TIMING. The numbers are this machine's and are reported; what is ASSERTED is the SHAPE - that
+/// NOTHING HERE ASSERTS AN ABSOLUTE WALL-CLOCK FIGURE. The numbers are this machine's and are
+/// reported; what is ASSERTED is the SHAPE - that
 /// cost per megabyte does not degrade with file size - which is a property of the algorithm and
 /// survives being run on a busy build agent. The generous factor is chosen so that the test fails
 /// on a quadratic scanner and on nothing else.
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
-public sealed class ScannerThroughputTests
+[Collection(TimingSensitiveStressCollection.NAME)]
+public sealed class ScannerThroughputTimingTests
 {
 	private const int _SMALL_FILE_SIZE_IN_CHARACTERS = 64 * 1024;
 	private const int _SAMPLE_FILE_SIZE_IN_CHARACTERS = 8 * 1024;
@@ -56,15 +61,13 @@ public sealed class ScannerThroughputTests
 
 	private readonly ITestOutputHelper _output;
 
-	public ScannerThroughputTests(ITestOutputHelper output)
+	public ScannerThroughputTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}
 
 	/// <summary>
-	/// Throughput over a set of ordinary sample files in the reference language, which is the number
-	/// the figure reported per language profile and the one a later language analyzer will compare its own
-	/// language against.
+	/// Throughput over a set of ordinary sample files in the reference language.
 	/// </summary>
 	[Fact]
 	public void TheScannerReportsItsThroughputOverASetOfOrdinarySampleFiles()
@@ -115,6 +118,11 @@ public sealed class ScannerThroughputTests
 
 		ZoneMask mask = scanner.Scan(ceilingFile);
 
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"charged to the lexical budget by the first scan of the hostile file at the ceiling: {0:F2} ms of {1} ms",
+			scanner.ChargeOfTheLastScan.Total.TotalMilliseconds,
+			LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS));
 		Assert.NotEqual(LexicalAnomalyReason.LexicalBudgetExceeded, mask.AnomalyReason);
 		Assert.True(mask.IsCompletelyValid);
 	}
@@ -291,7 +299,7 @@ public sealed class ScannerThroughputTests
 
 	/// <summary>
 	/// Content chosen to keep the scanner off its fast path: every line opens a construct, and
-	/// three of them are the constructions named as most destructive. A benign file
+	/// three of them are the constructions most destructive to a naive scanner. A benign file
 	/// would measure the character loop and nothing else, which is not what the ceilings cap.
 	/// </summary>
 	private static string HostileSource(int approximateLength)

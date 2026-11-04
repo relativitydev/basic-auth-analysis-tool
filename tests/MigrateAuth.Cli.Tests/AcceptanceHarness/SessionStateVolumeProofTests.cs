@@ -65,6 +65,12 @@ public sealed class SessionStateVolumeProofTests
 	private const int _FINDINGS_FOR_THE_HEADROOM_PROOF_CANDIDATE_COUNT = 1_000;
 
 	private const long _ROUNDING_UNIT_IN_BYTES = 16L * 1024 * 1024;
+
+	/// <summary>The size this synthetic state had at schema 8, before a finding carried the test-code marker.</summary>
+	private const long _SCHEMA_EIGHT_MEASURED_SIZE_IN_BYTES = 126_480_380;
+
+	/// <summary>What the marker adds to one finding in the file: <c>"testCode":false,</c>, the longer of its two values.</summary>
+	private const int _TEST_CODE_MARKER_LENGTH_IN_BYTES = 17;
 	private const long _MEMORY_LIMIT_IN_BYTES = 1024L * 1024 * 1024;
 	private const double _BYTES_PER_MEBIBYTE = 1024.0 * 1024.0;
 	private const int _LINES_PER_FILE_CYCLE = 1_000;
@@ -154,6 +160,9 @@ public sealed class SessionStateVolumeProofTests
 			reloaded.State.Findings.AsEnumerable());
 
 		AssertTheCeilingIsTheMeasuredSizeRoundedUp(fileLength);
+		Assert.True(
+			fileLength >= _SCHEMA_EIGHT_MEASURED_SIZE_IN_BYTES + (long)_FINDING_COUNT * _TEST_CODE_MARKER_LENGTH_IN_BYTES,
+			"The state does not carry the test-code marker on every finding.");
 		Assert.True(save.PeakWorkingSetInBytes < _MEMORY_LIMIT_IN_BYTES, "The save passed 1 GB of working set.");
 		Assert.True(freshSession.PeakWorkingSetInBytes < _MEMORY_LIMIT_IN_BYTES, "The load in a fresh session passed 1 GB of working set.");
 	}

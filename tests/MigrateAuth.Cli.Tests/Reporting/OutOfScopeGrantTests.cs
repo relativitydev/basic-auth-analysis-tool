@@ -80,6 +80,34 @@ public sealed class OutOfScopeGrantTests
 		}
 	}
 
+	/// <summary>Every (class, flow) `Shell` recommendation and both generic texts, composed exactly as the report composes them.</summary>
+	[Fact]
+	public void NoComposedShellRecommendationNamesAnOutOfScopeGrant()
+	{
+		foreach (string text in ShellRenderedTexts.AllComposedTexts())
+		{
+			AssertNoOutOfScopeGrant(text);
+		}
+	}
+
+	/// <summary>The `Shell` analyzer's own declared fallback texts, before the shared engine composes them with the OAuth2 Client block.</summary>
+	[Fact]
+	public void NoDeclaredShellFallbackTextNamesAnOutOfScopeGrant()
+	{
+		foreach (CredentialFlow flow in ShellRenderedTexts.Flows)
+		{
+			AssertNoOutOfScopeGrant(ShellRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow]);
+		}
+	}
+
+	/// <summary>The composed `Shell` texts are not empty, so the two checks above cannot pass over nothing.</summary>
+	[Fact]
+	public void TheShellTextsTheGrantChecksReadAreNotEmpty()
+	{
+		Assert.Equal((ShellRenderedTexts.TemplatedPatternClasses.Length + 1) * ShellRenderedTexts.Flows.Length, ShellRenderedTexts.AllComposedTexts().Length);
+		Assert.All(ShellRenderedTexts.AllComposedTexts(), text => Assert.False(string.IsNullOrWhiteSpace(text)));
+	}
+
 	private static void AssertNoOutOfScopeGrant(string text)
 	{
 		foreach (string marker in _outOfScopeGrantMarkers)

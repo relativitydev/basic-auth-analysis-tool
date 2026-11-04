@@ -29,5 +29,17 @@ public enum LowConfidenceReasons
 	DemotedFile = 4,
 
 	/// <summary>A demotion signal that names a vendored or third-party folder proposed Low.</summary>
-	DemotedVendoredFile = 8
+	DemotedVendoredFile = 8,
+
+	/// <summary>A demotion signal that names a mock, fake or stub - a test double - proposed Low.</summary>
+	DemotedMockFile = 16,
+
+	/// <summary>A demotion signal that names a sample or example proposed Low.</summary>
+	DemotedSampleFile = 32,
+
+	/// <summary>A demotion signal that names generated code - a generation marker, or a generated file name - proposed Low.</summary>
+	DemotedGeneratedFile = 64,
+
+	/// <summary>A demotion signal that names a deployment folder proposed Low.</summary>
+	DemotedDeploymentFolder = 128
 }

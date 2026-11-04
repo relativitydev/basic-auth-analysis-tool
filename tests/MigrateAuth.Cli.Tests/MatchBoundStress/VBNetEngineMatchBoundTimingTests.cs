@@ -31,9 +31,10 @@ public sealed class VBNetEngineMatchBoundTimingTests
 	{
 		VBNetRecognitionHarness harness = new();
 		MatchBoundTimingTarget target = MatchBoundTimingHarness.ForVBNet(harness);
+		bool tableRequested = MatchBoundTimingHarness.TimingTableIsRequested(REPORT_PATH_VARIABLE_NAME);
 		ImmutableArray<MatchBoundShapeTiming> timings =
 		[
-			.. VBNetMatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(target, shape))
+			.. VBNetMatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(target, shape, tableRequested))
 		];
 
 		string report = MatchBoundTimingHarness.Describe(

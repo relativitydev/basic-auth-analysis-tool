@@ -16,8 +16,11 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// The `VBNet` catalog declares none of the three: its files are attributed by extension alone, and its quote rules carry neither a captured terminator nor an interpolation
 /// extent. So no `VBNet` expression is charged to the lexical budget and none can spend it. This test asserts exactly that, so that a later revision declaring one fails here and brings
 /// its own shapes into a timing check; and it records, as context only, the worst whole lexical scan of the `VBNet` stress files.
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
-public sealed class VBNetLexicalBudgetTests
+[Collection(TimingSensitiveStressCollection.NAME)]
+public sealed class VBNetLexicalBudgetTimingTests
 {
 	/// <summary>When set, names the file the figures are also written to, so a run leaves a record outside the test log.</summary>
 	internal const string REPORT_PATH_VARIABLE_NAME = "MIGRATE_AUTH_LEXICAL_BUDGET_REPORT_VBNET";
@@ -28,7 +31,7 @@ public sealed class VBNetLexicalBudgetTests
 
 	private readonly ITestOutputHelper _output;
 
-	public VBNetLexicalBudgetTests(ITestOutputHelper output)
+	public VBNetLexicalBudgetTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}

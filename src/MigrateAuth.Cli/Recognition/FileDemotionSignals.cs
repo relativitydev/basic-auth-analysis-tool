@@ -12,43 +12,34 @@ namespace MigrateAuth.Cli.Recognition;
 /// FILE DEMOTION SIGNALS, EVALUATED - THREE SHAPES, ONE ANSWER.
 ///
 /// The engine's path-shaped set and the analyzer's language-shaped name/folder/generation-marker
-/// set are read here and nowhere else, and either of them firing proposes Low. They are evaluated
-/// identically because they are the same KIND of statement about a file; what differs is who is
-/// entitled to declare one, and that is settled by which type it lives on rather than by anything
-/// this code does.
+/// set are read here and nowhere else, and every signal of every shape is evaluated and its kind recorded.
 ///
 /// PATH SIGNALS ARE DATA AND THIS IS THE PREDICATE. An analyzer hands over names and expressions,
-/// never a function that inspects a path - which is what lets the rule "an analyzer never orders,
-/// numbers or writes" extend to "and never sees the file".
+/// never a function that inspects a path.
 ///
 /// NOTHING HERE SEES AN ABSOLUTE PATH. The path input is a <see cref="RepositoryRelativePath"/>,
-/// whose only constructor is the write boundary's containment primitive, and it is decomposed into
-/// a file name and folder segments. A signal matching on a segment of the path ABOVE the
-/// repository root would make a finding's level depend on where the repository happens to be
-/// checked out, which breaks the guarantee that identical content produces identical output.
+/// decomposed into a file name and folder segments, so a finding's level never depends on where the
+/// repository is checked out.
 ///
-/// CONTENT MARKERS ARE THE ONE SIGNAL THIS TYPE EVALUATES AGAINST TEXT. An analyzer still hands over only an
+/// CONTENT MARKERS ARE THE ONE SIGNAL THIS TYPE EVALUATES AGAINST TEXT. An analyzer hands over only an
 /// already-constructed expression and a declared <see cref="ContentMarkerZone"/> - never a
 /// function, never the file - and this is the only place that expression is ever called against
-/// <see cref="FileRecognitionContext.NormalizedText"/>, exactly as the engine evaluates analyzer-declared expressions over content for every detection rule (<see cref="RecognitionEngine"/>). EVERY content marker is
+/// <see cref="FileRecognitionContext.NormalizedText"/>. EVERY content marker is
 /// evaluated, WITH NO SHORT CIRCUIT AMONG THEM - see <see cref="AnyContentMarkerFires"/>.
 ///
-/// THE ANSWER IS PER FILE AND IS COMPUTED ONCE. The positional exception - the conditional
-/// compilation signal, evaluated at the finding's own position rather than the file's - is
-/// explicitly out of scope here and is deliberately not modelled here; a file-scoped
-/// predicate that quietly accepted a position would be the place it got built by accident. It
-/// remains UNAVAILABLE in this version: nothing here or in the catalog declares it.
+/// THE ANSWER IS PER FILE AND IS COMPUTED ONCE. A signal evaluated at a finding's own position, such
+/// as conditional compilation, is not modelled here.
 ///
 /// THIS TYPE NEVER CATCHES ANYTHING. A content marker's <c>Regex</c> may carry its own match
 /// timeout, and a timeout it trips is a <see cref="System.Text.RegularExpressions.RegexMatchTimeoutException"/>
-/// that must propagate to <see cref="RecognitionEngine"/>'s own <c>try</c> - the caller this
-/// method already runs inside - and be discarded there under the data invariant. Catching it
-/// here would be catching it a second time, at a site with less context about why.
+/// that propagates to <see cref="RecognitionEngine"/>'s own <c>try</c> and is discarded there.
 ///
-/// THE MATCH BOUND. Every regular expression this type evaluates - a generation marker over a file name or folder segment,
+/// Every regular expression this type evaluates - a generation marker over a file name or folder segment,
 /// a content marker over the whole file - runs through <see cref="TimedRegexEvaluation"/> and
-/// charges the same per-file <see cref="MatchBoundWatch"/> a detection rule charges. <see cref="TryEvaluate"/> returns whether evaluation completed within budget, on the same terms <see cref="RecognitionEngine.RecognizeOneRule"/> reports for a rule: a trip here discards the file exactly as a rule's own trip would,
-/// through the same <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> category.
+/// charges the same per-file <see cref="MatchBoundWatch"/> a detection rule charges.
+/// <see cref="TryEvaluate"/> returns whether evaluation completed within budget: a trip here discards
+/// the file exactly as a rule's own trip would, through the same
+/// <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> category.
 /// </summary>
 internal static class FileDemotionSignals
 {
@@ -80,22 +71,17 @@ internal static class FileDemotionSignals
 			: baseSignals;
 
 		demotion = evaluation.Completed
-			? new FileDemotion
-			{
-				FiresOnVendoredFolder = evaluation.FiresOnVendoredFolder,
-				FiresOtherwise = evaluation.FiresOtherThanVendoredFolder
-			}
+			? new FileDemotion { FiredKinds = evaluation.FiredKinds }
 			: FileDemotion.None;
 
 		return evaluation.Completed;
 	}
 
 	/// <summary>
-	/// The analyzer's own path-shaped signals, then - REGARDLESS OF WHETHER EITHER OWNER'S PATH
-	/// SIGNAL ALREADY FIRED - every content marker, on unconditional-evaluation terms: a path signal firing early must not let a later content
-	/// marker's own match-bound trip go unnoticed, since discarding the file is the correct outcome
-	/// either way and skipping content evaluation would make that outcome depend on which signal
-	/// happened to be declared first.
+	/// The analyzer's own path-shaped signals, then - REGARDLESS OF WHETHER ANY EARLIER SIGNAL
+	/// ALREADY FIRED - every content marker. Every signal of every shape is evaluated and its kind
+	/// recorded; only a tripped match bound stops the evaluation, because the file is discarded
+	/// either way.
 	/// </summary>
 	private static SignalEvaluation EvaluateAnalyzerAndContentSignals(
 		FileRecognitionContext context,
@@ -123,10 +109,7 @@ internal static class FileDemotionSignals
 			evaluation = new SignalEvaluation
 			{
 				Completed = contentSignals.Completed,
-				FiresOtherThanVendoredFolder = baseSignals.FiresOtherThanVendoredFolder
-					|| analyzerSignals.FiresOtherThanVendoredFolder
-					|| contentSignals.FiresOtherThanVendoredFolder,
-				FiresOnVendoredFolder = baseSignals.FiresOnVendoredFolder || analyzerSignals.FiresOnVendoredFolder
+				FiredKinds = baseSignals.FiredKinds | analyzerSignals.FiredKinds | contentSignals.FiredKinds
 			};
 		}
 
@@ -140,36 +123,30 @@ internal static class FileDemotionSignals
 		FileNameAndFolders parts,
 		MatchBoundWatch matchBoundWatch)
 	{
-		bool otherNamedSignalFires =
-			AnyFileNameSignalFires(fileNameSignals, parts.FileName)
-			|| AnyFolderNameSignalFires(folderNameSignals, parts.FolderSegments, marksVendoredCode: false);
-		bool vendoredFolderSignalFires =
-			AnyFolderNameSignalFires(folderNameSignals, parts.FolderSegments, marksVendoredCode: true);
+		DemotionKinds namedKinds = FileNameKindsFired(fileNameSignals, parts.FileName)
+			| FolderKindsFired(folderNameSignals, parts.FolderSegments);
+		SignalEvaluation generation = AnyGenerationMarkerFires(generationMarkerExpressions, parts, matchBoundWatch);
 
-		return otherNamedSignalFires || vendoredFolderSignalFires
-			? new SignalEvaluation
-			{
-				Completed = true,
-				FiresOtherThanVendoredFolder = otherNamedSignalFires,
-				FiresOnVendoredFolder = vendoredFolderSignalFires
-			}
-			: AnyGenerationMarkerFires(generationMarkerExpressions, parts, matchBoundWatch);
+		return new SignalEvaluation
+		{
+			Completed = generation.Completed,
+			FiredKinds = namedKinds | generation.FiredKinds
+		};
 	}
 
-	private static bool AnyFileNameSignalFires(FrozenSet<FileNameSignal> signals, string fileName)
+	private static DemotionKinds FileNameKindsFired(FrozenSet<FileNameSignal> signals, string fileName)
 	{
-		bool fires = false;
+		DemotionKinds fired = DemotionKinds.None;
 
 		foreach (FileNameSignal signal in signals)
 		{
 			if (FileNameMatches(signal, fileName))
 			{
-				fires = true;
-				break;
+				fired |= KindFlag(signal.Kind);
 			}
 		}
 
-		return fires;
+		return fired;
 	}
 
 	private static bool FileNameMatches(FileNameSignal signal, string fileName)
@@ -186,23 +163,37 @@ internal static class FileDemotionSignals
 		return matches;
 	}
 
-	private static bool AnyFolderNameSignalFires(
+	private static DemotionKinds FolderKindsFired(
 		FrozenSet<FolderNameSignal> signals,
-		ImmutableArray<string> folderSegments,
-		bool marksVendoredCode)
+		ImmutableArray<string> folderSegments)
 	{
-		bool fires = false;
+		DemotionKinds fired = DemotionKinds.None;
 
 		foreach (FolderNameSignal signal in signals)
 		{
-			if (signal.MarksVendoredCode == marksVendoredCode && AnySegmentMatches(signal, folderSegments))
+			if (AnySegmentMatches(signal, folderSegments))
 			{
-				fires = true;
-				break;
+				fired |= KindFlag(signal.Kind);
 			}
 		}
 
-		return fires;
+		return fired;
+	}
+
+	private static DemotionKinds KindFlag(DemotionKind kind)
+	{
+		DemotionKinds flag = kind switch
+		{
+			DemotionKind.Test => DemotionKinds.Test,
+			DemotionKind.Mock => DemotionKinds.Mock,
+			DemotionKind.Sample => DemotionKinds.Sample,
+			DemotionKind.Vendored => DemotionKinds.Vendored,
+			DemotionKind.Generated => DemotionKinds.Generated,
+			DemotionKind.Deployment => DemotionKinds.Deployment,
+			_ => DemotionKinds.None
+		};
+
+		return flag;
 	}
 
 	private static bool AnySegmentMatches(FolderNameSignal signal, ImmutableArray<string> folderSegments)
@@ -264,15 +255,19 @@ internal static class FileDemotionSignals
 				break;
 			}
 
-			fires = GenerationMarkerFiresOnFileNameOrAnySegment(expression, parts, matchBoundWatch, out completed);
+			fires = GenerationMarkerFiresOnFileNameOrAnySegment(expression, parts, matchBoundWatch, out completed) || fires;
 
-			if (fires || !completed)
+			if (!completed)
 			{
 				break;
 			}
 		}
 
-		return new SignalEvaluation { Completed = completed, FiresOtherThanVendoredFolder = fires };
+		return new SignalEvaluation
+		{
+			Completed = completed,
+			FiredKinds = fires ? DemotionKinds.Generated : DemotionKinds.None
+		};
 	}
 
 	private static bool GenerationMarkerFiresOnFileNameOrAnySegment(
@@ -338,7 +333,7 @@ internal static class FileDemotionSignals
 		ZoneMask mask,
 		MatchBoundWatch matchBoundWatch)
 	{
-		bool fires = false;
+		DemotionKinds fired = DemotionKinds.None;
 		bool completed = true;
 
 		foreach (ContentMarker marker in markers)
@@ -348,10 +343,13 @@ internal static class FileDemotionSignals
 				break;
 			}
 
-			fires = ContentMarkerFires(marker, normalizedText, mask, matchBoundWatch, out completed) || fires;
+			if (ContentMarkerFires(marker, normalizedText, mask, matchBoundWatch, out completed))
+			{
+				fired |= KindFlag(marker.Kind);
+			}
 		}
 
-		return new SignalEvaluation { Completed = completed, FiresOtherThanVendoredFolder = fires };
+		return new SignalEvaluation { Completed = completed, FiredKinds = fired };
 	}
 
 	private static bool ContentMarkerFires(
@@ -501,10 +499,6 @@ internal static class FileDemotionSignals
 	{
 		internal required bool Completed { get; init; }
 
-		internal required bool FiresOtherThanVendoredFolder { get; init; }
-
-		internal bool FiresOnVendoredFolder { get; init; }
-
-		internal bool Fires => FiresOtherThanVendoredFolder || FiresOnVendoredFolder;
+		internal required DemotionKinds FiredKinds { get; init; }
 	}
 }

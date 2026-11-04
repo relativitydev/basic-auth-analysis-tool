@@ -146,7 +146,8 @@ public sealed class CSharpAnalyzerTests
 		RecognizedConstruct demoted = Assert.Single(underTestFolder);
 		RecognizedConstruct undemoted = Assert.Single(underOrdinaryFolder);
 
-		Assert.Equal(ConfidenceLevel.Low, demoted.Level);
+		Assert.Equal(ConfidenceLevel.Medium, demoted.Level);
+		Assert.True(demoted.TestCode);
 		Assert.Equal(ConfidenceLevel.High, undemoted.Level);
 	}
 
@@ -162,7 +163,7 @@ public sealed class CSharpAnalyzerTests
 			harness.Recognize(source, "src/Sample.Core.Tests/Module.cs");
 
 		RecognizedConstruct construct = Assert.Single(recognized);
-		Assert.Equal(ConfidenceLevel.Low, construct.Level);
+		Assert.Equal(ConfidenceLevel.Medium, construct.Level);
 	}
 
 	[Fact]
@@ -176,7 +177,7 @@ public sealed class CSharpAnalyzerTests
 		ImmutableArray<RecognizedConstruct> recognized = harness.Recognize(source, "source/Module.Tests.cs");
 
 		RecognizedConstruct construct = Assert.Single(recognized);
-		Assert.Equal(ConfidenceLevel.Low, construct.Level);
+		Assert.Equal(ConfidenceLevel.Medium, construct.Level);
 	}
 
 	[Fact]
@@ -210,7 +211,7 @@ public sealed class CSharpAnalyzerTests
 		RecognizedConstruct demoted = Assert.Single(harness.Recognize(demotedSource));
 		RecognizedConstruct undemoted = Assert.Single(harness.Recognize(undemotedSource));
 
-		Assert.Equal(ConfidenceLevel.Low, demoted.Level);
+		Assert.Equal(ConfidenceLevel.Medium, demoted.Level);
 		Assert.Equal(ConfidenceLevel.High, undemoted.Level);
 	}
 

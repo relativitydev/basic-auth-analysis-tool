@@ -22,10 +22,24 @@ public static class LowReasonVocabulary
 	/// <summary>The label of the per-finding line that states the reason.</summary>
 	public const string REASON_LABEL = "Low because";
 
+	/// <summary>The label of the per-finding line that marks a finding as test code.</summary>
+	public const string TEST_CODE_LABEL = "Test code";
+
+	/// <summary>
+	/// What the Markdown report says on the test-code line. The line is written only for a finding whose file the Test
+	/// demotion kind marked, and the sentence says why the finding is not reported at a higher level than Medium.
+	/// </summary>
+	public const string TEST_CODE_TEXT =
+		"yes; the file's name, folder or a test-framework marker marks it as test code, so the finding is reported at most at Medium";
+
 	private const string _PATTERN_CLASS_VALUE = "patternClass";
 	private const string _COMMENT_OR_STRING_LITERAL_VALUE = "commentOrStringLiteral";
 	private const string _DEMOTED_FILE_VALUE = "demotedFile";
+	private const string _DEMOTED_MOCK_FILE_VALUE = "demotedMockFile";
+	private const string _DEMOTED_SAMPLE_FILE_VALUE = "demotedSampleFile";
 	private const string _DEMOTED_VENDORED_FILE_VALUE = "demotedVendoredFile";
+	private const string _DEMOTED_GENERATED_FILE_VALUE = "demotedGeneratedFile";
+	private const string _DEMOTED_DEPLOYMENT_FOLDER_VALUE = "demotedDeploymentFolder";
 	private const string _SENTENCE_SEPARATOR = "; ";
 	private const string _DEMOTED_FILE_WITH_DEPLOYMENT_SENTENCE =
 		"the file's name, folder or content marks it as a test, sample, generated or deployment file";
@@ -35,6 +49,8 @@ public static class LowReasonVocabulary
 		PATTERN_CLASS_SENTENCE_LEAD + "it is a definition that builds a credential or an authentication header, not a call, so the migration belongs in the helper and its callers show no credential";
 	private const string _NON_HTTP_SINK_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential goes to a sink that is not an HTTP client, such as remoting, mail, file transfer, a directory or a proxy; that is live code, but not Basic Authentication towards RelativityOne";
+	private const string _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE =
+		$"{PATTERN_CLASS_SENTENCE_LEAD}the client sends the credential as Basic only after the server challenges with Basic, or the join between the credential and the call is by text; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points and whether a preemptive option or a hand-built header is also used";
 	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 
@@ -46,7 +62,11 @@ public static class LowReasonVocabulary
 		LowConfidenceReasons.PatternClass,
 		LowConfidenceReasons.CommentOrStringLiteral,
 		LowConfidenceReasons.DemotedFile,
-		LowConfidenceReasons.DemotedVendoredFile
+		LowConfidenceReasons.DemotedMockFile,
+		LowConfidenceReasons.DemotedSampleFile,
+		LowConfidenceReasons.DemotedVendoredFile,
+		LowConfidenceReasons.DemotedGeneratedFile,
+		LowConfidenceReasons.DemotedDeploymentFolder
 	];
 
 	private static readonly FrozenDictionary<LowConfidenceReasons, string> _valuesByReason =
@@ -55,7 +75,11 @@ public static class LowReasonVocabulary
 			[LowConfidenceReasons.PatternClass] = _PATTERN_CLASS_VALUE,
 			[LowConfidenceReasons.CommentOrStringLiteral] = _COMMENT_OR_STRING_LITERAL_VALUE,
 			[LowConfidenceReasons.DemotedFile] = _DEMOTED_FILE_VALUE,
-			[LowConfidenceReasons.DemotedVendoredFile] = _DEMOTED_VENDORED_FILE_VALUE
+			[LowConfidenceReasons.DemotedMockFile] = _DEMOTED_MOCK_FILE_VALUE,
+			[LowConfidenceReasons.DemotedSampleFile] = _DEMOTED_SAMPLE_FILE_VALUE,
+			[LowConfidenceReasons.DemotedVendoredFile] = _DEMOTED_VENDORED_FILE_VALUE,
+			[LowConfidenceReasons.DemotedGeneratedFile] = _DEMOTED_GENERATED_FILE_VALUE,
+			[LowConfidenceReasons.DemotedDeploymentFolder] = _DEMOTED_DEPLOYMENT_FOLDER_VALUE
 		}.ToFrozenDictionary();
 
 	private static readonly FrozenDictionary<string, LowConfidenceReasons> _reasonsByValue =
@@ -70,8 +94,16 @@ public static class LowReasonVocabulary
 				"the match sits in a comment or a string literal, so it is not executable code",
 			[LowConfidenceReasons.DemotedFile] =
 				_DEMOTED_FILE_WITH_DEPLOYMENT_SENTENCE,
+			[LowConfidenceReasons.DemotedMockFile] =
+				"the file's name, folder or content marks it as a mock, fake or stub, a test double, so it stands in for the real service rather than calling it",
+			[LowConfidenceReasons.DemotedSampleFile] =
+				"the file's name or folder marks it as a sample or example, so it illustrates a pattern rather than running in the application",
 			[LowConfidenceReasons.DemotedVendoredFile] =
-				"the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own"
+				"the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own",
+			[LowConfidenceReasons.DemotedGeneratedFile] =
+				"the file's name or content marks it as generated code, so the fix belongs in what it is generated from rather than in the file",
+			[LowConfidenceReasons.DemotedDeploymentFolder] =
+				"the file sits in a deployment folder, so it is installation or release tooling rather than the application's own code"
 		}.ToFrozenDictionary();
 
 	private static readonly FrozenDictionary<string, string> _patternClassSentencesByIdentifier =
@@ -79,9 +111,18 @@ public static class LowReasonVocabulary
 		{
 			["CS-011"] = _HELPER_DEFINITION_SENTENCE,
 			["CS-019"] = _NON_HTTP_SINK_SENTENCE,
+			["VB-018"] = _NON_HTTP_SINK_SENTENCE,
+			["VB-019"] = _HELPER_DEFINITION_SENTENCE,
 			["PS-012"] = _UNSCHEMED_WEB_CREDENTIAL_SENTENCE,
 			["PS-013"] = _NON_HTTP_SINK_SENTENCE,
-			["PS-014"] = _HELPER_DEFINITION_SENTENCE
+			["PS-014"] = _HELPER_DEFINITION_SENTENCE,
+			["SH-011"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["SH-012"] = _HELPER_DEFINITION_SENTENCE,
+			["SH-015"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["SH-017"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["SH-020"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["SH-022"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["SH-023"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE
 		}.ToFrozenDictionary(StringComparer.Ordinal);
 
 	/// <summary>The stable values of the reasons that apply, in the declared order. Empty when none do.</summary>

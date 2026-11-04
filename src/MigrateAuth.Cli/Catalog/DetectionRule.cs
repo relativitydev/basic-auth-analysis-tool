@@ -37,7 +37,7 @@ public enum DestinationCertainty
 }
 
 /// <summary>
-/// Contract element 3. One detection rule, carrying exactly eight fields per pattern class. The
+/// Contract element 3. One detection rule, carrying exactly nine fields per pattern class. The
 /// pattern class identifier is not one of them: it is the key this rule is registered under,
 /// so the eight below are the rule and nothing else.
 ///
@@ -91,4 +91,10 @@ public sealed class DetectionRule
 	/// the artifact keys on; this field is read-only prose for a human, never a key.
 	/// </summary>
 	public required string DisplayName { get; init; }
+
+	/// <summary>
+	/// Field 9, OPTIONAL and none by default: a construct that names a variable the file never references again is
+	/// dropped (see <see cref="RuleVariableUse"/>).
+	/// </summary>
+	public RuleVariableUse? VariableUse { get; init; }
 }

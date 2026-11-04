@@ -210,6 +210,7 @@ public static class FindingComposition
 			Level = placedConstruct.Construct.Level,
 			DestinationCertainty = DestinationCertaintyOf(placedConstruct),
 			LiteralCredentialSignal = placedConstruct.Construct.LiteralCredentialSignal,
+			TestCode = placedConstruct.Construct.TestCode,
 			Fingerprint = placedConstruct.Fingerprint,
 			LowReasons = placedConstruct.Construct.LowReasons,
 			FlowEvidence = FlowEvidenceOf(placedConstruct)

@@ -39,6 +39,7 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	private const string _CONFIDENCE_HIGH = "\"confidenceLevel\":\"High\"";
 	private const string _UNKNOWN_REASON_VALUE = "somethingTheEngineNeverWrote";
 	private const string _ESCAPING_EXCLUDED_PATH = "../outside";
+	private const string _CATALOG_MAJOR_OF_ANOTHER_CATALOG = "\"catalogVersionMajor\":9999";
 
 	[Fact]
 	public void TheReasonAndTheExcludedFoldersSurviveASaveAndLoad()
@@ -116,24 +117,109 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	}
 
 	[Fact]
-	public void TheFileIsWrittenAtSchemaVersionEight()
+	public void TheFileIsWrittenAtSchemaVersionNine()
 	{
 		using SavedSession saved = SavedSession.Create();
 
-		Assert.Equal(8, SessionStateStore.CURRENT_SCHEMA_VERSION);
-		Assert.Contains("\"schemaVersion\":8", saved.Text(), StringComparison.Ordinal);
+		Assert.Equal(9, SessionStateStore.CURRENT_SCHEMA_VERSION);
+		Assert.Contains("\"schemaVersion\":9", saved.Text(), StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void AFileOfTheEarlierSchemaStartsAFreshSession()
 	{
 		using SavedSession saved = SavedSession.Create();
-		saved.Edit("\"schemaVersion\":8", "\"schemaVersion\":7");
+		saved.Edit("\"schemaVersion\":9", "\"schemaVersion\":8");
 
 		SessionStateLoad reloaded = saved.Load();
 
 		Assert.False(reloaded.WasResumed);
 		Assert.Equal(SessionStateRejectionReason.SchemaVersionMismatch, reloaded.RejectionReason);
+	}
+
+	/// <summary>
+	/// A session written at schema 8 and under an earlier catalog is refused for its schema and not for its
+	/// catalog: the schema is looked at first, so the reason shown is the one that tells the user the file is of another shape.
+	/// </summary>
+	[Fact]
+	public void ASchemaEightFileUnderAnotherCatalogIsRefusedBySchemaBeforeTheCatalogIsChecked()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit("\"schemaVersion\":9", "\"schemaVersion\":8");
+		saved.Edit(saved.CatalogMajorField(), _CATALOG_MAJOR_OF_ANOTHER_CATALOG);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.SchemaVersionMismatch, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void ASchemaNineFileUnderAnotherCatalogIsStillRefusedByTheCatalog()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit(saved.CatalogMajorField(), _CATALOG_MAJOR_OF_ANOTHER_CATALOG);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.CatalogVersionMismatch, reloaded.RejectionReason);
+	}
+
+	[Theory]
+	[InlineData(LowConfidenceReasons.DemotedMockFile, "demotedMockFile")]
+	[InlineData(LowConfidenceReasons.DemotedSampleFile, "demotedSampleFile")]
+	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "demotedGeneratedFile")]
+	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "demotedDeploymentFolder")]
+	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "demotedVendoredFile")]
+	[InlineData(LowConfidenceReasons.DemotedFile, "demotedFile")]
+	public void EachDemotionReasonSurvivesASaveAndLoadUnderItsOwnValue(LowConfidenceReasons reason, string value)
+	{
+		using SavedSession saved = SavedSession.Create(reason);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.Contains($"\"{value}\"", saved.Text(), StringComparison.Ordinal);
+		Assert.True(reloaded.WasResumed);
+		Assert.Equal(reason, Assert.Single(reloaded.State.Findings).LowReasons);
+	}
+
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void TheTestCodeMarkerSurvivesASaveAndLoadAtSchemaNine(bool testCode)
+	{
+		using SavedSession saved = SavedSession.Create(testCode: testCode);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.Contains($"\"testCode\":{(testCode ? "true" : "false")}", saved.Text(), StringComparison.Ordinal);
+		Assert.True(reloaded.WasResumed);
+		Assert.Equal(testCode, Assert.Single(reloaded.State.Findings).TestCode);
+	}
+
+	[Fact]
+	public void AFindingWithoutTheTestCodeMarkerRefusesTheDocumentUnderSchemaNine()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit("\"testCode\":false,", string.Empty);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.FindingNotWellFormed, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void ANullTestCodeMarkerRefusesTheDocument()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit("\"testCode\":false", "\"testCode\":null");
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.FindingNotWellFormed, reloaded.RejectionReason);
 	}
 
 	[Fact]
@@ -214,13 +300,21 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 
 		private string StatePath => _destination.Combine(SessionStateStore.BuildStateFileName(_repository));
 
-		internal static SavedSession Create()
+		internal static SavedSession Create(
+			LowConfidenceReasons reasons = LowConfidenceReasons.CommentOrStringLiteral,
+			bool testCode = false)
 		{
 			SavedSession saved = new(TemporaryFolder.Create(), TemporaryFolder.Create());
 
-			saved.Save();
+			saved.Save(reasons, testCode);
 
 			return saved;
+		}
+
+		/// <summary>The catalog major version as the file writes it, so that a test can name another one.</summary>
+		internal string CatalogMajorField()
+		{
+			return $"\"catalogVersionMajor\":{_catalog.Version.Major}";
 		}
 
 		internal string Text()
@@ -248,7 +342,7 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 			_repositoryFolder.Dispose();
 		}
 
-		private void Save()
+		private void Save(LowConfidenceReasons reasons, bool testCode)
 		{
 			SessionState state = SessionState.Fresh(_catalog.Version, _repository.Label);
 			Finding lowFinding = ReportHarness.FindingAt(
@@ -257,7 +351,8 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 				3,
 				ReportHarness.TEMPLATED_PATTERN_CLASS,
 				ConfidenceLevel.Low,
-				lowReasons: LowConfidenceReasons.CommentOrStringLiteral);
+				lowReasons: reasons,
+				testCode: testCode);
 
 			state.RecordScanOutcome(
 				[],
