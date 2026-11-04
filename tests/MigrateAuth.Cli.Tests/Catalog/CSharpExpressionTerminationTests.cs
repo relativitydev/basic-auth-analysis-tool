@@ -57,7 +57,7 @@ public sealed class CSharpExpressionTerminationTests
 	private const string _CS_018 = "CS-018";
 	private const string _CS_019 = "CS-019";
 
-	private const int _EXPECTED_PATTERN_CLASS_COUNT = 18;
+	private const int _EXPECTED_PATTERN_CLASS_COUNT = 19;
 
 	private const string _CREDENTIAL_CAPTURE_GROUP = "credential";
 
@@ -82,11 +82,11 @@ public sealed class CSharpExpressionTerminationTests
 	}
 
 	// ------------------------------------------------------------------------------------------
-	// Sanity: the table above stays in step with the catalog's own eighteen classes.
+	// Sanity: the table above stays in step with the catalog's own nineteen classes.
 	// ------------------------------------------------------------------------------------------
 
 	[Fact]
-	public void EighteenPatternClassesAreCoveredByTheCanonicalFixtureTable()
+	public void NineteenPatternClassesAreCoveredByTheCanonicalFixtureTable()
 	{
 		CSharpRecognitionHarness harness = new();
 

@@ -348,7 +348,43 @@ public enum AnalyzerContractViolationCode
 	/// is <see cref="DemotionKind.Undeclared"/>: the signal's kind decides the level its firing proposes and the
 	/// reason the report gives, so a signal that never said what it is cannot ship.
 	/// </summary>
-	DemotionSignalKindUndeclared = 72
+	DemotionSignalKindUndeclared = 72,
+
+	/// <summary>
+	/// A <see cref="CodeSpanElement"/> with an empty opening or closing, a token that holds a line terminator (the closing is searched on the opening's own
+	/// line), an escape character that is not one character, an empty escapable set, two elements with one opening, or an opening equal to the opening of a
+	/// declared quote rule or comment rule (the longest-opening rule would then have two readings).
+	/// </summary>
+	CodeSpanElementMalformed = 73,
+
+	/// <summary>
+	/// A <see cref="SymbolicVerdictInterpretation.ExpectedSourceKind"/> on a cell whose rule declares no scheme argument to resolve (the kind is read from a resolved
+	/// record and there is none), or a constant-declaration expression that declares an environment record (the group
+	/// <see cref="EnvironmentDeclarationGroups.MARKER"/>) without the group that captures its fallback word
+	/// (<see cref="EnvironmentDeclarationGroups.FALLBACK_WORD"/>).
+	/// </summary>
+	SourceKindDeclarationMalformed = 74,
+
+	/// <summary>A <see cref="NeutralOperandPairCondition"/> group name (either operand's) that the rule's expression does not declare.</summary>
+	NeutralOperandPairGroupAbsentFromExpression = 75,
+
+	/// <summary>A <see cref="NeutralOperandPairCondition"/> word expression whose match timeout is not <see cref="RecognitionEnginePolicy.MATCH_BOUND"/>.</summary>
+	NeutralOperandPairWordExpressionMatchTimeoutNotPolicyBound = 76,
+
+	/// <summary>A <see cref="ConditionalCompilationRule.DirectiveOpening"/> that is empty, holds a blank or a line terminator, or equals the opening of a declared quote rule or comment rule.</summary>
+	ConditionalCompilationDirectiveOpeningMalformed = 77,
+
+	/// <summary>A <see cref="ConditionalCompilationRule.WellKnownSymbolWords"/> entry that names no symbol (empty once its marker is removed), holds a character that is not a letter, a digit or an underscore, or repeats another entry.</summary>
+	ConditionalCompilationWellKnownSymbolWordMalformed = 78,
+
+	/// <summary>A <see cref="LexicalProfile.MemberDeclarationExpression"/> that declares a match timeout other than <see cref="RecognitionEnginePolicy.MATCH_BOUND"/>: the symbol-collection phase runs it through the same timed door as the constant-declaration expression.</summary>
+	MemberDeclarationExpressionMatchTimeoutNotPolicyBound = 79,
+
+	/// <summary>A <see cref="LexicalProfile.MemberDeclarationExpression"/> that does not declare the group <c>name</c>, or that declares the environment marker without the group that captures the word of its fallback.</summary>
+	MemberDeclarationExpressionMalformed = 80,
+
+	/// <summary>A cell whose <see cref="SymbolicVerdictInterpretation.SymbolRecordKind"/> is <see cref="SymbolRecordKind.Member"/> in an analyzer whose profile declares no <see cref="LexicalProfile.MemberDeclarationExpression"/>: the member dictionary would be empty and the cell could never resolve.</summary>
+	MemberRecordKindWithoutMemberDeclarationExpression = 81
 }
 
 /// <summary>One violation, naming its code and the subject it was found on.</summary>
@@ -370,6 +406,7 @@ public sealed record AnalyzerContractViolation
 public static class AnalyzerContractValidator
 {
 	private const char _FILE_EXTENSION_LEADING_CHARACTER = '.';
+	private const char _IDENTIFIER_UNDERSCORE = '_';
 	private const int _MINIMUM_FILE_EXTENSION_LENGTH = 2;
 	private const int _MINIMUM_ARITHMETIC_OPENING_RUN_LENGTH = 2;
 	private const int _STRING_OPTION_LENGTH = 2;
@@ -420,6 +457,10 @@ public static class AnalyzerContractValidator
 		ValidateCodeEscape(profile, violations);
 		ValidateArmBlocks(profile, violations);
 		ValidateExecutedStrings(profile, violations);
+		ValidateCodeSpans(profile, violations);
+		ValidateConditionalCompilation(profile, violations);
+		ValidateEnvironmentDeclaration(profile, violations);
+		ValidateMemberDeclaration(profile, violations);
 
 		foreach (QuoteRule quoteRule in profile.QuoteRulesInEngineOrder)
 		{
@@ -445,6 +486,100 @@ public static class AnalyzerContractValidator
 
 			ValidateOpeningAnchoring(blockCommentRule.OpeningAnchoring, blockCommentRule.Opening, violations);
 		}
+	}
+
+	/// <summary>
+	/// Every code-span element has a closing and an opening of its own that hold no line terminator, one escape character, a non-empty escapable set, an
+	/// opening that no other element, quote rule or comment rule declares (code 73).
+	/// </summary>
+	private static void ValidateCodeSpans(
+		LexicalProfile profile,
+		ImmutableArray<AnalyzerContractViolation>.Builder violations)
+	{
+		string[] declaredOpenings =
+		[
+			.. profile.QuoteRulesInEngineOrder.Select(rule => rule.Opening),
+			.. profile.LineCommentRulesInEngineOrder.Select(rule => rule.Opening),
+			.. profile.BlockCommentRulesInEngineOrder.Select(rule => rule.Opening)
+		];
+		bool repeatsAnOpening = profile.CodeSpans.GroupBy(span => span.Opening).Any(group => group.Count() > 1);
+
+		if (profile.CodeSpans.Any(span => IsAMalformedCodeSpan(span, declaredOpenings)) || repeatsAnOpening)
+		{
+			Record(violations, AnalyzerContractViolationCode.CodeSpanElementMalformed, profile.ProfileName);
+		}
+	}
+
+	private static bool IsAMalformedCodeSpan(CodeSpanElement span, string[] declaredOpenings)
+	{
+		bool holdsALineTerminator = ContainsALineTerminator(span.Opening) || ContainsALineTerminator(span.Closing);
+		bool isMalformed =
+			string.IsNullOrEmpty(span.Opening)
+			|| string.IsNullOrEmpty(span.Closing)
+			|| holdsALineTerminator
+			|| span.EscapeCharacter is not { Length: 1 }
+			|| string.IsNullOrEmpty(span.EscapableCharacters)
+			|| declaredOpenings.Contains(span.Opening, StringComparer.Ordinal);
+
+		return isMalformed;
+	}
+
+	private static bool ContainsALineTerminator(string? token)
+	{
+		return token is not null && token.AsSpan().IndexOfAny('\n', '\r') >= 0;
+	}
+
+	/// <summary>
+	/// A conditional-compilation element has a directive opening that is non-empty, holds no blank or line terminator and
+	/// is no declared quote or comment opening (code 77), and well-known symbol words that each name a symbol of letters,
+	/// digits and underscores, with at most one trailing marker, and are all distinct (code 78).
+	/// </summary>
+	private static void ValidateConditionalCompilation(
+		LexicalProfile profile,
+		ImmutableArray<AnalyzerContractViolation>.Builder violations)
+	{
+		if (profile.ConditionalCompilation is ConditionalCompilationRule rule)
+		{
+			string[] declaredOpenings =
+			[
+				.. profile.QuoteRulesInEngineOrder.Select(quoteRule => quoteRule.Opening),
+				.. profile.LineCommentRulesInEngineOrder.Select(lineCommentRule => lineCommentRule.Opening),
+				.. profile.BlockCommentRulesInEngineOrder.Select(blockCommentRule => blockCommentRule.Opening)
+			];
+
+			if (IsAMalformedDirectiveOpening(rule.DirectiveOpening, declaredOpenings))
+			{
+				Record(violations, AnalyzerContractViolationCode.ConditionalCompilationDirectiveOpeningMalformed, profile.ProfileName);
+			}
+
+			if (HasAMalformedWellKnownSymbolWord(rule.WellKnownSymbolWords))
+			{
+				Record(violations, AnalyzerContractViolationCode.ConditionalCompilationWellKnownSymbolWordMalformed, profile.ProfileName);
+			}
+		}
+	}
+
+	private static bool IsAMalformedDirectiveOpening(string opening, string[] declaredOpenings)
+	{
+		return string.IsNullOrEmpty(opening)
+			|| opening.Any(char.IsWhiteSpace)
+			|| declaredOpenings.Contains(opening, StringComparer.Ordinal);
+	}
+
+	private static bool HasAMalformedWellKnownSymbolWord(ImmutableArray<string> words)
+	{
+		bool repeatsAWord = words.GroupBy(word => word, StringComparer.Ordinal).Any(group => group.Count() > 1);
+
+		return repeatsAWord || words.Any(IsAMalformedWellKnownSymbolWord);
+	}
+
+	private static bool IsAMalformedWellKnownSymbolWord(string word)
+	{
+		bool endsWithAMarker = !string.IsNullOrEmpty(word)
+			&& word[^1] is ConditionalCompilationRule.PREFIX_WILDCARD_MARKER or ConditionalCompilationRule.VERSION_TAIL_MARKER;
+		string symbol = endsWithAMarker ? word[..^1] : word;
+
+		return symbol.Length == 0 || !symbol.All(character => char.IsLetterOrDigit(character) || character == _IDENTIFIER_UNDERSCORE);
 	}
 
 	/// <summary>A code escape is not a whitespace character (code 46).</summary>
@@ -923,6 +1058,12 @@ public static class AnalyzerContractValidator
 		foreach (KeyValuePair<string, DetectionRule> entry in analyzer.DetectionRulesByPatternClass)
 		{
 			ValidateDetectionRule(entry.Key, entry.Value, seenDisplayNames, violations);
+
+			if (entry.Value.SymbolicVerdictInterpretation.SymbolRecordKind == SymbolRecordKind.Member
+				&& analyzer.LexicalProfile.MemberDeclarationExpression is null)
+			{
+				Record(violations, AnalyzerContractViolationCode.MemberRecordKindWithoutMemberDeclarationExpression, entry.Key);
+			}
 		}
 	}
 
@@ -982,6 +1123,33 @@ public static class AnalyzerContractValidator
 		}
 
 		ValidateSymbolicVerdictInterpretation(patternClassIdentifier, rule, declaredGroups, violations);
+		ValidateNeutralOperandPairCondition(patternClassIdentifier, rule, declaredGroups, violations);
+	}
+
+	/// <summary>
+	/// A per-match Low condition reads two groups the rule's expression must declare (code 75), and runs two word
+	/// expressions through the timed door, so each carries the policy match bound (code 76).
+	/// </summary>
+	private static void ValidateNeutralOperandPairCondition(
+		string patternClassIdentifier,
+		DetectionRule rule,
+		string[] declaredGroups,
+		ImmutableArray<AnalyzerContractViolation>.Builder violations)
+	{
+		if (rule.LowWhenBothOperandsAreNeutral is NeutralOperandPairCondition condition)
+		{
+			if (!declaredGroups.Contains(condition.FirstOperandGroupName, StringComparer.Ordinal)
+				|| !declaredGroups.Contains(condition.SecondOperandGroupName, StringComparer.Ordinal))
+			{
+				Record(violations, AnalyzerContractViolationCode.NeutralOperandPairGroupAbsentFromExpression, patternClassIdentifier);
+			}
+
+			if (condition.FirstOperandWordExpression.MatchTimeout != RecognitionEnginePolicy.MATCH_BOUND
+				|| condition.SecondOperandWordExpression.MatchTimeout != RecognitionEnginePolicy.MATCH_BOUND)
+			{
+				Record(violations, AnalyzerContractViolationCode.NeutralOperandPairWordExpressionMatchTimeoutNotPolicyBound, patternClassIdentifier);
+			}
+		}
 	}
 
 	private static void ValidateSymbolicVerdictInterpretation(
@@ -999,7 +1167,7 @@ public static class AnalyzerContractValidator
 				Record(violations, AnalyzerContractViolationCode.SchemeCaptureGroupAbsentFromExpression, patternClassIdentifier);
 			}
 
-			if (string.IsNullOrWhiteSpace(interpretation.ExpectedSchemeToken))
+			if (string.IsNullOrWhiteSpace(interpretation.ExpectedSchemeToken) && interpretation.ExpectedSourceKind is null)
 			{
 				Record(violations, AnalyzerContractViolationCode.ExpectedSchemeTokenMissing, patternClassIdentifier);
 			}
@@ -1007,6 +1175,54 @@ public static class AnalyzerContractValidator
 		else if (DeclaresAnySymbolicResponse(interpretation))
 		{
 			Record(violations, AnalyzerContractViolationCode.SymbolicResponseDeclaredWithoutSchemeArgument, patternClassIdentifier);
+		}
+
+		if (interpretation.ExpectedSourceKind is not null && interpretation.SchemeArgumentCaptureGroupName is null)
+		{
+			Record(violations, AnalyzerContractViolationCode.SourceKindDeclarationMalformed, patternClassIdentifier);
+		}
+	}
+
+	/// <summary>
+	/// A constant-declaration expression that declares an environment record declares the group that captures the word of its fallback as well (code 74): the record's
+	/// word is read from it, and an environment record with no such group would carry no word to compare.
+	/// </summary>
+	private static void ValidateEnvironmentDeclaration(
+		LexicalProfile profile,
+		ImmutableArray<AnalyzerContractViolation>.Builder violations)
+	{
+		string[] groups = profile.ConstantDeclarationExpression.GetGroupNames();
+
+		if (groups.Contains(EnvironmentDeclarationGroups.MARKER, StringComparer.Ordinal)
+			&& !groups.Contains(EnvironmentDeclarationGroups.FALLBACK_WORD, StringComparer.Ordinal))
+		{
+			Record(violations, AnalyzerContractViolationCode.SourceKindDeclarationMalformed, profile.ProfileName);
+		}
+	}
+
+	/// <summary>
+	/// A member-declaration expression carries the policy match bound (code 79), names the member in the group <c>name</c> and, where it declares the environment marker, declares
+	/// the fallback group too (code 80). The expression is optional: a profile with none has no member dictionary.
+	/// </summary>
+	private static void ValidateMemberDeclaration(
+		LexicalProfile profile,
+		ImmutableArray<AnalyzerContractViolation>.Builder violations)
+	{
+		if (profile.MemberDeclarationExpression is Regex memberExpression)
+		{
+			string[] groups = memberExpression.GetGroupNames();
+
+			if (memberExpression.MatchTimeout != RecognitionEnginePolicy.MATCH_BOUND)
+			{
+				Record(violations, AnalyzerContractViolationCode.MemberDeclarationExpressionMatchTimeoutNotPolicyBound, profile.ProfileName);
+			}
+
+			if (!groups.Contains(Recognition.FileSymbolTable.NAME_CAPTURE_GROUP, StringComparer.Ordinal)
+				|| (groups.Contains(EnvironmentDeclarationGroups.MARKER, StringComparer.Ordinal)
+					&& !groups.Contains(EnvironmentDeclarationGroups.FALLBACK_WORD, StringComparer.Ordinal)))
+			{
+				Record(violations, AnalyzerContractViolationCode.MemberDeclarationExpressionMalformed, profile.ProfileName);
+			}
 		}
 	}
 

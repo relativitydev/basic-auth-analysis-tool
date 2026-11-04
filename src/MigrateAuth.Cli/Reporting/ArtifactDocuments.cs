@@ -326,7 +326,7 @@ public sealed record ArtifactFindingDocument
 	/// <summary>
 	/// A declared extension: why a Low finding is Low, as values of a closed vocabulary -
 	/// <c>patternClass</c>, <c>commentOrStringLiteral</c>, <c>demotedMockFile</c>, <c>demotedSampleFile</c>,
-	/// <c>demotedVendoredFile</c>, <c>demotedGeneratedFile</c> and <c>demotedDeploymentFolder</c>, in that order, more
+	/// <c>demotedVendoredFile</c>, <c>demotedGeneratedFile</c>, <c>demotedDeploymentFolder</c>, <c>neutralOperandPair</c> and <c>inactivePreprocessorRegion</c>, in that order, more
 	/// than one when several apply. NULL for a finding that is not Low; empty for a Low finding whose
 	/// reason was not recorded.
 	/// </summary>

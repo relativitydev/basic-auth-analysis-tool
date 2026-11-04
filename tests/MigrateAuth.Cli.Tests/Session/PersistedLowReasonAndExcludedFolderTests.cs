@@ -174,6 +174,9 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "demotedGeneratedFile")]
 	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "demotedDeploymentFolder")]
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "demotedVendoredFile")]
+	[InlineData(LowConfidenceReasons.NeutralOperandPair, "neutralOperandPair")]
+	[InlineData(LowConfidenceReasons.InactivePreprocessorRegion, "inactivePreprocessorRegion")]
+	[InlineData(LowConfidenceReasons.NeutralOperandPair | LowConfidenceReasons.InactivePreprocessorRegion | LowConfidenceReasons.PatternClass, "neutralOperandPair")]
 	public void EachDemotionReasonSurvivesASaveAndLoadUnderItsOwnValue(LowConfidenceReasons reason, string value)
 	{
 		using SavedSession saved = SavedSession.Create(reason);

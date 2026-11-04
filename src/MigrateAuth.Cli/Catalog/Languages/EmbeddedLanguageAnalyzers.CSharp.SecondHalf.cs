@@ -222,12 +222,16 @@ internal static partial class CSharpPatternExpressions
 	public static partial Regex CredentialAssembledAcrossStatementsConstruction();
 
 	/// <summary>
-	/// CS-017. BOTH settings properties are required - a username property alone is not a credential,
-	/// per the catalog - so <c>RelativityUsername</c> (anchored as <c>construct</c>) and
-	/// <c>RelativityPassword</c> both appear, within the same bounded five-line proximity window CS-009, CS-013, CS-016 and CS-019 use for a pair split across statements.
+	/// CS-017. Both settings properties are required: <c>RelativityUsername</c> (anchored as <c>construct</c>) and
+	/// <c>RelativityPassword</c>, within a five-line proximity window.
+	///
+	/// A second pair is read beside the first, appended as one alternative (<see cref="_RSAPI_SETTINGS_PAIR"/>, in
+	/// the corrections file): the Relativity API settings members <c>Rsapi&lt;x&gt;UserName</c> or <c>Username</c> and
+	/// <c>Rsapi&lt;x&gt;Password</c>, without the <c>.Settings.</c> prefix, as two assignments or as one initializer.
 	/// </summary>
 	[GeneratedRegex(
-		@"\.Settings\.(?<construct>RelativityUsername)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\.Settings\.RelativityPassword\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
+		@"\.Settings\.(?<construct>RelativityUsername)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\.Settings\.RelativityPassword\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")"
+			+ @"|" + _RSAPI_SETTINGS_PAIR,
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex SdkSettingsCredentialPropertiesConstruction();

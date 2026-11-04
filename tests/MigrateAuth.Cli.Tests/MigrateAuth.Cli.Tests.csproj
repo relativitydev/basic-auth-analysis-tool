@@ -6,6 +6,11 @@
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
 		<!--
+			Program.cs is the entry point the volume proofs start as a child process, so the
+			test SDK does not generate its empty one.
+		-->
+		<GenerateProgramFile>false</GenerateProgramFile>
+		<!--
 			The test project is not the shipped binary: it runs on the shared framework and
 			is never AOT-published. The Native AOT and diagnosability properties therefore
 			stay in the CLI project, where they describe the artifact they govern.

@@ -18,8 +18,8 @@
 		The copyright holder is provisional until the licence is settled.
 	-->
 	<PropertyGroup>
-		<Version>0.5.1-alpha</Version>
-		<FileVersion>0.5.1.0</FileVersion>
+		<Version>0.6.1-alpha</Version>
+		<FileVersion>0.6.1.0</FileVersion>
 		<Company>NSerio</Company>
 		<Product>migrate-auth</Product>
 		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>

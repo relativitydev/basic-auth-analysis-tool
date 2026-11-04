@@ -4,9 +4,12 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using MigrateAuth.Cli.Catalog;
+using MigrateAuth.Cli.Recognition;
 using MigrateAuth.Cli.Reporting;
 using MigrateAuth.Cli.Session;
 using MigrateAuth.Cli.Tests.Catalog;
+using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
 
@@ -56,6 +59,8 @@ public sealed partial class UserGuideChecklistTests
 	private const string _CAPS_SENTENCE = "a bound on pathological or generated input";
 	private const string _FILE_CAP_TEXT = "2,000";
 	private const string _SCAN_CAP_TEXT = "50,000";
+	private const string _JAVASCRIPT_BARE_MEMBER_TEXT = "bare member name";
+	private const string _JAVASCRIPT_FUNCTION_HEADER_TEXT = "built inside the project's own function";
 
 	private static readonly string[] _statementsOfWhatTheToolDoesNot =
 	[
@@ -199,6 +204,38 @@ public sealed partial class UserGuideChecklistTests
 		Assert.Contains(_CAPS_SENTENCE, limits, StringComparison.Ordinal);
 		Assert.Contains(_FILE_CAP_TEXT, limits, StringComparison.Ordinal);
 		Assert.Contains(_SCAN_CAP_TEXT, limits, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The JavaScript bullet of row 3 names two declared entries: a bare member name in a credential object, and a header value built inside the project's own function.
+	/// Each phrase the bullet quotes is the text of exactly one declared entry of the analyzer, so an entry the bullet names and the analyzer does not declare fails here.
+	/// </summary>
+	[Fact]
+	public void TheJavaScriptBulletOfTheLimitsRowNamesDeclaredEntriesWithTheirOwnText()
+	{
+		string limits = PublicDocuments.ReadUserGuideRow(PublicDocuments.ROW_LIMITS);
+		ImmutableArray<DeclaredUnsupportedCoverage> declared = [.. JavaScriptRegisteredExpressions.Analyzer.LanguageIdentification.DeclaredUnsupportedCoverage];
+
+		Assert.Contains(_JAVASCRIPT_BARE_MEMBER_TEXT, limits, StringComparison.Ordinal);
+		Assert.Contains(_JAVASCRIPT_FUNCTION_HEADER_TEXT, limits, StringComparison.Ordinal);
+		Assert.Single(declared, entry => entry.Construct.Contains(_JAVASCRIPT_BARE_MEMBER_TEXT, StringComparison.Ordinal));
+		Assert.Single(declared, entry => entry.Construct.Contains(_JAVASCRIPT_FUNCTION_HEADER_TEXT, StringComparison.Ordinal));
+	}
+
+	/// <summary>
+	/// Each form the JavaScript bullet of row 3 describes is a sample that no class reads at High or Medium: a bare member name in a credential object that no rule reads in that
+	/// spelling, a literal ending in a colon followed by code in an encoder, and a header value built inside the project's own function.
+	/// </summary>
+	[Theory]
+	[InlineData("const options = { auth: { username, password } };\n")]
+	[InlineData("const response = await got.get(url, { auth: { username, password } });\n")]
+	[InlineData("const header = 'Basic ' + btoa('exampleUser:' + secret);\n")]
+	[InlineData("const SCHEME = 'Basic';\nfunction authHeader(token) {\n\treturn `${SCHEME} ${token}`;\n}\nawait fetch(url, { headers: { Authorization: authHeader(token) } });\n")]
+	public void TheFormsTheJavaScriptBulletDescribesAreNotReadAtHighOrMedium(string source)
+	{
+		ImmutableArray<RecognizedConstruct> constructs = new JavaScriptRecognitionHarness().Recognize(source);
+
+		Assert.DoesNotContain(constructs, construct => construct.Level is ConfidenceLevel.High or ConfidenceLevel.Medium);
 	}
 
 	/// <summary>Row 8 carries both Relativity links.</summary>

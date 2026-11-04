@@ -25,14 +25,14 @@ internal static class JavaScriptRenderedTexts
 
 	private const string _LANGUAGE_NAME = "JavaScript";
 
-	/// <summary>The twelve classes that give advice; the five Low classes carry no template.</summary>
+	/// <summary>The twelve classes that give advice; the seven Low classes carry no template.</summary>
 	public static readonly ImmutableArray<string> TemplatedPatternClasses =
 	[
 		"JS-001", "JS-002", "JS-003", "JS-004", "JS-005", "JS-006", "JS-008", "JS-010", "JS-012", "JS-013", "JS-015", "JS-017"
 	];
 
-	/// <summary>The five Low classes, routed to manual review.</summary>
-	public static readonly ImmutableArray<string> UntemplatedPatternClasses = ["JS-007", "JS-009", "JS-011", "JS-014", "JS-016"];
+	/// <summary>The seven Low classes, routed to manual review.</summary>
+	public static readonly ImmutableArray<string> UntemplatedPatternClasses = ["JS-007", "JS-009", "JS-011", "JS-014", "JS-016", "JS-018", "JS-019"];
 
 	/// <summary>Both flows, in the order the tests report them.</summary>
 	public static readonly ImmutableArray<CredentialFlow> Flows =
@@ -116,7 +116,7 @@ public sealed class JavaScriptRecommendationTemplateTests
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
 	private const int _TEMPLATED_CLASS_COUNT = 12;
-	private const int _LOW_CLASS_COUNT = 5;
+	private const int _LOW_CLASS_COUNT = 7;
 	private const int _CLIENT_CREDENTIALS_VARIANT_COUNT = 2;
 	private const int _AUTHORIZATION_CODE_VARIANT_COUNT = 3;
 
@@ -141,9 +141,9 @@ public sealed class JavaScriptRecommendationTemplateTests
 		"NSerio recommendation"
 	];
 
-	/// <summary>Twelve classes answer for both flows and the five Low classes answer for neither: they are routed to manual review.</summary>
+	/// <summary>Twelve classes answer for both flows and the seven Low classes answer for neither: they are routed to manual review.</summary>
 	[Fact]
-	public void TwelveClassesAnswerForBothFlowsAndFiveLowClassesAnswerForNeither()
+	public void TwelveClassesAnswerForBothFlowsAndSevenLowClassesAnswerForNeither()
 	{
 		ILanguageAnalyzer analyzer = JavaScriptRenderedTexts.Analyzer();
 
@@ -162,9 +162,9 @@ public sealed class JavaScriptRecommendationTemplateTests
 		}
 	}
 
-	/// <summary>Every declared class is either templated or Low: the two lists are the analyzer's seventeen classes, and each Low class declares Low.</summary>
+	/// <summary>Every declared class is either templated or Low: the two lists are the analyzer's nineteen classes, and each Low class declares Low.</summary>
 	[Fact]
-	public void TheTwoListsAreTheAnalyzersSeventeenClassesAndEveryUntemplatedClassIsLow()
+	public void TheTwoListsAreTheAnalyzersNineteenClassesAndEveryUntemplatedClassIsLow()
 	{
 		ILanguageAnalyzer analyzer = JavaScriptRenderedTexts.Analyzer();
 		ImmutableArray<string> listed = [.. JavaScriptRenderedTexts.TemplatedPatternClasses, .. JavaScriptRenderedTexts.UntemplatedPatternClasses];
@@ -185,6 +185,8 @@ public sealed class JavaScriptRecommendationTemplateTests
 	[InlineData("JS-011")]
 	[InlineData("JS-014")]
 	[InlineData("JS-016")]
+	[InlineData("JS-018")]
+	[InlineData("JS-019")]
 	public void ALowClassRendersManualReviewAndNoUseSite(string patternClass)
 	{
 		Finding finding = ReportHarness.FindingAt(

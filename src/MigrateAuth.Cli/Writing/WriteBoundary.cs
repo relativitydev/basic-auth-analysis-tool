@@ -21,9 +21,10 @@ public enum PathOverlap
 }
 
 /// <summary>
-/// What the boundary decided, and what to say when it refused. The message names both
-/// locations by label, because no absolute path may appear in anything the product emits -
-/// a refusal message included.
+/// What the boundary decided, and what to say when it refused. The message names the repository
+/// by its label and the output destination as the user supplied it (the canonical
+/// path is never printed, and the rule that no absolute path is emitted is narrowed to the
+/// console channel only).
 /// </summary>
 public sealed record WriteBoundaryVerdict
 {
@@ -110,7 +111,7 @@ public static class WriteBoundary
 		return new WriteBoundaryVerdict
 		{
 			Overlap = overlap,
-			RefusalMessage = DescribeRefusal(overlap, repository.Label, destination.Label)
+			RefusalMessage = DescribeRefusal(overlap, repository.Label, destination.ConsoleDisplayText)
 		};
 	}
 
@@ -212,15 +213,15 @@ public static class WriteBoundary
 		return overlap;
 	}
 
-	private static string DescribeRefusal(PathOverlap overlap, string repositoryLabel, string destinationLabel)
+	private static string DescribeRefusal(PathOverlap overlap, string repositoryLabel, string destinationText)
 	{
 		string refusalMessage = overlap switch
 		{
-			PathOverlap.SamePath => Format(DESTINATION_COINCIDES_MESSAGE_FORMAT, repositoryLabel, destinationLabel),
+			PathOverlap.SamePath => Format(DESTINATION_COINCIDES_MESSAGE_FORMAT, destinationText, repositoryLabel),
 			PathOverlap.DestinationInsideRepository =>
-				Format(DESTINATION_INSIDE_REPOSITORY_MESSAGE_FORMAT, destinationLabel, repositoryLabel),
+				Format(DESTINATION_INSIDE_REPOSITORY_MESSAGE_FORMAT, destinationText, repositoryLabel),
 			PathOverlap.RepositoryInsideDestination =>
-				Format(REPOSITORY_INSIDE_DESTINATION_MESSAGE_FORMAT, repositoryLabel, destinationLabel),
+				Format(REPOSITORY_INSIDE_DESTINATION_MESSAGE_FORMAT, repositoryLabel, destinationText),
 			_ => string.Empty
 		};
 

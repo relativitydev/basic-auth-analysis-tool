@@ -23,9 +23,9 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 public sealed class JavaScriptAnalyzerTests
 {
 	private const string _CLASS_PREFIX = "JS-";
-	private const int _CLASS_COUNT = 17;
+	private const int _CLASS_COUNT = 19;
 	private const int _CLASSES_THAT_CAN_REACH_HIGH_OR_MEDIUM = 12;
-	private const int _LOW_BY_DEFINITION_CLASS_COUNT = 5;
+	private const int _LOW_BY_DEFINITION_CLASS_COUNT = 7;
 	private const int _ANCHOR_COUNT = 9;
 	private const int _SUBSUMPTION_COUNT = 7;
 	private const string _CONSTRUCT_GROUP = "construct";
@@ -33,14 +33,14 @@ public sealed class JavaScriptAnalyzerTests
 	private const string _SCHEME_GROUP = "scheme";
 	private const string _EXPECTED_SCHEME_TOKEN_BASIC = "Basic";
 	private const int _EXPECTED_CATALOG_MAJOR = 1;
-	private const int _EXPECTED_CATALOG_MINOR = 35;
-	private const int _EXPECTED_CATALOG_PATCH = 0;
+	private const int _EXPECTED_CATALOG_MINOR = 45;
+	private const int _EXPECTED_CATALOG_PATCH = 1;
 	private const int _FLOW_SIGNAL_COUNT = 16;
 
 	private static readonly ImmutableArray<string> _everyClass =
 		[.. Enumerable.Range(1, _CLASS_COUNT).Select(number => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{_CLASS_PREFIX}{number:D3}"))];
 
-	private static readonly ImmutableArray<string> _lowClasses = ["JS-007", "JS-009", "JS-011", "JS-014", "JS-016"];
+	private static readonly ImmutableArray<string> _lowClasses = ["JS-007", "JS-009", "JS-011", "JS-014", "JS-016", "JS-018", "JS-019"];
 
 	private static readonly ImmutableArray<string> _highClasses = ["JS-001", "JS-002", "JS-003", "JS-004", "JS-008", "JS-015"];
 
@@ -63,7 +63,7 @@ public sealed class JavaScriptAnalyzerTests
 	}
 
 	[Fact]
-	public void SeventeenClassesAreDeclaredAndTwelveCanReachHighOrMedium()
+	public void NineteenClassesAreDeclaredAndTwelveCanReachHighOrMedium()
 	{
 		ILanguageAnalyzer analyzer = ReadAnalyzer();
 
@@ -99,14 +99,14 @@ public sealed class JavaScriptAnalyzerTests
 	}
 
 	[Fact]
-	public void EveryRuleAnchorsOnTheConstructGroupAndOnlyTheHeldHeaderClassDeclaresASchemeGroup()
+	public void EveryRuleAnchorsOnTheConstructGroupAndOnlyTheHeldHeaderTheEnvironmentHeaderAndTheSettingsPropertyClassesDeclareASchemeGroup()
 	{
 		Assert.All(ReadAnalyzer().DetectionRulesByPatternClass, entry =>
 		{
 			Assert.Equal(_CONSTRUCT_GROUP, entry.Value.AnchorPosition.CaptureGroupName);
 			Assert.Contains(_CONSTRUCT_GROUP, entry.Value.Expression.GetGroupNames());
 			Assert.Equal(DestinationCertainty.Unknown, entry.Value.DestinationCertainty);
-			Assert.Equal(entry.Key == "JS-017", entry.Value.SymbolicVerdictInterpretation.IsSubjectToSymbolicResolution);
+			Assert.Equal(entry.Key is "JS-017" or "JS-018" or "JS-019", entry.Value.SymbolicVerdictInterpretation.IsSubjectToSymbolicResolution);
 		});
 	}
 
@@ -199,7 +199,7 @@ public sealed class JavaScriptAnalyzerTests
 	}
 
 	[Fact]
-	public void TheCatalogVersionIsOneThirtyFour()
+	public void TheCatalogVersionIsOneFortyFiveOne()
 	{
 		Assert.Equal(new CatalogVersion(_EXPECTED_CATALOG_MAJOR, _EXPECTED_CATALOG_MINOR, _EXPECTED_CATALOG_PATCH), LanguageCatalog.CurrentVersion);
 	}
@@ -225,19 +225,29 @@ public sealed class JavaScriptAnalyzerTests
 	}
 
 	[Theory]
-	[InlineData(".ts")]
-	[InlineData(".tsx")]
-	[InlineData(".mts")]
-	[InlineData(".cts")]
 	[InlineData(".json")]
 	[InlineData(".html")]
 	[InlineData(".vue")]
 	[InlineData("")]
-	public void TypeScriptAndEveryOtherExtensionAreNotAssessed(string extension)
+	public void EveryOtherExtensionIsNotAssessed(string extension)
 	{
 		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
 
 		Assert.False(catalog.TryGetAnalyzerForFileExtension(extension, out _));
+	}
+
+	[Theory]
+	[InlineData(".ts")]
+	[InlineData(".tsx")]
+	[InlineData(".mts")]
+	[InlineData(".cts")]
+	public void TheFourTypeScriptExtensionsAreAssessedByTheTypeScriptAnalyzerAndNotByTheJavaScriptOne(string extension)
+	{
+		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
+
+		Assert.True(catalog.TryGetAnalyzerForFileExtension(extension, out ILanguageAnalyzer? analyzer));
+		Assert.Equal(AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), analyzer!.LanguageIdentification.LanguageNameDerivation(extension, null));
+		Assert.NotEqual(JavaScriptRegisteredExpressions.LANGUAGE_NAME, analyzer.LanguageIdentification.LanguageNameDerivation(extension, null));
 	}
 
 	[Theory]
@@ -285,15 +295,15 @@ public sealed class JavaScriptAnalyzerTests
 	[InlineData("view.tsx")]
 	[InlineData("client.mts")]
 	[InlineData("client.cts")]
-	public void ATypeScriptFileIsNamedTypeScriptAndIsNotAssessedEvenWithANodeFirstLine(string relativePath)
+	public void ATypeScriptFileIsNamedTypeScriptAndAssessedEvenWithANodeFirstLine(string relativePath)
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 
 		AttributedLanguage attributed = new LanguageAttribution(harness.Catalog).Attribute(harness.PathOf(relativePath), "#!/usr/bin/env node");
 
 		Assert.Equal(AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), attributed.LanguageName);
-		Assert.False(attributed.IsRecognized);
-		Assert.Null(attributed.Analyzer);
+		Assert.True(attributed.IsRecognized);
+		Assert.NotNull(attributed.Analyzer);
 	}
 
 	[Theory]
@@ -654,7 +664,9 @@ public sealed class JavaScriptAnalyzerTests
 			("JS-014", ConfidenceLevel.Low, "$.ajax({ url: apiUrl, username: userName, password: secret });\n"),
 			("JS-015", ConfidenceLevel.High, "const response = await got(url, { username: userName, password: secret });\n"),
 			("JS-016", ConfidenceLevel.Low, "request.get(url, { auth: { user: userName, pass: secret, sendImmediately: false } });\n"),
-			("JS-017", ConfidenceLevel.Medium, "const encodedHeader = 'Basic ' + encodedPair;\nawait fetch(url, { headers: { Authorization: encodedHeader } });\n")
+			("JS-017", ConfidenceLevel.Medium, "const encodedHeader = 'Basic ' + encodedPair;\nawait fetch(url, { headers: { Authorization: encodedHeader } });\n"),
+			("JS-018", ConfidenceLevel.Low, "await fetch(url, { headers: { Authorization: process.env.API_AUTH } });\n"),
+			("JS-019", ConfidenceLevel.Low, "const settings = {\n\tserviceAuthorization: process.env.API_AUTH\n};\nawait fetch(url, { headers: { Authorization: settings.serviceAuthorization } });\n")
 		];
 	}
 }

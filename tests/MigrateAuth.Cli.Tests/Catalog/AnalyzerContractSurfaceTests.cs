@@ -88,7 +88,7 @@ public sealed class AnalyzerContractSurfaceTests
 	public void RuleElementCarriesExactlyEightRequiredFieldsPerPatternClass()
 	{
 		PropertyInfo[] fields = typeof(DetectionRule).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-		PropertyInfo[] requiredAndEarlierOptionalFields = [.. fields.Where(field => field.Name != nameof(DetectionRule.VariableUse))];
+		PropertyInfo[] requiredAndEarlierOptionalFields = [.. fields.Where(field => field.Name != nameof(DetectionRule.VariableUse) && field.Name != nameof(DetectionRule.LowWhenBothOperandsAreNeutral))];
 
 		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT, requiredAndEarlierOptionalFields.Length);
 	}
@@ -111,8 +111,9 @@ public sealed class AnalyzerContractSurfaceTests
 			DisplayName = "Probe rule without a variable use"
 		};
 
-		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT + 1, typeof(DetectionRule).GetProperties(BindingFlags.Public | BindingFlags.Instance).Length);
+		Assert.Equal(_EXPECTED_DETECTION_RULE_FIELD_COUNT + 2, typeof(DetectionRule).GetProperties(BindingFlags.Public | BindingFlags.Instance).Length);
 		Assert.Null(rule.VariableUse);
+		Assert.Null(rule.LowWhenBothOperandsAreNeutral);
 	}
 
 	[Fact]

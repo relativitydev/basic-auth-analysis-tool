@@ -47,6 +47,14 @@ public static class WorstCaseFileContent
 	private const string _JAVASCRIPT_COMMENT_PREFIX = "// Ordinary arithmetic for ";
 	private const string _JAVASCRIPT_TOTAL_DECLARATION = "let total = 0;";
 	private const string _JAVASCRIPT_FUNCTION_FORMAT = "\nfunction addAmount{0}(amount) {{\n\ttotal += amount * {0};\n\treturn total;\n}}\n";
+	private const string _TYPESCRIPT_ANCHOR_LINE = "fetch(\"https://status.invalid/health\");\n";
+	private const string _TYPESCRIPT_COMMENT_PREFIX = "// Ordinary typed arithmetic for ";
+	private const string _TYPESCRIPT_TOTAL_DECLARATION = "let total: number = 0;";
+	private const string _TYPESCRIPT_FUNCTION_FORMAT = "\nfunction addAmount{0}(amount: number): number {{\n\ttotal += amount * {0};\n\treturn total;\n}}\n";
+	private const string _TYPESCRIPT_TSX_FUNCTION_FORMAT = "\nfunction Amount{0}(props: {{ amount: number }}): JSX.Element {{\n\treturn <span title=\"{0}\">{{props.amount * {0}}}</span>;\n}}\n";
+	private const string _TYPESCRIPT_DECLARATION_FORMAT = "\nexport declare function addAmount{0}(amount: number): number;\n";
+	private const string _TYPESCRIPT_DECLARATION_ANCHOR_FORMAT = "export declare const endpoint{0}: \"https://status.invalid/health{0}\";\n";
+	private const string _TYPESCRIPT_DECLARATION_HEADER = "export {};\n";
 	private const string _POWERSHELL_ANCHOR_LINE = "$credentialSource = 'configured elsewhere'\n";
 	private const string _POWERSHELL_FUNCTION_FORMAT = "\nfunction Add-Amount{0}\n{{\n\tparam([int]$Amount)\n\t$script:total += $Amount * {0}\n\treturn $script:total\n}}\n";
 
@@ -87,6 +95,9 @@ public static class WorstCaseFileContent
 			WorstCaseFileKind.ShellShebangScript => Encode(ShellText(options, plan.Index, typeName, shebang: true)),
 			WorstCaseFileKind.JavaScriptSource or WorstCaseFileKind.JavaScriptJsxSource => Encode(JavaScriptText(options, plan.Index, typeName, hashbang: false)),
 			WorstCaseFileKind.JavaScriptNodeScript => Encode(JavaScriptText(options, plan.Index, typeName, hashbang: true)),
+			WorstCaseFileKind.TypeScriptSource or WorstCaseFileKind.TypeScriptModuleSource or WorstCaseFileKind.TypeScriptCommonJsSource => Encode(TypeScriptText(options, plan.Index, typeName, isTsx: false)),
+			WorstCaseFileKind.TypeScriptTsxSource => Encode(TypeScriptText(options, plan.Index, typeName, isTsx: true)),
+			WorstCaseFileKind.TypeScriptDeclarationFile or WorstCaseFileKind.TypeScriptModuleDeclarationFile or WorstCaseFileKind.TypeScriptCommonJsDeclarationFile => Encode(TypeScriptDeclarationText(options, plan.Index)),
 			_ => Encode(FillerText(options, plan.Index, typeName))
 		};
 	}
@@ -307,6 +318,71 @@ public static class WorstCaseFileContent
 		for (int number = 0; number < functionCount; number++)
 		{
 			builder.Append(string.Format(CultureInfo.InvariantCulture, _JAVASCRIPT_FUNCTION_FORMAT, number));
+		}
+
+		return builder.ToString();
+	}
+
+	private static int FunctionCountOf(WorstCaseTreeOptions options, long index)
+	{
+		int sizeRoll = DeterministicRandom.Below(_SIZE_DENOMINATOR, options.Seed, index, _STREAM_SIZE);
+		int functionCount = _SMALL_METHOD_COUNT;
+
+		if (sizeRoll < _LARGE_SIZE_THRESHOLD)
+		{
+			functionCount = _LARGE_METHOD_COUNT;
+		}
+		else if (sizeRoll < _MEDIUM_SIZE_THRESHOLD)
+		{
+			functionCount = _MEDIUM_METHOD_COUNT;
+		}
+
+		return functionCount;
+	}
+
+	private static bool MentionsAnchor(WorstCaseTreeOptions options, long index)
+	{
+		return DeterministicRandom.Below(_ANCHOR_SHARE_DENOMINATOR, options.Seed, index, _STREAM_SHAPE) < _ANCHOR_SHARE_NUMERATOR;
+	}
+
+	/// <summary>
+	/// Ordinary typed TypeScript with no construct, in the same small, medium and large mix as the C# filler; a share of the files still carry one ordinary <c>fetch</c> call to a URL with no credential,
+	/// a content-only preselection anchor (<c>://</c>). The <c>.tsx</c> form holds element templates instead of plain functions.
+	/// </summary>
+	private static string TypeScriptText(WorstCaseTreeOptions options, long index, string functionName, bool isTsx)
+	{
+		StringBuilder builder = new();
+		int functionCount = FunctionCountOf(options, index);
+		string functionFormat = isTsx ? _TYPESCRIPT_TSX_FUNCTION_FORMAT : _TYPESCRIPT_FUNCTION_FORMAT;
+
+		builder.Append(_TYPESCRIPT_COMMENT_PREFIX).Append(functionName).Append(_LINE_END);
+		builder.Append(_TYPESCRIPT_TOTAL_DECLARATION).Append(_LINE_END);
+		builder.Append(MentionsAnchor(options, index) ? _TYPESCRIPT_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, functionFormat, number));
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// A declaration file of ambient function declarations in the same small, medium and large mix. A file that mentions an anchor word is anchor-dense: every declaration is followed by a
+	/// string-literal constant holding a URL, so the preselection anchor occurs once per declaration.
+	/// </summary>
+	private static string TypeScriptDeclarationText(WorstCaseTreeOptions options, long index)
+	{
+		StringBuilder builder = new();
+		int declarationCount = FunctionCountOf(options, index);
+		bool anchorDense = MentionsAnchor(options, index);
+
+		builder.Append(_TYPESCRIPT_DECLARATION_HEADER);
+
+		for (int number = 0; number < declarationCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _TYPESCRIPT_DECLARATION_FORMAT, number));
+			builder.Append(anchorDense ? string.Format(CultureInfo.InvariantCulture, _TYPESCRIPT_DECLARATION_ANCHOR_FORMAT, number) : string.Empty);
 		}
 
 		return builder.ToString();

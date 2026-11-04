@@ -44,6 +44,9 @@ public sealed class CSharpAnalyzerTests
 	private const string _CS_018 = "CS-018";
 	private const string _CS_019 = "CS-019";
 
+	private const int _PATTERN_CLASS_COUNT = 19;
+	private const int _PRESELECTION_ANCHOR_COUNT = 16;
+
 	/// <summary>The fence lines that wrap a template's source form.</summary>
 	private const string _CODE_FENCE_OPENING = "```csharp\n";
 	private const string _CODE_FENCE_CLOSING = "\n```";
@@ -83,19 +86,19 @@ public sealed class CSharpAnalyzerTests
 	}
 
 	[Fact]
-	public void EighteenPatternClassesAreDeclared()
+	public void NineteenPatternClassesAreDeclared()
 	{
 		ILanguageAnalyzer analyzer = ReadAnalyzer();
 
-		Assert.Equal(18, analyzer.DetectionRulesByPatternClass.Count);
+		Assert.Equal(_PATTERN_CLASS_COUNT, analyzer.DetectionRulesByPatternClass.Count);
 	}
 
 	[Fact]
-	public void FourteenPreselectionAnchorsAreDeclared()
+	public void SixteenPreselectionAnchorsAreDeclared()
 	{
 		ILanguageAnalyzer analyzer = ReadAnalyzer();
 
-		Assert.Equal(14, analyzer.CandidateSelectionAndRecommendation.PreselectionAnchors.Count);
+		Assert.Equal(_PRESELECTION_ANCHOR_COUNT, analyzer.CandidateSelectionAndRecommendation.PreselectionAnchors.Count);
 	}
 
 	// ------------------------------------------------------------------------------------------
@@ -417,11 +420,11 @@ public sealed class CSharpAnalyzerTests
 	}
 
 	/// <summary>
-	/// The scheme verdict suppresses CS-003 itself; the nested CS-008 match is a separate rule with
-	/// no scheme argument of its own, so it is unaffected and still reports the bare construction.
+	/// The scheme verdict suppresses CS-003 itself, and CS-008 declines a credential constructed inside a
+	/// cache <c>Add</c> whose scheme is not Basic, so nothing is reported.
 	/// </summary>
 	[Fact]
-	public void CS003SuppressesItselfWhenTheResolvedSchemeIsNotBasicButCS008StillFires()
+	public void CS003SuppressesItselfWhenTheResolvedSchemeIsNotBasicAndCS008DeclinesTheConstructionInTheAdd()
 	{
 		CSharpRecognitionHarness harness = new();
 		const string source = """
@@ -431,8 +434,7 @@ public sealed class CSharpAnalyzerTests
 
 		ImmutableArray<RecognizedConstruct> recognized = harness.Recognize(source);
 
-		RecognizedConstruct construct = Assert.Single(recognized);
-		Assert.Equal(_CS_008, construct.PatternClassIdentifier);
+		Assert.Empty(recognized);
 	}
 
 	/// <summary>The bounded argument expression: member-access chains for both halves of the pair.</summary>

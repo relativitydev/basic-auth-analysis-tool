@@ -43,7 +43,8 @@ internal sealed class PipelineHarness : IDisposable
 		LanguageCatalog catalog,
 		ConfidenceLevel minimumLevel,
 		TimeProvider clock,
-		EffectiveConfiguration? configuration = null)
+		EffectiveConfiguration? configuration = null,
+		string? destinationConsoleDisplayText = null)
 	{
 		_fixture = fixture;
 		_destination = TemporaryFolder.Create();
@@ -52,7 +53,9 @@ internal sealed class PipelineHarness : IDisposable
 		Configuration = configuration ?? BuildConfiguration(minimumLevel);
 		Output = new StringWriter();
 		Clock = clock;
-		Destination = DocumentationDestinationFolderPath.FromSuppliedText(_destination.Path);
+		Destination = destinationConsoleDisplayText is null
+			? DocumentationDestinationFolderPath.FromSuppliedText(_destination.Path)
+			: DocumentationDestinationFolderPath.FromResolvedText(_destination.Path, destinationConsoleDisplayText);
 		StateStore = new SessionStateStore(Destination);
 		State = SessionState.Fresh(catalog.Version, fixture.Repository.Label);
 		Runner = BuildRunner();
@@ -103,6 +106,21 @@ internal sealed class PipelineHarness : IDisposable
 			PipelineLanguageAnalyzer.BuildCatalog(languageFallbackText),
 			minimumLevel,
 			new SteppingTimeProvider());
+	}
+
+	/// <summary>
+	/// A harness whose destination is shown on the console as <paramref name="destinationConsoleDisplayText"/>
+	/// (for example <c>./Outputs</c>) while it is written to a real temporary folder, so a test can tell the text
+	/// the user supplied from the canonical path.
+	/// </summary>
+	internal static PipelineHarness CreateWithDestinationShownAs(string destinationConsoleDisplayText)
+	{
+		return new PipelineHarness(
+			RepositoryFixture.CreateEmpty(),
+			PipelineLanguageAnalyzer.BuildCatalog(null),
+			ConfidenceLevels.WIDEST,
+			new SteppingTimeProvider(),
+			destinationConsoleDisplayText: destinationConsoleDisplayText);
 	}
 
 	/// <summary>

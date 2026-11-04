@@ -33,15 +33,16 @@ public sealed record ArtifactWriteResult
 	public required string FileNameWritten { get; init; }
 
 	/// <summary>
-	/// The output folder's label (its own name), so the file named above can be found. Empty
-	/// when nothing was written.
+	/// The output folder as the user supplied it (<see cref="DocumentationDestinationFolderPath.ConsoleDisplayText"/>),
+	/// so the file named above can be found. For the console only: never the canonical path, and never
+	/// written to the report or the data artifact. Empty when nothing was written.
 	/// </summary>
-	public string DestinationLabel { get; init; } = string.Empty;
+	public string DestinationConsoleText { get; init; } = string.Empty;
 
 	/// <summary>Why nothing was written.</summary>
 	public required ArtifactWriteRefusal Refusal { get; init; }
 
-	/// <summary>What to say about it, by label and never by path. Empty on success.</summary>
+	/// <summary>What to say about it, naming the output folder as the user supplied it and never by its canonical path. Empty on success.</summary>
 	public required string RefusalMessage { get; init; }
 }
 
@@ -268,7 +269,7 @@ public sealed class AtomicArtifactWriter
 			{
 				Wrote = true,
 				FileNameWritten = fileNameWritten,
-				DestinationLabel = _destination.Label,
+				DestinationConsoleText = _destination.ConsoleDisplayText,
 				Refusal = ArtifactWriteRefusal.None,
 				RefusalMessage = string.Empty
 			};
@@ -287,13 +288,13 @@ public sealed class AtomicArtifactWriter
 		string.Format(
 			CultureInfo.InvariantCulture,
 			DESTINATION_NOT_WRITABLE_MESSAGE_FORMAT,
-			_destination.Label);
+			_destination.ConsoleDisplayText);
 
 	private string DescribeCollisionLimit() =>
 		string.Format(
 			CultureInfo.InvariantCulture,
 			NAME_COLLISION_LIMIT_MESSAGE_FORMAT,
-			_destination.Label);
+			_destination.ConsoleDisplayText);
 
 	private static ArtifactWriteResult Refused(ArtifactWriteRefusal refusal, string refusalMessage) =>
 		new()

@@ -89,13 +89,13 @@ public sealed class JavaScriptPartAIdentifierTests
 		Assert.Contains(PublicDocumentChecks.WhichFlowProblems(withoutLimit, Rules()), problem => problem.Contains(PublicDocumentChecks.CROSS_FILE_LIMIT_PHRASE, StringComparison.Ordinal));
 	}
 
-	/// <summary>The five classes that are Low by definition are the ones whose "Which flow" paragraph says there is no flow.</summary>
+	/// <summary>The seven classes that are Low by definition are the ones whose "Which flow" paragraph says there is no flow.</summary>
 	[Fact]
 	public void TheClassesThatAreLowByDefinitionAreTheOnesThatSayThereIsNoFlow()
 	{
 		string[] lowClasses = [.. Rules().Where(entry => entry.Value.BaseLevel == ConfidenceLevel.Low).Select(entry => entry.Key).Order(StringComparer.Ordinal)];
 
-		Assert.Equal(["JS-007", "JS-009", "JS-011", "JS-014", "JS-016"], lowClasses);
+		Assert.Equal(["JS-007", "JS-009", "JS-011", "JS-014", "JS-016", "JS-018", "JS-019"], lowClasses);
 	}
 
 	private static string PartA()

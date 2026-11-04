@@ -60,7 +60,11 @@ public sealed class MatchBoundTimingTests
 
 	private const string _CS_009 = "CS-009";
 
+	private const string _CS_017 = "CS-017";
+
 	private const string _CS_019 = "CS-019";
+
+	private const string _CS_020 = "CS-020";
 
 	private const string _MATCH_DENSITY_SHAPE_NAME = "every-class-at-match-density";
 
@@ -163,6 +167,41 @@ public sealed class MatchBoundTimingTests
 			shape => Assert.True(
 				MatchBoundTimingHarness.EnumerationAdvances(expression, RecognitionHarness.Normalize(shape.Text)),
 				patternClass + _PAIR_SEPARATOR + shape.Name));
+	}
+
+	/// <summary>
+	/// The shapes of three `CSharp` detection windows, each as its rule, its shape, the text that opens its window or its gap
+	/// and a closed form its rule reads: the member store alternating with a sink, on lines of the window's length, and alone; the brace-free run of the
+	/// user-name half of the <c>Rsapi</c> pair; and the unterminated block comment in the argument gap of the proxy factory call.
+	/// </summary>
+	public static IEnumerable<object[]> ShapesOfTheCSharpDetectionCorrections()
+	{
+		string memberChain = $"{MatchBoundStressSet.MEMBER_STORE_STATEMENT}{_LINE_BREAK}{MatchBoundStressSet.MEMBER_SINK_DECLARATION_STATEMENT}{_LINE_BREAK}\t\tmemberMailer.Credentials = settings.MailCredential;";
+
+		return
+		[
+			[_CS_019, MatchBoundStressSet.ALTERNATING_MEMBER_STORE_AND_SINK_SHAPE_NAME, MatchBoundStressSet.MEMBER_STORE_STATEMENT, memberChain],
+			[_CS_019, MatchBoundStressSet.ALTERNATING_MEMBER_STORE_AND_SINK_ON_LONG_LINES_SHAPE_NAME, MatchBoundStressSet.MEMBER_STORE_STATEMENT, memberChain],
+			[_CS_019, MatchBoundStressSet.MEMBER_STORES_ONLY_SHAPE_NAME, MatchBoundStressSet.MEMBER_STORE_STATEMENT, memberChain],
+			[_CS_017, MatchBoundStressSet.BRACE_FREE_REPEATED_RSAPI_USER_NAME_SHAPE_NAME, MatchBoundStressSet.RSAPI_USER_NAME_ENTRY.TrimEnd(), "settings.RsapiUserName = userName;\nsettings.RsapiPassword = password;"],
+			[_CS_020, MatchBoundStressSet.UNTERMINATED_PROXY_FACTORY_COMMENT_SHAPE_NAME, MatchBoundStressSet.UNTERMINATED_PROXY_FACTORY_COMMENT_CALL, "var proxy = helper.GetProxy<IExampleService>(userName, password);"]
+		];
+	}
+
+	/// <summary>
+	/// EACH OF THESE SHAPES IS REGISTERED AS TERMINATING. The shape is in the stress set and carries the text that opens its window or its gap, its rule reads the
+	/// closed form of that window, and its rule's enumeration advances over the shape, so a regression that made one of these windows repeat a match fails here by name.
+	/// </summary>
+	[Theory]
+	[MemberData(nameof(ShapesOfTheCSharpDetectionCorrections))]
+	public void AShapeOfTheCSharpDetectionCorrectionsIsInTheStressSetAndItsRuleTerminatesThere(string patternClass, string shapeName, string opening, string closedForm)
+	{
+		Regex expression = new CSharpRecognitionHarness().Analyzer.DetectionRulesByPatternClass[patternClass].Expression;
+		MatchBoundStressShape shape = MatchBoundStressSet.Build().Single(candidate => candidate.Name == shapeName);
+
+		Assert.Contains(opening, shape.Text, StringComparison.Ordinal);
+		Assert.True(expression.IsMatch(RecognitionHarness.Normalize(closedForm)), patternClass);
+		Assert.True(MatchBoundTimingHarness.EnumerationAdvances(expression, RecognitionHarness.Normalize(shape.Text)), $"{patternClass}{_PAIR_SEPARATOR}{shapeName}");
 	}
 
 	[Fact]

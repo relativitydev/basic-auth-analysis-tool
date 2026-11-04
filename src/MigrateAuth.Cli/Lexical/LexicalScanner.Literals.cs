@@ -876,25 +876,36 @@ public sealed partial class LexicalScanner
 	}
 
 	/// <summary>
-	/// A hole that closes on the line of its here-document openings (a quoted substitution that holds <c>cat</c> and <c>&lt;&lt;EOF</c> and closes on the same line) has their bodies read as a shell (<c>bash</c> 5.2) reads them: from the lines after the line that ends the command that holds the substitution, and reads them
+	/// A hole that closed on the line of its here-document openings (a quoted substitution that holds <c>cat</c>
+	/// and <c>&lt;&lt;EOF</c> and closes on the same line) did not read their bodies: a shell (<c>bash</c> 5.2)
+	/// reads them from the lines after the line that ends the command that holds the substitution, and reads them
 	/// BEFORE the bodies of the openings that came earlier on that command, so they go to the front of the queue of
 	/// the region that walked the literal, which drains them at its own line feed. The queue's cap holds: an opening
-	/// past it is left as code, as at its own opening.
+	/// past it is left as code, as at its own opening: its marking as a delimiter is reset to code, the zone an opening refused where it stands takes.
+	///
+	/// A HOLE IN THE BODY OF A HERE-DOCUMENT HANDS NOTHING OVER. The literal that holds the hole is itself a here-document body (it defers its body), and
+	/// in every shell an opening in such a hole has an empty body: the lines after the outer terminator are commands. The openings keep their marking as
+	/// delimiters, are queued nowhere and read no body; the hand-over above is what a hole in code and in a double-quoted string does.
 	/// </summary>
 	private static void HandTheLeftOverBodiesToTheHoldingRegion(ScanContext context, LiteralOccurrence occurrence, RegionResult hole)
 	{
 		CodeRegion holder = occurrence.Region;
+		List<LiteralOccurrence> waitingBodies = occurrence.DefersItsBody ? [] : hole.LeftOverBodies ?? [];
 
-		foreach (LiteralOccurrence waiting in hole.LeftOverBodies ?? [])
+		foreach (LiteralOccurrence waiting in waitingBodies)
 		{
 			bool isFull = holder.IsOutermost ? context.PendingBodiesAreFull : holder.State?.PendingBodiesAreFull is not false;
 			LiteralOccurrence handedOver = waiting with { Region = holder };
 
-			if (!isFull && holder.IsOutermost)
+			if (isFull)
+			{
+				context.Mark(waiting.OpeningPosition, waiting.BodyStart - waiting.OpeningPosition, LexicalZone.Code);
+			}
+			else if (holder.IsOutermost)
 			{
 				context.DeferTheBodyOfAClosedHole(handedOver);
 			}
-			else if (!isFull)
+			else
 			{
 				holder.State!.DeferTheBodyOfAClosedHole(handedOver);
 			}

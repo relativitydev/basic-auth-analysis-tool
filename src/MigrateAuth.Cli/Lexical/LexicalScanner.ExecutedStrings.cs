@@ -144,6 +144,16 @@ public sealed partial class LexicalScanner
 	/// </summary>
 	private bool ReadTheSpanAsCode(ScanContext context, int start, int end, char? escape, string escapable)
 	{
+		return ReadTheSpanAsCode(context, start, end, escape, escapable, dropsThePendingBodies: false);
+	}
+
+	/// <summary>
+	/// The same read, with the decision about a here-document body left pending at the end of the nested scan: an executed string abandons the nested read, and the
+	/// span stays what the outer scan made it; a code span drops each pending opening, because a here-document opened in a span that holds no line feed has an
+	/// empty body in every shell.
+	/// </summary>
+	private bool ReadTheSpanAsCode(ScanContext context, int start, int end, char? escape, string escapable, bool dropsThePendingBodies)
+	{
 		bool isRead = false;
 
 		if (context.ExecutedDepth < LexicalEnginePolicy.MAXIMUM_EXECUTED_STRING_NESTING_DEPTH)
@@ -158,7 +168,15 @@ public sealed partial class LexicalScanner
 				Depth = 0,
 				IsOutermost = true
 			});
-			nested.AbandonIfBodiesAreStillPending();
+
+			if (dropsThePendingBodies)
+			{
+				DropThePendingOpenings(nested);
+			}
+			else
+			{
+				nested.AbandonIfBodiesAreStillPending();
+			}
 
 			if (nested.WasAbandonedForTheLexicalBudget)
 			{

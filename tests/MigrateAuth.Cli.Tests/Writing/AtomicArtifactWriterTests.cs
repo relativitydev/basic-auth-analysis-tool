@@ -21,6 +21,7 @@ public sealed class AtomicArtifactWriterTests
 	private const string _SECOND_BODY = "# Report two\n\nCoverage: nothing was scanned either.\n";
 	private const string _TEMPORARY_FILE_SEARCH_PATTERN = "*.writing";
 	private const string _OUTPUT_FOLDER_NAME = "output";
+	private const string _RELATIVE_DESTINATION_TEXT = "./Outputs";
 
 	private static readonly DateOnly _artifactDate = new(2026, 9, 18);
 
@@ -161,6 +162,85 @@ public sealed class AtomicArtifactWriterTests
 		Assert.Equal(string.Empty, result.FileNameWritten);
 		Assert.False(Directory.Exists(destinationPath));
 		Assert.Contains(WriteBoundary.REFUSAL_REMEDY_MESSAGE, result.RefusalMessage, StringComparison.Ordinal);
+	}
+
+	/// <summary>The overlap refusal names the destination as supplied, never its canonical path.</summary>
+	[Fact]
+	public void AnOverlapRefusalNamesTheSuppliedDestinationAndNotTheCanonicalPath()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+
+		string destinationPath = Path.Combine(repositoryFolder.Path, _OUTPUT_FOLDER_NAME);
+		AtomicArtifactWriter writer = new(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromResolvedText(destinationPath, _RELATIVE_DESTINATION_TEXT));
+
+		ArtifactWriteResult result = writer.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.Equal(ArtifactWriteRefusal.DestinationOverlapsRepository, result.Refusal);
+		Assert.Contains(_RELATIVE_DESTINATION_TEXT, result.RefusalMessage, StringComparison.Ordinal);
+		Assert.DoesNotContain(repositoryFolder.Path, result.RefusalMessage, StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>The cannot-be-written-to text names the folder as supplied (relative here), not its label or canonical path.</summary>
+	[Fact]
+	public void ADestinationThatCannotBeWrittenToIsNamedAsSuppliedRelativeToTheWorkingFolder()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder blockingFolder = TemporaryFolder.Create();
+
+		string blockingFile = blockingFolder.Combine("blocker.txt");
+		File.WriteAllText(blockingFile, "placeholder");
+		AtomicArtifactWriter writer = new(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromResolvedText(blockingFile, _RELATIVE_DESTINATION_TEXT));
+
+		ArtifactWriteResult result = writer.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.False(result.Wrote);
+		Assert.Equal(ArtifactWriteRefusal.DestinationNotWritable, result.Refusal);
+		Assert.Equal(
+			string.Format(
+				System.Globalization.CultureInfo.InvariantCulture,
+				AtomicArtifactWriter.DESTINATION_NOT_WRITABLE_MESSAGE_FORMAT,
+				_RELATIVE_DESTINATION_TEXT),
+			result.RefusalMessage);
+		Assert.DoesNotContain(blockingFile, result.RefusalMessage, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void ADestinationThatCannotBeWrittenToIsNamedAsSuppliedWhenItIsAbsolute()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder blockingFolder = TemporaryFolder.Create();
+
+		string blockingFile = blockingFolder.Combine("blocker.txt");
+		File.WriteAllText(blockingFile, "placeholder");
+		AtomicArtifactWriter writer = new(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromSuppliedText(blockingFile));
+
+		ArtifactWriteResult result = writer.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.Equal(ArtifactWriteRefusal.DestinationNotWritable, result.Refusal);
+		Assert.Contains(blockingFile, result.RefusalMessage, StringComparison.Ordinal);
+	}
+
+	/// <summary>A successful write carries the supplied form of the folder for the "Written" line, and never the canonical path.</summary>
+	[Fact]
+	public void ASuccessfulWriteCarriesTheSuppliedFolderTextForTheConsole()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder destinationFolder = TemporaryFolder.Create();
+
+		AtomicArtifactWriter writer = new(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromResolvedText(destinationFolder.Path, _RELATIVE_DESTINATION_TEXT));
+
+		ArtifactWriteResult result = writer.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.True(result.Wrote);
+		Assert.Equal(_RELATIVE_DESTINATION_TEXT, result.DestinationConsoleText);
 	}
 
 	[Fact]

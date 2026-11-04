@@ -18,11 +18,11 @@ internal static class CSharpRenderedTexts
 
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
-	/// <summary>The sixteen classes that have a recommendation template.</summary>
+	/// <summary>The seventeen classes that have a recommendation template.</summary>
 	public static readonly ImmutableArray<string> TemplatedPatternClasses =
 	[
 		"CS-001", "CS-002", "CS-003", "CS-004", "CS-005", "CS-006", "CS-007", "CS-008", "CS-009",
-		"CS-012", "CS-013", "CS-014", "CS-015", "CS-016", "CS-017", "CS-018"
+		"CS-012", "CS-013", "CS-014", "CS-015", "CS-016", "CS-017", "CS-018", "CS-020"
 	];
 
 	/// <summary>Both flows, in the order the tests report them.</summary>

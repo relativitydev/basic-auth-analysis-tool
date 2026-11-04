@@ -20,6 +20,7 @@ public sealed class WriteBoundaryTests
 	private const string _OUTPUT_FOLDER_NAME = "output";
 	private const string _NESTED_FOLDER_NAME = "docs";
 	private const string _PARENT_SEGMENT = "..";
+	private const string _RELATIVE_DESTINATION_TEXT = "./Outputs";
 
 	[Fact]
 	public void TheRefusalExitCodeIsFour()
@@ -184,9 +185,9 @@ public sealed class WriteBoundaryTests
 	}
 
 	/// <summary>
-	/// Every refusal names both locations by label and never by path, because no
-	/// absolute path may appear in anything the product emits - a refusal message included. It also says what
-	/// to do, because the collision is what happens on the most natural invocation there is.
+	/// Every refusal names the repository by label and the destination as the user supplied it, and
+	/// never by the canonical path. It also says what to do, because the collision is what happens on the most
+	/// natural invocation there is.
 	/// </summary>
 	[Theory]
 	[InlineData(PathOverlap.SamePath)]
@@ -197,11 +198,55 @@ public sealed class WriteBoundaryTests
 		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
 
 		(string repositoryPath, string destinationPath) = BuildOverlappingPair(repositoryFolder.Path, expectedOverlap);
-		WriteBoundaryVerdict verdict = Evaluate(repositoryPath, destinationPath);
+		WriteBoundaryVerdict verdict = WriteBoundary.Evaluate(
+			RepositoryFolderPath.FromSuppliedText(repositoryPath),
+			DocumentationDestinationFolderPath.FromResolvedText(destinationPath, _RELATIVE_DESTINATION_TEXT));
 
 		Assert.Equal(expectedOverlap, verdict.Overlap);
 		Assert.DoesNotContain(repositoryFolder.Path, verdict.RefusalMessage, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains(_RELATIVE_DESTINATION_TEXT, verdict.RefusalMessage, StringComparison.Ordinal);
 		Assert.Contains(WriteBoundary.REFUSAL_REMEDY_MESSAGE, verdict.RefusalMessage, StringComparison.Ordinal);
+	}
+
+	/// <summary>The destination text is what the user supplied: an absolute one is echoed as supplied, a relative one as <c>./</c>-relative.</summary>
+	[Fact]
+	public void TheRefusalEchoesAnAbsoluteDestinationAsSupplied()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+
+		WriteBoundaryVerdict verdict = Evaluate(repositoryFolder.Path, repositoryFolder.Path);
+
+		Assert.Equal(PathOverlap.SamePath, verdict.Overlap);
+		Assert.Contains(
+			string.Format(
+				System.Globalization.CultureInfo.InvariantCulture,
+				WriteBoundary.DESTINATION_COINCIDES_MESSAGE_FORMAT,
+				repositoryFolder.Path),
+			verdict.RefusalMessage,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void TheRefusalNamesTheDestinationNotItsLabelWhenTheRepositoryIsInsideIt()
+	{
+		using TemporaryFolder destinationFolder = TemporaryFolder.Create();
+
+		string nestedRepositoryPath = Path.Combine(destinationFolder.Path, "sample-repo");
+		Directory.CreateDirectory(nestedRepositoryPath);
+
+		WriteBoundaryVerdict verdict = WriteBoundary.Evaluate(
+			RepositoryFolderPath.FromSuppliedText(nestedRepositoryPath),
+			DocumentationDestinationFolderPath.FromResolvedText(destinationFolder.Path, _RELATIVE_DESTINATION_TEXT));
+
+		Assert.Equal(PathOverlap.RepositoryInsideDestination, verdict.Overlap);
+		Assert.Contains(
+			string.Format(
+				System.Globalization.CultureInfo.InvariantCulture,
+				WriteBoundary.REPOSITORY_INSIDE_DESTINATION_MESSAGE_FORMAT,
+				"sample-repo",
+				_RELATIVE_DESTINATION_TEXT),
+			verdict.RefusalMessage,
+			StringComparison.Ordinal);
 	}
 
 	/// <summary>

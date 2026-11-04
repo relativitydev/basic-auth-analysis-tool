@@ -65,6 +65,11 @@ public static class WorstCaseTreeGenerator
 			throw new ArgumentException("Both findings caps and the progress block size must be positive.", nameof(options));
 		}
 
+		if (options.TypeScriptSourceBasisPoints < 0 || options.TypeScriptSourceBasisPoints > WorstCaseTreePlanner.BASIS_POINT_DENOMINATOR)
+		{
+			throw new ArgumentException("The TypeScript share must be between 0 and 10,000 basis points.", nameof(options));
+		}
+
 		if (options.FileCount <= options.HeavyFileCount)
 		{
 			throw new ArgumentException("The tree must hold more files than the heavy files that lead it.", nameof(options));

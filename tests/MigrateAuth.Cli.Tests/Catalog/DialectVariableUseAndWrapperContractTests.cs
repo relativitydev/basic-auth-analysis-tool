@@ -25,6 +25,15 @@ public sealed class DialectVariableUseAndWrapperContractTests
 	private const int _FIRST_EXECUTED_STRING_CODE = _LAST_PRECEDENCE_CODE + 1;
 	private const int _LAST_EXECUTED_STRING_CODE = _FIRST_EXECUTED_STRING_CODE + 5;
 	private const int _DEMOTION_KIND_CODE = _LAST_EXECUTED_STRING_CODE + 1;
+	private const int _CODE_SPAN_CODE = _DEMOTION_KIND_CODE + 1;
+	private const int _SOURCE_KIND_CODE = _CODE_SPAN_CODE + 1;
+	private const int _NEUTRAL_OPERAND_PAIR_GROUP_CODE = _SOURCE_KIND_CODE + 1;
+	private const int _NEUTRAL_OPERAND_PAIR_BOUND_CODE = _NEUTRAL_OPERAND_PAIR_GROUP_CODE + 1;
+	private const int _CONDITIONAL_COMPILATION_OPENING_CODE = _NEUTRAL_OPERAND_PAIR_BOUND_CODE + 1;
+	private const int _CONDITIONAL_COMPILATION_WORD_CODE = _CONDITIONAL_COMPILATION_OPENING_CODE + 1;
+	private const int _MEMBER_DECLARATION_BOUND_CODE = _CONDITIONAL_COMPILATION_WORD_CODE + 1;
+	private const int _MEMBER_DECLARATION_MALFORMED_CODE = _MEMBER_DECLARATION_BOUND_CODE + 1;
+	private const int _MEMBER_KIND_WITHOUT_EXPRESSION_CODE = _MEMBER_DECLARATION_MALFORMED_CODE + 1;
 	private const int _ONE_MILLISECOND = 1;
 	private const string _ABSENT_GROUP = "groupThatTheExpressionDoesNotDeclare";
 	private const string _UNDECLARED_DIALECT = "fish";
@@ -332,7 +341,16 @@ public sealed class DialectVariableUseAndWrapperContractTests
 		Assert.Equal(_FIRST_EXECUTED_STRING_CODE, (int)AnalyzerContractViolationCode.ExecutedStringContextMalformed);
 		Assert.Equal(_LAST_EXECUTED_STRING_CODE, (int)AnalyzerContractViolationCode.ExecutedStringGrammarMalformed);
 		Assert.Equal(_DEMOTION_KIND_CODE, (int)AnalyzerContractViolationCode.DemotionSignalKindUndeclared);
-		Assert.Equal(_DEMOTION_KIND_CODE, values.Max());
+		Assert.Equal(_CODE_SPAN_CODE, (int)AnalyzerContractViolationCode.CodeSpanElementMalformed);
+		Assert.Equal(_SOURCE_KIND_CODE, (int)AnalyzerContractViolationCode.SourceKindDeclarationMalformed);
+		Assert.Equal(_NEUTRAL_OPERAND_PAIR_GROUP_CODE, (int)AnalyzerContractViolationCode.NeutralOperandPairGroupAbsentFromExpression);
+		Assert.Equal(_NEUTRAL_OPERAND_PAIR_BOUND_CODE, (int)AnalyzerContractViolationCode.NeutralOperandPairWordExpressionMatchTimeoutNotPolicyBound);
+		Assert.Equal(_CONDITIONAL_COMPILATION_OPENING_CODE, (int)AnalyzerContractViolationCode.ConditionalCompilationDirectiveOpeningMalformed);
+		Assert.Equal(_CONDITIONAL_COMPILATION_WORD_CODE, (int)AnalyzerContractViolationCode.ConditionalCompilationWellKnownSymbolWordMalformed);
+		Assert.Equal(_MEMBER_DECLARATION_BOUND_CODE, (int)AnalyzerContractViolationCode.MemberDeclarationExpressionMatchTimeoutNotPolicyBound);
+		Assert.Equal(_MEMBER_DECLARATION_MALFORMED_CODE, (int)AnalyzerContractViolationCode.MemberDeclarationExpressionMalformed);
+		Assert.Equal(_MEMBER_KIND_WITHOUT_EXPRESSION_CODE, (int)AnalyzerContractViolationCode.MemberRecordKindWithoutMemberDeclarationExpression);
+		Assert.Equal(_MEMBER_KIND_WITHOUT_EXPRESSION_CODE, values.Max());
 	}
 
 	// ---- the contract surface ----
@@ -390,11 +408,12 @@ public sealed class DialectVariableUseAndWrapperContractTests
 	}
 
 	[Fact]
-	public void OnlyTheShellAnalyzerDeclaresAnyOfTheNewElementsAndTheJavaScriptAnalyzerDeclaresItsDialectsAlone()
+	public void OnlyTheShellAnalyzerDeclaresAnyOfTheNewElementsAndTheJavaScriptAndTypeScriptAnalyzersDeclareTheirDialectsAlone()
 	{
 		ILanguageAnalyzer[] analyzers = [.. LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()];
 		ILanguageAnalyzer shell = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Shell"));
 		ILanguageAnalyzer javaScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("JavaScript"));
+		ILanguageAnalyzer typeScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("TypeScript"));
 
 		Assert.NotNull(shell.CandidateSelectionAndRecommendation.FileDialects);
 		Assert.NotNull(shell.CandidateSelectionAndRecommendation.WrapperTracking);
@@ -407,7 +426,15 @@ public sealed class DialectVariableUseAndWrapperContractTests
 			Assert.Null(signal.VariableUse);
 		});
 		Assert.All(javaScript.DetectionRulesByPatternClass.Values, rule => Assert.Null(rule.VariableUse));
-		Assert.All(analyzers.Where(analyzer => analyzer != shell && analyzer != javaScript), analyzer =>
+		Assert.NotNull(typeScript.CandidateSelectionAndRecommendation.FileDialects);
+		Assert.Null(typeScript.CandidateSelectionAndRecommendation.WrapperTracking);
+		Assert.All(typeScript.CandidateSelectionAndRecommendation.FlowSignals, signal =>
+		{
+			Assert.True(signal.Dialects.IsDefaultOrEmpty);
+			Assert.Null(signal.VariableUse);
+		});
+		Assert.All(typeScript.DetectionRulesByPatternClass.Values, rule => Assert.Null(rule.VariableUse));
+		Assert.All(analyzers.Where(analyzer => analyzer != shell && analyzer != javaScript && analyzer != typeScript), analyzer =>
 		{
 			Assert.Null(analyzer.CandidateSelectionAndRecommendation.FileDialects);
 			Assert.Null(analyzer.CandidateSelectionAndRecommendation.WrapperTracking);

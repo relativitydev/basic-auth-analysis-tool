@@ -28,8 +28,8 @@ public sealed class SecretManagementGuideCitationTests
 	private const string _RETIRED_DELIVERY_PHRASE = "delivered separately from this report";
 	private const string _RETIRED_GUIDE_PHRASE = "Secret Management guide";
 
-	/// <summary>Sixteen classes and one generic text, for each of the two flows.</summary>
-	private const int _EXPECTED_COMPOSED_TEXT_COUNT = 34;
+	/// <summary>Seventeen classes and one generic text, for each of the two flows.</summary>
+	private const int _EXPECTED_COMPOSED_TEXT_COUNT = 36;
 
 	/// <summary>Eleven classes and one generic text, for each of the two flows.</summary>
 	private const int _EXPECTED_POWERSHELL_COMPOSED_TEXT_COUNT = 24;

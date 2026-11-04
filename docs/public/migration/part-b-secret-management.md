@@ -194,6 +194,18 @@ JavaScript runs in two places, and the two do not keep a secret the same way. Co
 
 For Authorization Code, a server-side component keeps the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
 
+### TypeScript: environment files, types and the server
+
+Everything under [JavaScript: bundles, browser storage and the server](#javascript-bundles-browser-storage-and-the-server) holds for TypeScript, because TypeScript is compiled to JavaScript and runs in the same two places. This section adds what TypeScript changes.
+
+**An environment file of a browser application.** A TypeScript browser application, an Angular application for example, often keeps its settings in an environment file that the build compiles into the bundle. **Inferred:** a file that a browser build reads is part of what the build ships, so a client secret written in it is public to anyone who loads the page, as for any other source file, whether the file is named for development or for production and whether or not it is checked in. **NSerio guidance:** never put the client secret, or any RelativityOne token, in an environment file or in any file the browser build reads. Put there only values that are meant to be public, such as the address of your own server-side component. The browser calls that component, and the component holds the client secret and calls RelativityOne.
+
+**The server reads the secret through its configuration.** A TypeScript server, a NestJS server for example, should read the client secret from its own configuration, which the process fills from the environment or from a vault, as in [Reading secrets from a vault at runtime](#reading-secrets-from-a-vault-at-runtime). **NSerio guidance:** read the value once, check that it is set, and fail at start-up when it is not, so that a missing secret is an error you see and not an empty string that reaches the token endpoint. A configuration file that is checked in, an object literal in a class and a `const` in a source file are source, whatever the type says. The names of the configuration service of a particular framework are not verified in this document: follow that framework's own documentation for where the service reads its values from.
+
+**A type does not protect a secret.** A `readonly` field, a `private` member and a type such as `string` or `Secret` are checked by the compiler and are gone from the running program; they do not hide a value that is written in the source. A non-null mark or a cast on an environment read (`process.env.RELATIVITY_CLIENT_SECRET!`, `process.env.RELATIVITY_CLIENT_SECRET as string`) tells the compiler that the value is set and does not check it. Check it yourself, as in [Keeping credentials out of source](#keeping-credentials-out-of-source).
+
+**Do not log the secret through a typed object.** A request-configuration object that holds an `auth` member, or a typed settings object that holds the client secret, is easily written to a log or to an error message whole. Log the fields you need and never the object.
+
 ### Relativity Secret Store
 
 The Relativity Secret Store is for code that runs inside Relativity, such as custom pages, agents and event handlers, where the code is already trusted by the platform and should not carry a credential of its own. Use it there in place of an external vault.
@@ -334,6 +346,23 @@ In JavaScript, in a Node.js process, the same read is:
 	if (!clientId || !clientSecret) {
 		throw new Error("RELATIVITY_CLIENT_ID and RELATIVITY_CLIENT_SECRET must be set.");
 	}
+```
+
+In TypeScript, in a Node.js process, the same read checks the value instead of asserting it:
+
+```typescript
+	function requireEnvironmentValue(name: string): string {
+		const value = process.env[name];
+
+		if (value === undefined || value === "") {
+			throw new Error(`Environment variable ${name} is not set`);
+		}
+
+		return value;
+	}
+
+	const clientId: string = requireEnvironmentValue("RELATIVITY_CLIENT_ID");
+	const clientSecret: string = requireEnvironmentValue("RELATIVITY_CLIENT_SECRET");
 ```
 
 **Keep local secret files out of the repository.** If you use a local file for development, add it to `.gitignore` before it is created.

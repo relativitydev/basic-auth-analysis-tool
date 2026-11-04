@@ -126,6 +126,36 @@ internal static class MatchBoundStressSet
 	/// <summary>The statements that close the credential-first window whose sink is declared with the target-typed creation.</summary>
 	internal const string TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_CLOSER = "\n\t\ttargetFirst.Password = password;\n\t\tSmtpClient targetBound = new(host, port) { Credentials = targetFirst };";
 
+	/// <summary>
+	/// The statement that stores a credential in a dotted member, the first link of the member-bound chain of CS-019: the window that follows it reads up to
+	/// thirty lines of at most four hundred characters each, stopping at a line that holds the text of the credential type.
+	/// </summary>
+	internal const string MEMBER_STORE_STATEMENT = "\t\tsettings.MailCredential = new NetworkCredential(userName, password);";
+
+	/// <summary>The statement that declares a mail client, the receiver of the second shape of the member-bound chain, which no statement ever binds.</summary>
+	internal const string MEMBER_SINK_DECLARATION_STATEMENT = "\t\tvar memberMailer = new SmtpClient(host, port);";
+
+	/// <summary>The name of the shape that alternates the member store with the sink declaration, so that every store opens a window that crosses one sink and meets the next store.</summary>
+	internal const string ALTERNATING_MEMBER_STORE_AND_SINK_SHAPE_NAME = "member-bound-alternating-store-and-sink";
+
+	/// <summary>The name of the same alternation with every line at the four hundred characters the window allows.</summary>
+	internal const string ALTERNATING_MEMBER_STORE_AND_SINK_ON_LONG_LINES_SHAPE_NAME = "member-bound-alternating-store-and-sink-on-long-lines";
+
+	/// <summary>The name of the shape of stores only: every store is followed by the thirty lines of its window, none of which holds the credential type, and no sink.</summary>
+	internal const string MEMBER_STORES_ONLY_SHAPE_NAME = "member-bound-stores-only";
+
+	/// <summary>The entry repeated by the brace-free shape: the user-name half of the <c>Rsapi</c> pair, with no password half anywhere.</summary>
+	internal const string RSAPI_USER_NAME_ENTRY = "RsapiUserName = x, ";
+
+	/// <summary>The name of the shape that repeats <see cref="RSAPI_USER_NAME_ENTRY"/> inside one initializer that no brace ever closes before the end of the file.</summary>
+	internal const string BRACE_FREE_REPEATED_RSAPI_USER_NAME_SHAPE_NAME = "brace-free-repeated-rsapi-user-name-entries";
+
+	/// <summary>The call of the proxy factory whose argument list holds a block comment that no text ever closes, the gap of CS-020 that reads to the end of the file.</summary>
+	internal const string UNTERMINATED_PROXY_FACTORY_COMMENT_CALL = "\t\tvar proxy = helper.GetProxy<IExampleService>(userName, /* the account";
+
+	/// <summary>The name of the shape that repeats <see cref="UNTERMINATED_PROXY_FACTORY_COMMENT_CALL"/>.</summary>
+	internal const string UNTERMINATED_PROXY_FACTORY_COMMENT_SHAPE_NAME = "unterminated-block-comment-in-the-proxy-factory-gap";
+
 	/// <summary>The statement that opens the separate-statement pair of the identifier-rooted halves, whose encoder may follow within five lines.</summary>
 	internal const string ROOTED_PAIR_WINDOW_OPENER = "\t\tstring rootedPair = $\"{userBox.Text}:{Secrets.Read(index)[0]}\";";
 
@@ -152,11 +182,87 @@ internal static class MatchBoundStressSet
 	/// <summary>The name of the shape that repeats <see cref="MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_WINDOW"/>.</summary>
 	internal const string MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_SHAPE_NAME = "multi-line-call-argument-credentials-with-an-exhausted-window";
 
+	/// <summary>The name of the shape of many <c>+ ":" +</c> sites, each after a long neutrally named left half.</summary>
+	internal const string NEUTRAL_COLON_PAIR_SHAPE_NAME = "neutral-colon-pairs-with-long-left-halves";
+
+	/// <summary>The name of the shape of many plus signs and no colon literal at all, the case the look-behind of the concatenated pair must not be run at.</summary>
+	internal const string PLUS_SIGNS_WITHOUT_A_COLON_LITERAL_SHAPE_NAME = "many-plus-signs-without-a-colon-literal";
+
+	/// <summary>The shape of a pair whose halves are camel-case runs of credential words, each directly followed by an identifier suffix.</summary>
+	internal const string IDENTIFIER_SUFFIX_CAMEL_RUNS_SHAPE_NAME = "identifier-suffix-camel-word-runs";
+
+	/// <summary>The shape of a pair whose halves are underscore runs of credential words, each directly followed by an identifier suffix.</summary>
+	internal const string IDENTIFIER_SUFFIX_UNDERSCORE_RUNS_SHAPE_NAME = "identifier-suffix-underscore-word-runs";
+
+	/// <summary>The shape of a pair whose halves are suffixed runs in which only the last credential word has no suffix, the walk's worst case before it stops.</summary>
+	internal const string IDENTIFIER_SUFFIX_LAST_WORD_UNSUFFIXED_SHAPE_NAME = "identifier-suffix-runs-with-only-the-last-word-unsuffixed";
+
+	/// <summary>The shape of a pair whose halves are acronym runs, and a credential word followed by one long segment no boundary cuts.</summary>
+	internal const string IDENTIFIER_SUFFIX_ACRONYM_RUNS_SHAPE_NAME = "identifier-suffix-acronym-runs";
+
+	/// <summary>The shape of a pair whose two halves fill a line to the line-length ceiling.</summary>
+	internal const string IDENTIFIER_SUFFIX_LINE_CEILING_SHAPE_NAME = "identifier-suffix-halves-at-the-line-ceiling";
+
+	private const int _LEFT_HALF_SEGMENT_COUNT = 60;
+	private const int _PLUS_SIGNS_PER_LINE = 80;
+	private const string _PLUS_SEPARATOR = " + ";
+	private const string _MEMBER_ACCESS_SEPARATOR = ".";
+	private const string _NUMERIC_OPERAND = "partialValue";
+	private const string _QUOTED_OPERAND = "\"part\"";
+	private const string _INDEXED_CALL_OPERAND = "Part(index)[0]";
 	private const int _FURTHER_LINES_AFTER_THE_WINDOW = 7;
+	private const int _MEMBER_WINDOW_LINES = 30;
+	private const int _MEMBER_WINDOW_LINE_LENGTH_IN_CHARACTERS = 400;
+	private const int _RSAPI_ENTRIES_PER_LINE = 20;
+	private const string _RSAPI_INITIALIZER_OPENING = "namespace Synthetic.Stress\n{\ninternal static class StressSubject\n{\n\tinternal static void Member000000()\n\t{\n\t\tvar settings = new ExampleSettings\n\t\t{\n";
+	private const string _RSAPI_INITIALIZER_CLOSING = "\t\t};\n\t}\n}\n}\n";
+	private const string _RSAPI_ENTRY_LINE_INDENT = "\t\t\t";
 	private const string _LINE_BREAK = "\n";
 	private const char _LINE_BREAK_CHARACTER = '\n';
 	private const string _MEMBER_FORMAT = "\tinternal static void Member{0:D6}()\n\t{{\n{1}\t}}\n";
 	private const string _FILLER_STATEMENT = "\t\tint total = first + second;\n";
+
+	/// <summary>
+	/// A long, neutrally named left half: a dotted chain of sixty segments, then a call and an indexer. It is the longest
+	/// identifier-rooted argument the pair's left half reads, so the look-behind and the word test have the most text to read.
+	/// </summary>
+	private static readonly string _LONG_NEUTRAL_LEFT_HALF =
+		$"{string.Join(_MEMBER_ACCESS_SEPARATOR, Enumerable.Range(0, _LEFT_HALF_SEGMENT_COUNT).Select(index => $"segment{index.ToString(CultureInfo.InvariantCulture)}"))}(argumentValue)[0]";
+
+	private static readonly ImmutableArray<string> _NEUTRAL_COLON_PAIRS =
+	[
+		$"\t\tstring ratioPair = {_LONG_NEUTRAL_LEFT_HALF} + \":\" + denominatorValue;\n\t\tstring ratioEncoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(ratioPair));",
+		$"\t\tstring chained = firstValue + {_LONG_NEUTRAL_LEFT_HALF} + \":\" + secondValue + thirdValue;",
+		$"\t\tstring interpolated = $\"{{{_LONG_NEUTRAL_LEFT_HALF}}}:{{denominatorValue}}\";",
+		$"\t\tstring formatted = string.Format(\"{{0}}:{{1}}\", {_LONG_NEUTRAL_LEFT_HALF}, denominatorValue);",
+		$"\t\tstring joined = string.Join(\":\", {_LONG_NEUTRAL_LEFT_HALF}, denominatorValue);",
+		$"\t\tstring inlinePair = Convert.ToBase64String(Encoding.ASCII.GetBytes({_LONG_NEUTRAL_LEFT_HALF} + \":\" + denominatorValue));"
+	];
+
+	private const int _SUFFIX_HALF_LENGTH_IN_CHARACTERS = 3000;
+	private const string _UNDERSCORE = "_";
+	private const string _ACRONYM_USER_RUN = "USERIDACCOUNTIDGUID";
+	private const string _ACRONYM_SECRET_RUN = "PASSWORDIDSECRETIDGUID";
+	private const string _SUFFIXED_PAIR_STATEMENT_FORMAT = "\t\tstring {0} = {1} + \":\" + {2};\n\t\tstring {0}Encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes({0}));";
+
+	private static readonly ImmutableArray<string> _SUFFIXED_CAMEL_USER_WORDS = ["UserId", "AccountIds", "LoginIdentifier", "EmailGuid", "MailUuid", "UserNumber", "AccountIndex", "LoginCode"];
+
+	private static readonly ImmutableArray<string> _SUFFIXED_CAMEL_SECRET_WORDS = ["PasswordId", "SecretIds", "TokenIdentifier", "CredentialGuid", "PasswdUuid", "PwdNumber", "PassphraseIndex", "PasscodeCode"];
+
+	private static readonly ImmutableArray<string> _SUFFIXED_UNDERSCORE_USER_WORDS = ["user_id", "account_ids", "login_identifier", "email_guid", "mail_uuid", "user_number", "account_index", "login_code"];
+
+	private static readonly ImmutableArray<string> _SUFFIXED_UNDERSCORE_SECRET_WORDS = ["password_id", "secret_ids", "token_identifier", "credential_guid", "passwd_uuid", "pwd_number", "passphrase_index", "passcode_code"];
+
+	private static readonly ImmutableArray<string> _SUFFIXED_ACRONYM_USER_WORDS = ["USERId", "ACCOUNTGuid", "LOGINCode", "EMAILUuid"];
+
+	private static readonly ImmutableArray<string> _SUFFIXED_ACRONYM_SECRET_WORDS = ["PASSWORDId", "SECRETGuid", "TOKENCode", "CREDENTIALIndex"];
+
+	private static readonly ImmutableArray<string> _MANY_PLUS_SIGNS_WITHOUT_A_COLON_LITERAL =
+	[
+		$"\t\tdecimal total = {string.Join(_PLUS_SEPARATOR, Enumerable.Repeat(_NUMERIC_OPERAND, _PLUS_SIGNS_PER_LINE))};",
+		$"\t\tstring text = {string.Join(_PLUS_SEPARATOR, Enumerable.Repeat(_QUOTED_OPERAND, _PLUS_SIGNS_PER_LINE))};",
+		$"\t\tstring mixed = {string.Join(_PLUS_SEPARATOR, Enumerable.Repeat(_INDEXED_CALL_OPERAND, _PLUS_SIGNS_PER_LINE))};"
+	];
 
 	private static readonly ImmutableArray<string> _ORDINARY_STATEMENTS =
 	[
@@ -396,8 +502,146 @@ internal static class MatchBoundStressSet
 			Shape("indexer-and-inline-pair-near-misses", FillWithMembers(_INDEXER_AND_INLINE_PAIR_NEAR_MISSES)),
 			Shape("creation-form-near-misses", FillWithMembers(_CREATION_FORM_NEAR_MISSES)),
 			Shape(MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_SHAPE_NAME, FillWithMembers([MultiLineCallArgumentCredentialWithFurtherLines()])),
+			Shape(NEUTRAL_COLON_PAIR_SHAPE_NAME, FillWithMembers(_NEUTRAL_COLON_PAIRS)),
+			Shape(PLUS_SIGNS_WITHOUT_A_COLON_LITERAL_SHAPE_NAME, FillWithMembers(_MANY_PLUS_SIGNS_WITHOUT_A_COLON_LITERAL)),
+			.. CSharpDetectionCorrectionShapes(),
+			.. IdentifierSuffixShapes(),
 			.. FlowShapes()
 		];
+	}
+
+	/// <summary>
+	/// The shapes of three detection windows, each the worst benign text for one window: a member store alternating with a sink,
+	/// the same on lines of four hundred characters, stores alone, a brace-free run of the user-name half of the <c>Rsapi</c> pair, and a block comment in the argument gap of
+	/// the proxy factory call that no text closes. Every shape is invented, ordinary-looking C# with generic names.
+	/// </summary>
+	private static ImmutableArray<MatchBoundStressShape> CSharpDetectionCorrectionShapes()
+	{
+		return
+		[
+			Shape(ALTERNATING_MEMBER_STORE_AND_SINK_SHAPE_NAME, FillWithMembers([MEMBER_STORE_STATEMENT, MEMBER_SINK_DECLARATION_STATEMENT])),
+			Shape(
+				ALTERNATING_MEMBER_STORE_AND_SINK_ON_LONG_LINES_SHAPE_NAME,
+				FillWithMembers([MEMBER_STORE_STATEMENT.PadRight(_MEMBER_WINDOW_LINE_LENGTH_IN_CHARACTERS), MEMBER_SINK_DECLARATION_STATEMENT.PadRight(_MEMBER_WINDOW_LINE_LENGTH_IN_CHARACTERS)])),
+			Shape(MEMBER_STORES_ONLY_SHAPE_NAME, FillWithMembers([MemberStoreWithItsWholeWindowOfOrdinaryLines()])),
+			Shape(BRACE_FREE_REPEATED_RSAPI_USER_NAME_SHAPE_NAME, FillWithBraceFreeRsapiUserNameEntries()),
+			Shape(UNTERMINATED_PROXY_FACTORY_COMMENT_SHAPE_NAME, FillWithMembers([UNTERMINATED_PROXY_FACTORY_COMMENT_CALL]))
+		];
+	}
+
+	/// <summary>
+	/// The shapes of the identifier-suffix walk of <c>CS-009</c>, each a colon-joined pair whose halves hold hundreds of credential-word occurrences and the encoder on the
+	/// next line, so the engine reads every occurrence of both halves through the timed door and the suffix segment scanner. Camel-case runs and underscore runs in which every
+	/// occurrence is suffixed (the walk visits all of them and the pair stays neutral); the same runs with only the last word unsuffixed (the walk's worst case before it stops); acronym runs and a long
+	/// segment no boundary cuts; and both halves filling a line at the line ceiling. Every shape is invented, ordinary-looking C# with generic names.
+	/// </summary>
+	private static ImmutableArray<MatchBoundStressShape> IdentifierSuffixShapes()
+	{
+		string camelLeft = WordRun(_SUFFIXED_CAMEL_USER_WORDS, string.Empty, "UserId", _SUFFIX_HALF_LENGTH_IN_CHARACTERS);
+		string camelRight = WordRun(_SUFFIXED_CAMEL_SECRET_WORDS, string.Empty, "PasswordId", _SUFFIX_HALF_LENGTH_IN_CHARACTERS);
+		string underscoreLeft = WordRun(_SUFFIXED_UNDERSCORE_USER_WORDS, _UNDERSCORE, "login_code", _SUFFIX_HALF_LENGTH_IN_CHARACTERS);
+		string underscoreRight = WordRun(_SUFFIXED_UNDERSCORE_SECRET_WORDS, _UNDERSCORE, "token_code", _SUFFIX_HALF_LENGTH_IN_CHARACTERS);
+		string lineHalf = WordRun(_SUFFIXED_CAMEL_USER_WORDS, string.Empty, "UserId", LineCeilingHalfLength());
+		string lineOtherHalf = WordRun(_SUFFIXED_CAMEL_SECRET_WORDS, string.Empty, "PasswordId", LineCeilingHalfLength());
+
+		return
+		[
+			Shape(IDENTIFIER_SUFFIX_CAMEL_RUNS_SHAPE_NAME, FillWithMembers([SuffixedPairStatement("camelPair", camelLeft, camelRight)])),
+			Shape(IDENTIFIER_SUFFIX_UNDERSCORE_RUNS_SHAPE_NAME, FillWithMembers([SuffixedPairStatement("underscorePair", underscoreLeft, underscoreRight)])),
+			Shape(
+				IDENTIFIER_SUFFIX_LAST_WORD_UNSUFFIXED_SHAPE_NAME,
+				FillWithMembers(
+				[
+					SuffixedPairStatement(
+						"camelLastPair",
+						WordRun(_SUFFIXED_CAMEL_USER_WORDS, string.Empty, "Account", _SUFFIX_HALF_LENGTH_IN_CHARACTERS),
+						WordRun(_SUFFIXED_CAMEL_SECRET_WORDS, string.Empty, "Secret", _SUFFIX_HALF_LENGTH_IN_CHARACTERS)),
+					SuffixedPairStatement(
+						"underscoreLastPair",
+						WordRun(_SUFFIXED_UNDERSCORE_USER_WORDS, _UNDERSCORE, "account", _SUFFIX_HALF_LENGTH_IN_CHARACTERS),
+						WordRun(_SUFFIXED_UNDERSCORE_SECRET_WORDS, _UNDERSCORE, "secret", _SUFFIX_HALF_LENGTH_IN_CHARACTERS))
+				])),
+			Shape(
+				IDENTIFIER_SUFFIX_ACRONYM_RUNS_SHAPE_NAME,
+				FillWithMembers(
+				[
+					SuffixedPairStatement(
+						"acronymPair",
+						WordRun(_SUFFIXED_ACRONYM_USER_WORDS, string.Empty, "USERId", _SUFFIX_HALF_LENGTH_IN_CHARACTERS),
+						WordRun(_SUFFIXED_ACRONYM_SECRET_WORDS, string.Empty, "PASSWORDId", _SUFFIX_HALF_LENGTH_IN_CHARACTERS)),
+					SuffixedPairStatement(
+						"acronymSegmentPair",
+						$"user{RepeatToLength(_ACRONYM_USER_RUN, _SUFFIX_HALF_LENGTH_IN_CHARACTERS)}",
+						$"password{RepeatToLength(_ACRONYM_SECRET_RUN, _SUFFIX_HALF_LENGTH_IN_CHARACTERS)}")
+				])),
+			Shape(IDENTIFIER_SUFFIX_LINE_CEILING_SHAPE_NAME, FillWithMembers([SuffixedPairStatement("ceilingPair", lineHalf, lineOtherHalf)]))
+		];
+	}
+
+	/// <summary>The length of each half of a pair that, with the statement around it, fills a line to <see cref="LONG_LINE_LENGTH_IN_CHARACTERS"/>.</summary>
+	private static int LineCeilingHalfLength()
+	{
+		string framing = SuffixedPairStatement("ceilingPair", string.Empty, string.Empty);
+		int firstLineFraming = framing[..framing.IndexOf(_LINE_BREAK, StringComparison.Ordinal)].Length;
+
+		return (LONG_LINE_LENGTH_IN_CHARACTERS - firstLineFraming) / 2;
+	}
+
+	/// <summary>A colon-joined pair of the two halves as a statement of its own, and the encoder call on the next line.</summary>
+	private static string SuffixedPairStatement(string variableName, string leftHalf, string rightHalf)
+	{
+		return string.Format(CultureInfo.InvariantCulture, _SUFFIXED_PAIR_STATEMENT_FORMAT, variableName, leftHalf, rightHalf);
+	}
+
+	/// <summary>The words cycled and joined with the separator while there is room for them and for the closing word, then the closing word: a run no longer than the length.</summary>
+	private static string WordRun(ImmutableArray<string> words, string separator, string closingWord, int lengthInCharacters)
+	{
+		StringBuilder run = new();
+		int index = 0;
+		int reserved = closingWord.Length + separator.Length;
+
+		while (run.Length + words[index % words.Length].Length + separator.Length + reserved <= lengthInCharacters)
+		{
+			run.Append(words[index % words.Length]).Append(separator);
+			index++;
+		}
+
+		run.Append(closingWord);
+
+		return run.ToString();
+	}
+
+	private static string RepeatToLength(string unit, int lengthInCharacters)
+	{
+		return string.Concat(Enumerable.Repeat(unit, (lengthInCharacters / unit.Length) + 1))[..lengthInCharacters];
+	}
+
+	/// <summary>A member store followed by the thirty lines of its window, none of which holds the credential type, so the window is read in full and never closed.</summary>
+	private static string MemberStoreWithItsWholeWindowOfOrdinaryLines()
+	{
+		string window = string.Join(_LINE_BREAK, Enumerable.Repeat(_FILLER_STATEMENT.TrimEnd(_LINE_BREAK_CHARACTER), _MEMBER_WINDOW_LINES));
+
+		return $"{MEMBER_STORE_STATEMENT}{_LINE_BREAK}{window}";
+	}
+
+	/// <summary>
+	/// One initializer opened once and closed only at the end of the file, holding the user-name half of the <c>Rsapi</c> pair over and over and no password half: the
+	/// brace-free run in which the bounded search for the password half starts at every entry.
+	/// </summary>
+	private static string FillWithBraceFreeRsapiUserNameEntries()
+	{
+		StringBuilder builder = new(_RSAPI_INITIALIZER_OPENING);
+		string line = $"{_RSAPI_ENTRY_LINE_INDENT}{string.Concat(Enumerable.Repeat(RSAPI_USER_NAME_ENTRY, _RSAPI_ENTRIES_PER_LINE)).TrimEnd()}";
+
+		while (builder.Length < TARGET_SIZE_IN_CHARACTERS)
+		{
+			builder.Append(line);
+			builder.Append(_LINE_BREAK);
+		}
+
+		builder.Append(_RSAPI_INITIALIZER_CLOSING);
+
+		return builder.ToString();
 	}
 
 	/// <summary>

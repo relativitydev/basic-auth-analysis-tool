@@ -28,7 +28,7 @@ public sealed class CSharpDetectionFormTests
 	private const string _SOURCE_FILE_NAME = "Program.cs";
 	private const int _MAXIMUM_ENUMERATION_ITERATIONS = 100_000;
 	private const int _EXPECTED_SUBSUMPTION_RULE_COUNT = 5;
-	private const int _EXPECTED_PATTERN_CLASS_COUNT = 18;
+	private const int _EXPECTED_PATTERN_CLASS_COUNT = 19;
 
 	private const string _CS_002 = "CS-002";
 	private const string _CS_003 = "CS-003";

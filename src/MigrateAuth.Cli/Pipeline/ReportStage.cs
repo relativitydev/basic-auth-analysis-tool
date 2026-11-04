@@ -83,7 +83,8 @@ public sealed class ReportStage
 
 	/// <summary>
 	/// Said for each file written, naming it and the output folder it is in so the user can find it.
-	/// The folder is named by its label, the only form permitted in output, never by its path.
+	/// The folder is named as the user supplied it: relative to the working folder when it
+	/// is the default or relative, for example <c>./Outputs</c>, and never by its canonical path.
 	/// </summary>
 	public const string ARTIFACT_WRITTEN_MESSAGE_FORMAT = "Written: {0} (in the output folder {1}).";
 
@@ -261,7 +262,7 @@ public sealed class ReportStage
 				CultureInfo.InvariantCulture,
 				ARTIFACT_WRITTEN_MESSAGE_FORMAT,
 				result.FileNameWritten,
-				result.DestinationLabel));
+				result.DestinationConsoleText));
 		}
 		else
 		{

@@ -37,7 +37,7 @@ public enum DestinationCertainty
 }
 
 /// <summary>
-/// Contract element 3. One detection rule, carrying exactly nine fields per pattern class. The
+/// Contract element 3. One detection rule, carrying exactly ten fields per pattern class. The
 /// pattern class identifier is not one of them: it is the key this rule is registered under,
 /// so the eight below are the rule and nothing else.
 ///
@@ -97,4 +97,11 @@ public sealed class DetectionRule
 	/// dropped (see <see cref="RuleVariableUse"/>).
 	/// </summary>
 	public RuleVariableUse? VariableUse { get; init; }
+
+	/// <summary>
+	/// Field 10, OPTIONAL and none by default: a per-match Low condition. The finding is proposed Low when both named
+	/// groups participated and neither group's captured text names a credential (see
+	/// <see cref="NeutralOperandPairCondition"/>). It is a proposal inside the one minimum and never promotes.
+	/// </summary>
+	public NeutralOperandPairCondition? LowWhenBothOperandsAreNeutral { get; init; }
 }

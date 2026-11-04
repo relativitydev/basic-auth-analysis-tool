@@ -18,9 +18,13 @@ internal static partial class JavaScriptPatternExpressions
 	private const string _EX_JS_100 =
 		@"^#!\s*(?:[^\s/]*/)*(?:env\s+(?:-\S*\s+)*)?(?:nodejs|node)(?:\s|\z)";
 
-	/// <summary>The constant declaration of the file symbol table: <c>const</c>, <c>let</c>, <c>var</c> and a bare <c>NAME = literal</c>; the value is the leading word of the first literal.</summary>
+	/// <summary>
+	/// The constant declaration of the file symbol table: <c>const</c>, <c>let</c>, <c>var</c> and a bare <c>NAME = literal</c>, anchored at the start of the line and read on one line; the value is the leading word
+	/// of the first literal. It also reads, at the same anchor, a name assigned from an environment value (<see cref="_ENVIRONMENT_DECLARATION"/>), which it marks with the empty group
+	/// <c>environment</c> and gives the word of its fallback in the group <c>fallbackWord</c>.
+	/// </summary>
 	private const string _EX_JS_101 =
-		@"^[ \t]*(?:export[ \t]+)?(?:(?:const|let|var)[ \t]+)?(?<name>[A-Za-z_$][A-Za-z0-9_$]*)[ \t]*=(?!=)[ \t]*(?:\x27(?<value>(?>[^\s\x27\\]*))(?>(?:[^\x27\\\n]|\\.)*)\x27|\x22(?<value>(?>[^\s\x22\\]*))(?>(?:[^\x22\\\n]|\\.)*)\x22|`(?<value>(?>[^\s`$\\]*))(?>(?:[^`$\\\n]|\$(?!\{)|\\.)*)`)(?=[ \t]*(?:[;,+]|$|//|/\*))";
+		@"^[ \t]*(?:export[ \t]+)?(?:(?:const|let|var)[ \t]+)?(?<name>[A-Za-z_$][A-Za-z0-9_$]*)[ \t]*=(?!=)[ \t]*(?:(?:\x27(?<value>(?>[^\s\x27\\]*))(?>(?:[^\x27\\\n]|\\.)*)\x27|\x22(?<value>(?>[^\s\x22\\]*))(?>(?:[^\x22\\\n]|\\.)*)\x22|`(?<value>(?>[^\s`$\\]*))(?>(?:[^`$\\\n]|\$(?!\{)|\\.)*)`)(?=[ \t]*(?:[;,+]|$|//|/\*))|" + _ENVIRONMENT_DECLARATION + @"(?=[ \t]*(?:[;,]|$|//|/\*)))";
 
 	[GeneratedRegex(_EX_JS_100, _OPTIONS, matchTimeoutMilliseconds: LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS)]
 	public static partial Regex ShebangFirstLine();
@@ -96,6 +100,10 @@ internal static partial class JavaScriptPatternExpressions
 	[GeneratedRegex(_EX_JS_017, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex AuthorizationHeaderValueHeldInVariable();
 
+	/// <summary>EX-JS-018: the expression of JS-018, AuthorizationHeaderValueFromEnvironment.</summary>
+	[GeneratedRegex(_EX_JS_018, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
+	public static partial Regex AuthorizationHeaderValueFromEnvironment();
+
 	/// <summary>EX-JS-110: the testframework demotion marker.</summary>
 	[GeneratedRegex(_EX_JS_110, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex TestFrameworkContentMarker();
@@ -104,20 +112,51 @@ internal static partial class JavaScriptPatternExpressions
 	[GeneratedRegex(_EX_JS_111, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex GeneratedFileBannerContentMarker();
 
+	/// <summary>
+	/// The tail of a bare member name (a shorthand property): the name ends there, and blanks and line ends only lie before a comma or a closing brace. The credential group is never part of it.
+	/// </summary>
+	private const string _SHORTHAND_MEMBER_TAIL =
+		@"(?![\w$])" + _SPACE + @"[,}]";
+
+	/// <summary>
+	/// The user member: a key, optional quotes and a colon, or a bare name directly after the opening brace (already consumed where this look-ahead runs) or after a comma at depth one reached through the
+	/// argument window. A name that is the value of another key (<c>label: username</c>) is preceded by a colon, and a name in a nested group is consumed whole by the window, so neither is a member.
+	/// Each candidate costs one forward step.
+	/// </summary>
 	private const string _OBJECT_USER_MEMBER =
-		@"(?=" + _ARGUMENT_WINDOW + @"(?<![\w$.])[\x27\x22]?(?:username|user)[\x27\x22]?" + _SPACE + @":)";
+		@"(?=(?:" + _SPACE + @"(?:username|user)" + _SHORTHAND_MEMBER_TAIL + @"|" + _ARGUMENT_WINDOW + @"(?:(?<![\w$.])[\x27\x22]?(?:username|user)[\x27\x22]?" + _SPACE + @":|," + _SPACE + @"(?:username|user)" + _SHORTHAND_MEMBER_TAIL + @")))";
 
 	private const string _OBJECT_PASSWORD_MEMBER =
-		@"(?=" + _ARGUMENT_WINDOW + @"(?<![\w$.])[\x27\x22]?(?:password|pass)[\x27\x22]?" + _SPACE + @":" + _SPACE + @"(?:" + _CREDENTIAL_LITERAL + @")?)";
+		@"(?=(?:" + _SPACE + @"(?:password|pass)" + _SHORTHAND_MEMBER_TAIL + @"|" + _ARGUMENT_WINDOW + @"(?:(?<![\w$.])[\x27\x22]?(?:password|pass)[\x27\x22]?" + _SPACE + @":" + _SPACE + @"(?:" + _CREDENTIAL_LITERAL + @")?|," + _SPACE + @"(?:password|pass)" + _SHORTHAND_MEMBER_TAIL + @")))";
 
 	private const string _SEND_IMMEDIATELY_FALSE =
 		@"(?<![\w$.])sendImmediately(?![\w$])" + _SPACE + @":" + _SPACE + @"false(?![\w$])";
 
+	/// <summary>The bound of one level of the generic-argument group, in units: the two-character arrow, a character other than an angle bracket or a line feed, or a nested group. A string cannot be built from the integer, so the two sit side by side and must agree.</summary>
+	private const string _GENERIC_UNITS_QUANTIFIER = "{0,120}";
+
+	private const string _GENERIC_LEVEL_1 =
+		$@"<(?>(?:(?>=>|[^<>\n])){_GENERIC_UNITS_QUANTIFIER})>";
+
+	private const string _GENERIC_LEVEL_2 =
+		$@"<(?>(?:(?>=>|[^<>\n]|{_GENERIC_LEVEL_1})){_GENERIC_UNITS_QUANTIFIER})>";
+
+	private const string _GENERIC_LEVEL_3 =
+		$@"<(?>(?:(?>=>|[^<>\n]|{_GENERIC_LEVEL_2})){_GENERIC_UNITS_QUANTIFIER})>";
+
+	/// <summary>
+	/// The optional generic-argument group between a callee and its opening parenthesis (<c>axios.create&lt;Config&gt;(</c>). It balances angle brackets to depth three at no more than 120 units per level, is written with
+	/// possessive bodies and no lazy loop, and is atomic as a whole: a list that does not close within the bound, nests deeper than three or spans a line is not a group, and the callee is then not read.
+	/// It follows the callee name directly, with no blank before the opening angle bracket.
+	/// </summary>
+	private const string _GENERIC_ARGUMENTS =
+		$@"(?>(?:{_GENERIC_LEVEL_3})?)";
+
 	private const string _AXIOS_OR_REQUEST_CALLEE =
-		@"(?<![\w$.])(?:axios(?:\.(?:get|post|put|patch|delete|head|options|request|create))?|request(?:\.(?:get|post|put|patch|del|delete|head|options))?)(?![\w$])" + _SPACE + @"\(";
+		$@"(?<![\w$.])(?:axios(?:\.(?:get|post|put|patch|delete|head|options|request|create))?|request(?:\.(?:get|post|put|patch|del|delete|head|options))?)(?![\w$]){_GENERIC_ARGUMENTS}{_SPACE}\(";
 
 	private const string _REQUEST_CALLEE =
-		@"(?<![\w$.])request(?:\.(?:get|post|put|patch|del|delete|head|options))?(?![\w$])" + _SPACE + @"\(";
+		$@"(?<![\w$.])request(?:\.(?:get|post|put|patch|del|delete|head|options))?(?![\w$]){_GENERIC_ARGUMENTS}{_SPACE}\(";
 
 	private const string _EX_JS_001 =
 		@"(?:" + _AXIOS_OR_REQUEST_CALLEE + _ARGUMENT_WINDOW + @"\{" + _ARGUMENT_WINDOW + @"(?<![\w$.])(?<construct>auth)(?![\w$])" + _SPACE + @":|(?<![\w$.])axios\.defaults\.(?<construct>auth)(?![\w$])" + _SPACE + @"=(?!=))" + _SPACE + @"\{"
@@ -139,10 +178,10 @@ internal static partial class JavaScriptPatternExpressions
 		_CHAIN_TO_AUTH_METHOD + _SPACE + @"(?!null(?![\w$]))" + _ONE_ARGUMENT + @"," + _SPACE + @"(?!" + _TYPE_OPTION_BEARER + @")(?!" + _ONE_ARGUMENT + @"," + _SPACE + @"(?:false(?![\w$])|" + _TYPE_OPTION_AUTO + @"))(?:" + _CREDENTIAL_LITERAL + @")?";
 
 	private const string _EX_JS_003 =
-		@"(?<![\w$.])(?<construct>https?\.(?:get|request)|axios(?:\.(?:get|post|put|patch|delete|head|options|request))?|got(?:\.(?:get|post|put|patch|delete|head|stream))?|superagent\.(?:get|post|put|patch|delete|head)|request(?:\.(?:get|post|put|patch|del|delete|head|options))?|fetch|undici\.(?:fetch|request)|new[ \t]{1,8}Request)(?![\w$])" + _SPACE + @"\(" + _ARGUMENT_WINDOW + _USERINFO_URL;
+		$@"(?<![\w$.])(?<construct>https?\.(?:get|request)|axios(?:\.(?:get|post|put|patch|delete|head|options|request))?|got(?:\.(?:get|post|put|patch|delete|head|stream))?|superagent\.(?:get|post|put|patch|delete|head)|request(?:\.(?:get|post|put|patch|del|delete|head|options))?|fetch|undici\.(?:fetch|request)|new[ \t]{{1,8}}Request)(?![\w$]){_GENERIC_ARGUMENTS}{_SPACE}\({_ARGUMENT_WINDOW}{_USERINFO_URL}";
 
 	private const string _BASIC_VALUE =
-		@"[\x27\x22`](?i:basic)(?!\w)(?:[ \t]{1,8}(?!" + _PLACEHOLDER_BODY + @"[\x27\x22`])(?<credential>[A-Za-z0-9+/=_-]{4,})(?=[\x27\x22`]))?";
+		@"[\x27\x22`](?i:basic)(?!\w)(?:[ \t]{1,8}(?!" + _PLACEHOLDER_BODY + @"[\x27\x22`])(?<credential>[A-Za-z0-9+/=_-]{4,})(?=[\x27\x22`]" + _VALUE_TERMINATOR + @"))?";
 
 	private const string _IDENTIFIER_VALUE =
 		@"(?![\x27\x22`])(?<scheme>[A-Za-z_$][\w$]{0,63})(?![\w$.(\[])(?=" + _SPACE + @"(?:[,})\];]|\z))";
@@ -178,17 +217,41 @@ internal static partial class JavaScriptPatternExpressions
 	private const string _CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT =
 		@"(?<![\w$.-])(?<construct>(?i:authorization))(?![\w$-])[\x27\x22`]?" + _SPACE + @":" + _SPACE + @"(?:[A-Za-z_$][\w$]{0,63}(?=`))?";
 
+	/// <summary>The bound of the literal that the K6 tail refusal reads, in characters. A string cannot be built from the integer, so the two sit side by side and must agree.</summary>
+	private const string _K6_REFUSED_LITERAL_QUANTIFIER = "{0,300}";
+
+	/// <summary>
+	/// The tail refusal of the K6 carrier alone, a look-ahead placed after the key and before the value. A `Basic` literal that closes within 300 characters and is directly followed, blanks allowed, by a semicolon or by
+	/// a single vertical bar (a doubled one is a value and is not refused) is a type member, and so is a template whose only hole has the body `string` or `number`. It is a negative look-ahead over a greedy bounded class, with no lazy loop.
+	/// </summary>
+	private const string _K6_TAIL_REFUSAL =
+		$@"(?![\x27\x22`](?i:basic)(?!\w)[^\x27\x22`\n]{_K6_REFUSED_LITERAL_QUANTIFIER}[\x27\x22`]{_BLANKS}(?:;|\|(?!\|)))(?!`(?i:basic){_BLANKS}\$\{{{_BLANKS}(?:string|number){_BLANKS}\}})";
+
 	private const string _EX_JS_004 =
-		@"(?:" + _CARRIERS + @"|" + _CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT + @")" + _BASIC_VALUE;
+		$@"(?:{_CARRIERS}|{_CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT}{_K6_TAIL_REFUSAL})(?:{_BASIC_VALUE}|{_ENVIRONMENT_READ_WITH_A_BASIC_FALLBACK})";
 
 	private const string _EX_JS_017 =
 		_CARRIERS + _IDENTIFIER_VALUE;
 
+	/// <summary>
+	/// EX-JS-018: a carrier, then the value of the header, which is either a whole environment value or an identifier that the symbol table resolves to an environment declaration (the
+	/// cell of the rule decides which identifiers), and then the guard. The identifier alternative is the one of EX-JS-017.
+	/// </summary>
+	private const string _EX_JS_018 =
+		_CARRIERS + @"(?:" + _ENVIRONMENT_VALUE + @"|" + _IDENTIFIER_VALUE + @")" + _BEARER_GUARD;
+
 	private const string _PAIR_SHAPES =
 		@"(?:[\x27\x22]:[\x27\x22]|`(?:[^`]{0,200}?\}:|[^`$:]{1,100}:)[^`]{0,200}`|\.join\s{0,10}\(\s{0,10}[\x27\x22]:[\x27\x22])";
 
+	/// <summary>
+	/// The split pair: a quoted literal whose last character is the colon, then a plus and a second quoted literal that is not empty. What follows the second literal does not matter, and no credential
+	/// is captured (the pair is not one literal). A forward look-ahead of one literal, a plus and one quote, read only directly after the opening parenthesis of the encoder.
+	/// </summary>
+	private const string _SPLIT_LITERAL_PAIR =
+		@"(?:\x27[^\x27\x22`:\s]{1,100}:\x27|\x22[^\x27\x22`:\s]{1,100}:\x22)" + _SPACE + @"\+" + _SPACE + @"[\x27\x22][^\x27\x22\n]";
+
 	private const string _EX_JS_005 =
-		@"(?<![\w$])(?<construct>btoa)(?![\w$])" + _SPACE + @"\((?:(?=" + _SPACE + _WHOLE_LITERAL_PAIR + _SPACE + @"\))|(?=" + _ARGUMENT_WINDOW + _PAIR_SHAPES + @"))(?:(?=" + _SPACE + _PAIR_CREDENTIAL + @"))?" + _USE_REQUIREMENT;
+		@"(?<![\w$])(?<construct>btoa)(?![\w$])" + _SPACE + @"\((?:(?=" + _SPACE + _WHOLE_LITERAL_PAIR + _SPACE + @"[)+])|(?=" + _SPACE + _SPLIT_LITERAL_PAIR + @")|(?=" + _ARGUMENT_WINDOW + _PAIR_SHAPES + @"))(?:(?=" + _SPACE + _PAIR_CREDENTIAL + @"))?" + _USE_REQUIREMENT;
 
 	/// <summary>
 	/// The rule-level merge of the subsumption triple of the header class over this one. An encoder is refused here, and so read once, at the header, only where a header write that `EX-JS-004` reads leads
@@ -246,7 +309,14 @@ internal static partial class JavaScriptPatternExpressions
 
 	/// <summary>The match opens at the colon or the equals sign and looks ahead for the URL first, so the name that precedes it is read by a look-behind only where a userinfo URL follows.</summary>
 	private const string _EX_JS_013 =
-		@"[:=](?![=>])(?=" + _SPACE + @"[\x27\x22`]https?://)(?<=(?<![\w$])(?<construct>[A-Za-z_$][\w$]{0,63})" + _BLANKS + @"[:=])" + _SPACE + _USERINFO_URL;
+		@"[:=](?![=>])(?=" + _SPACE + @"[\x27\x22`]https?://)(?<=(?<![\w$])" + _NOT_A_NAME_THAT_DENOTES_A_PROXY + @"(?<construct>[A-Za-z_$][\w$]{0,63})" + _BLANKS + @"[:=])" + _SPACE + _USERINFO_URL;
+
+	/// <summary>
+	/// A name or key that contains the letters <c>proxy</c> or <c>proxies</c>, in any letter case, anywhere in it, denotes a proxy: the user information it holds is a credential for the proxy and not
+	/// for the service, and the match is refused. The refusal is read from the start of the name and runs only behind the forward guard on the quote and the scheme.
+	/// </summary>
+	private const string _NOT_A_NAME_THAT_DENOTES_A_PROXY =
+		@"(?![\w$]*(?i:proxy|proxies))";
 
 	private const string _OBJECT_USERNAME_KEY =
 		@"(?=" + _ARGUMENT_WINDOW + @"\{" + _ARGUMENT_WINDOW + @"(?<![\w$.])[\x27\x22]?username[\x27\x22]?" + _SPACE + @":)";
@@ -258,7 +328,7 @@ internal static partial class JavaScriptPatternExpressions
 		@"(?<![\w$.])(?:\$|jQuery)\.(?<construct>ajaxSetup|ajax)(?![\w$])" + _SPACE + @"\(" + _OBJECT_USERNAME_KEY + _OBJECT_PASSWORD_KEY;
 
 	private const string _EX_JS_015 =
-		@"(?<![\w$.])(?<construct>got)(?:\.(?:get|post|put|patch|delete|head|extend|stream|paginate))?(?![\w$])" + _SPACE + @"\(" + _OBJECT_USERNAME_KEY + _OBJECT_PASSWORD_KEY;
+		$@"(?<![\w$.])(?<construct>got)(?:\.(?:get|post|put|patch|delete|head|extend|stream|paginate))?(?![\w$]){_GENERIC_ARGUMENTS}{_SPACE}\({_OBJECT_USERNAME_KEY}{_OBJECT_PASSWORD_KEY}";
 
 	private const string _EX_JS_016 =
 		@"(?:" + _REQUEST_CALLEE + _ARGUMENT_WINDOW + @"\{" + _ARGUMENT_WINDOW + @"(?<![\w$.])(?<construct>auth)(?![\w$])" + _SPACE + @":" + _SPACE + @"\{(?=" + _ARGUMENT_WINDOW + _SEND_IMMEDIATELY_FALSE + @")|"

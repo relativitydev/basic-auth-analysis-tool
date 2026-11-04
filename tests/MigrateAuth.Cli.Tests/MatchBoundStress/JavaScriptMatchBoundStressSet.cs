@@ -255,6 +255,8 @@ internal static class JavaScriptMatchBoundStressSet
 		shapes.Add(Shape("js-large-object-literals", LargeObjectLiterals()));
 		shapes.Add(Shape("js-credential-key-at-the-argument-window-bound", ObjectWithTheKeyAfter(_MEMBERS_BEFORE_THE_KEY_AT_THE_WINDOW)));
 		shapes.Add(Shape("js-credential-key-beyond-the-argument-window-bound", ObjectWithTheKeyAfter(_MEMBERS_BEFORE_THE_KEY_BEYOND_THE_WINDOW)));
+		shapes.Add(Shape($"js-{MemberRecordStressShapes.SAME_NAME_SHAPE_NAME}", MemberRecordStressShapes.SameNameText()));
+		shapes.Add(Shape($"js-{MemberRecordStressShapes.DISTINCT_NAMES_SHAPE_NAME}", MemberRecordStressShapes.DistinctNamesText()));
 	}
 
 	private static void AddLongLineShapes(ImmutableArray<MatchBoundStressShape>.Builder shapes)

@@ -96,11 +96,13 @@ internal static class SchemeArgumentResolution
 		{
 			// A literal settles itself. There is no ambiguity for the symbol table to resolve: the
 			// value is written at the use, so the counting rule has nothing to count.
-			verdict = CompareAgainstExpectedToken(literalBody, interpretation.ExpectedSchemeToken);
+			verdict = interpretation.ExpectedSourceKind is null or SymbolSourceKind.Literal
+				? CompareAgainstExpectedToken(literalBody, interpretation.ExpectedSchemeToken, interpretation.ExpectedSourceKind is not null)
+				: SymbolicVerdict.ResolvedNotMatching;
 		}
-		else if (symbols.TryResolveUnambiguously(argument.Value, argument.Index, out string declaredValue))
+		else if (TryResolveInTheDictionaryOf(interpretation, argument, symbols, out ResolvedSymbol declared))
 		{
-			verdict = CompareAgainstExpectedToken(declaredValue, interpretation.ExpectedSchemeToken);
+			verdict = ResolveARecord(interpretation, declared);
 		}
 		else
 		{
@@ -108,6 +110,34 @@ internal static class SchemeArgumentResolution
 		}
 
 		return verdict;
+	}
+
+	/// <summary>
+	/// The dictionary the cell names: the variable dictionary, which needs the position of the use for its before-the-use rule, or the member dictionary, which is order-free and keyed
+	/// by the captured member name alone.
+	/// </summary>
+	private static bool TryResolveInTheDictionaryOf(
+		SymbolicVerdictInterpretation interpretation,
+		Group argument,
+		FileSymbolTable symbols,
+		out ResolvedSymbol declared)
+	{
+		return interpretation.SymbolRecordKind == SymbolRecordKind.Member
+			? symbols.TryResolveMemberRecordUnambiguously(argument.Value, out declared)
+			: symbols.TryResolveRecordUnambiguously(argument.Value, argument.Index, out declared);
+	}
+
+	/// <summary>
+	/// The verdict for a name that resolved to one record. A cell with no expected source kind reads records of both kinds by their word. A cell that
+	/// expects a kind reads a record of the other kind as resolved and not matching, and a record of its kind by its word, an empty expected token meaning an empty word.
+	/// </summary>
+	private static SymbolicVerdict ResolveARecord(SymbolicVerdictInterpretation interpretation, ResolvedSymbol declared)
+	{
+		bool expectsAKind = interpretation.ExpectedSourceKind is not null;
+
+		return expectsAKind && declared.SourceKind != interpretation.ExpectedSourceKind
+			? SymbolicVerdict.ResolvedNotMatching
+			: CompareAgainstExpectedToken(declared.Value, interpretation.ExpectedSchemeToken, expectsAKind);
 	}
 
 	/// <summary>
@@ -168,17 +198,17 @@ internal static class SchemeArgumentResolution
 	/// reference analyzer's, which is the most destructive answer available to a question nobody
 	/// asked properly.
 	/// </summary>
-	private static SymbolicVerdict CompareAgainstExpectedToken(string value, string? expectedSchemeToken)
+	private static SymbolicVerdict CompareAgainstExpectedToken(string value, string? expectedSchemeToken, bool blankTokenMeansBlankWord)
 	{
 		SymbolicVerdict verdict;
 
-		if (string.IsNullOrWhiteSpace(expectedSchemeToken))
+		if (string.IsNullOrWhiteSpace(expectedSchemeToken) && !blankTokenMeansBlankWord)
 		{
 			verdict = SymbolicVerdict.Indeterminate;
 		}
 		else
 		{
-			verdict = string.Equals(value.Trim(), expectedSchemeToken.Trim(), StringComparison.OrdinalIgnoreCase)
+			verdict = string.Equals(value.Trim(), (expectedSchemeToken ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
 				? SymbolicVerdict.ResolvedMatching
 				: SymbolicVerdict.ResolvedNotMatching;
 		}

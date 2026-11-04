@@ -64,9 +64,18 @@ internal static partial class ShellPatternExpressions
 	[GeneratedRegex(_BASIC_TOKEN_IN_VARIABLE, _LINE_OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex BasicTokenInVariable();
 
+	/// <summary>
+	/// The text of an array, from the character after its opening parenthesis to its closing parenthesis, read only where the closing stands within the bound that the
+	/// definition window gives every other class: on the opening's own physical line, up to the 10,000-character line ceiling, or across up to thirty physical lines of at most
+	/// 400 characters. The two bounds are look-aheads that cannot run past a closing parenthesis or past their line count, so a line of `x=(` that never closes costs its own
+	/// bound once and a file of them costs a linear multiple of its size.
+	/// </summary>
+	private const string _ARRAY_TEXT_WITHIN_ITS_BOUND =
+		@"(?:(?=[^)\n]{0,10000}\))|(?=(?:[^)\n]{0,400}\n){1,29}[^)\n]{0,400}\)))";
+
 	/// <summary>SH-009: An array, an append, an element or an associative array that holds a credential option, and a covered client that uses it within the definition window.</summary>
 	private const string _ARGUMENT_ARRAY_CREDENTIALS =
-		@"^[ \t]*(?:(?:declare|typeset|local)[ \t]+(?:-[A-Za-z]+[ \t]+)*)?(?<array>[A-Za-z_]\w*)(?:\+?=\([^)]{0,600}?" + _ARRAY_OPTION + @"[^)]{0,600}?\)|\[[^\]\n]{1,40}\]\+?=[^\n]{0,300}?" + _ARRAY_OPTION + @")" + _DEFINITION_WINDOW + _CLIENT_COMMAND + _WINDOW_CLIENT + @"\x22?\$\{\k<array>\[(?:[@*]|[^\]\n]{1,40})\]\}";
+		@"^[ \t]*(?:(?:declare|typeset|local)[ \t]+(?:-[A-Za-z]+[ \t]+)*)?(?<array>[A-Za-z_]\w*)(?:\+?=\(" + _ARRAY_TEXT_WITHIN_ITS_BOUND + @"(?>[^)]*?" + _ARRAY_OPTION + @"[^)]*\))|\[[^\]\n]{1,40}\]\+?=[^\n]{0,300}?" + _ARRAY_OPTION + @")" + _DEFINITION_WINDOW + _CLIENT_COMMAND + _WINDOW_CLIENT + @"\x22?\$\{\k<array>\[(?:[@*]|[^\]\n]{1,40})\]\}";
 
 	[GeneratedRegex(_ARGUMENT_ARRAY_CREDENTIALS, _LINE_OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex ArgumentArrayCredentials();

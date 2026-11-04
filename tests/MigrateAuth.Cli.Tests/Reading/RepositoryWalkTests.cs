@@ -160,7 +160,6 @@ public sealed class RepositoryWalkTests
 	}
 
 	[Theory]
-	[InlineData("bin")]
 	[InlineData("obj")]
 	[InlineData(".git")]
 	[InlineData(".vs")]
@@ -168,7 +167,7 @@ public sealed class RepositoryWalkTests
 	[InlineData("dist")]
 	[InlineData("build")]
 	[InlineData("packages")]
-	public void EveryNameOnTheExclusionListIsExcluded(string directoryName)
+	public void EveryUnconditionalNameOnTheExclusionListIsExcluded(string directoryName)
 	{
 		Assert.True(WalkExclusions.IsExcluded(directoryName));
 	}

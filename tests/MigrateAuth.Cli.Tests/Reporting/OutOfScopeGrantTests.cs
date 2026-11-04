@@ -6,7 +6,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The tool recommends two flows and no others: no `CSharp`, `PowerShell`, `VBNet`, `Shell` or `JavaScript` recommendation, template
+/// The tool recommends two flows and no others: no `CSharp`, `PowerShell`, `VBNet`, `Shell`, `JavaScript` or `TypeScript` recommendation, template
 /// or generic, under either flow, names a grant the tool does not recommend.
 /// </summary>
 public sealed class OutOfScopeGrantTests
@@ -134,6 +134,34 @@ public sealed class OutOfScopeGrantTests
 	{
 		Assert.Equal((JavaScriptRenderedTexts.TemplatedPatternClasses.Length + 1) * JavaScriptRenderedTexts.Flows.Length, JavaScriptRenderedTexts.AllComposedTexts().Length);
 		Assert.All(JavaScriptRenderedTexts.AllComposedTexts(), text => Assert.False(string.IsNullOrWhiteSpace(text)));
+	}
+
+	/// <summary>Every (class, flow) `TypeScript` recommendation and both generic texts, composed exactly as the report composes them.</summary>
+	[Fact]
+	public void NoComposedTypeScriptRecommendationNamesAnOutOfScopeGrant()
+	{
+		foreach (string text in TypeScriptRenderedTexts.AllComposedTexts())
+		{
+			AssertNoOutOfScopeGrant(text);
+		}
+	}
+
+	/// <summary>The `TypeScript` analyzer's own declared fallback texts, before the shared engine composes them with the OAuth2 Client block.</summary>
+	[Fact]
+	public void NoDeclaredTypeScriptFallbackTextNamesAnOutOfScopeGrant()
+	{
+		foreach (CredentialFlow flow in TypeScriptRenderedTexts.Flows)
+		{
+			AssertNoOutOfScopeGrant(TypeScriptRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow]);
+		}
+	}
+
+	/// <summary>The composed `TypeScript` texts are not empty, so the two checks above cannot pass over nothing.</summary>
+	[Fact]
+	public void TheTypeScriptTextsTheGrantChecksReadAreNotEmpty()
+	{
+		Assert.Equal((TypeScriptRenderedTexts.TemplatedPatternClasses.Length + 1) * TypeScriptRenderedTexts.Flows.Length, TypeScriptRenderedTexts.AllComposedTexts().Length);
+		Assert.All(TypeScriptRenderedTexts.AllComposedTexts(), text => Assert.False(string.IsNullOrWhiteSpace(text)));
 	}
 
 	private static void AssertNoOutOfScopeGrant(string text)

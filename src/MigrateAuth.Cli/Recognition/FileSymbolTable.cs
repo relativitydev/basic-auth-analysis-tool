@@ -45,15 +45,28 @@ public sealed class FileSymbolTable
 	/// <summary>The group the declared value is read from, on the same terms.</summary>
 	public const string VALUE_CAPTURE_GROUP = "value";
 
+	/// <summary>
+	/// The optional empty group of a member-declaration expression that stands at the first non-blank character of the member's line, so that a quoted key, whose name lies in a string
+	/// body, is judged by the code position where the member opens and not by the name. An expression without the group is judged at the name.
+	/// </summary>
+	public const string MEMBER_OPENING_CAPTURE_GROUP = "opening";
+
 	private readonly Dictionary<string, List<Declaration>> _declarationsByName;
 
-	private FileSymbolTable(Dictionary<string, List<Declaration>> declarationsByName)
+	/// <summary>
+	/// The SECOND dictionary: member records (a line-start object-literal member or property assignment), keyed by member name alone and kept apart from the variable records, so the
+	/// counting rule, <see cref="DeclarationCountOf"/> and <see cref="TryResolveRecordUnambiguously"/> are those of the variable dictionary and nothing else.
+	/// </summary>
+	private readonly Dictionary<string, List<Declaration>> _membersByName;
+
+	private FileSymbolTable(Dictionary<string, List<Declaration>> declarationsByName, Dictionary<string, List<Declaration>> membersByName)
 	{
 		_declarationsByName = declarationsByName;
+		_membersByName = membersByName;
 	}
 
 	/// <summary>An empty table, which resolves nothing and therefore indeterminates everything.</summary>
-	public static FileSymbolTable Empty { get; } = new(new Dictionary<string, List<Declaration>>(StringComparer.Ordinal));
+	public static FileSymbolTable Empty { get; } = new(new Dictionary<string, List<Declaration>>(StringComparer.Ordinal), new Dictionary<string, List<Declaration>>(StringComparer.Ordinal));
 
 	/// <summary>
 	/// Collects one file's string constant declarations, on no match-bound budget of its own - a
@@ -97,19 +110,41 @@ public sealed class FileSymbolTable
 		ArgumentNullException.ThrowIfNull(matchBoundWatch);
 
 		Dictionary<string, List<Declaration>> declarationsByName = new(ComparerFor(profile.IdentifierCaseSensitivity));
+		Dictionary<string, List<Declaration>> membersByName = new(ComparerFor(profile.IdentifierCaseSensitivity));
+		bool completed = CollectEvery(profile.ConstantDeclarationExpression, normalizedText, matchBoundWatch, declarationsByName, (found, byName) => RecordDeclaration(found, mask, byName));
+
+		if (completed && profile.MemberDeclarationExpression is not null)
+		{
+			completed = CollectEvery(profile.MemberDeclarationExpression, normalizedText, matchBoundWatch, membersByName, (found, byName) => RecordMember(found, mask, byName));
+		}
+
+		table = new FileSymbolTable(declarationsByName, membersByName);
+
+		return completed;
+	}
+
+	/// <summary>
+	/// Runs one declaration expression over the whole text through the timed door and records every match in the dictionary it is given. False when the file's budget tripped before
+	/// the enumeration ended. The variable pass and the member pass are this same enumeration, on the same watch.
+	/// </summary>
+	private static bool CollectEvery(
+		Regex expression,
+		string normalizedText,
+		MatchBoundWatch matchBoundWatch,
+		Dictionary<string, List<Declaration>> recordsByName,
+		Action<Match, Dictionary<string, List<Declaration>>> record)
+	{
 		bool completed = !matchBoundWatch.HasBeenExceeded();
 		Match match = completed
-			? TimedRegexEvaluation.Match(matchBoundWatch, profile.ConstantDeclarationExpression, normalizedText)
+			? TimedRegexEvaluation.Match(matchBoundWatch, expression, normalizedText)
 			: Match.Empty;
 
 		while (completed && match.Success)
 		{
-			RecordDeclaration(match, mask, declarationsByName);
+			record(match, recordsByName);
 			completed = !matchBoundWatch.HasBeenExceeded();
 			match = completed ? TimedRegexEvaluation.NextMatch(matchBoundWatch, match) : Match.Empty;
 		}
-
-		table = new FileSymbolTable(declarationsByName);
 
 		return completed;
 	}
@@ -129,16 +164,29 @@ public sealed class FileSymbolTable
 	/// </summary>
 	public bool TryResolveUnambiguously(string name, int usePosition, out string declaredValue)
 	{
+		bool resolved = TryResolveRecordUnambiguously(name, usePosition, out ResolvedSymbol symbol);
+
+		declaredValue = symbol.Value;
+
+		return resolved;
+	}
+
+	/// <summary>
+	/// The record of a name, with its source kind, on the same counting rule as <see cref="TryResolveUnambiguously"/>: exactly one declaration of the name, of either kind,
+	/// positioned before the use. The word of an environment record is the word of its fallback.
+	/// </summary>
+	public bool TryResolveRecordUnambiguously(string name, int usePosition, out ResolvedSymbol symbol)
+	{
 		ArgumentNullException.ThrowIfNull(name);
 
 		bool resolved = false;
-		declaredValue = string.Empty;
+		symbol = new ResolvedSymbol(string.Empty, SymbolSourceKind.Literal);
 
 		if (_declarationsByName.TryGetValue(name, out List<Declaration>? declarations)
 			&& declarations.Count == 1
 			&& declarations[0].Position < usePosition)
 		{
-			declaredValue = declarations[0].Value;
+			symbol = new ResolvedSymbol(declarations[0].Value, declarations[0].SourceKind);
 			resolved = true;
 		}
 
@@ -159,6 +207,70 @@ public sealed class FileSymbolTable
 			: 0;
 	}
 
+	/// <summary>
+	/// The member record of a name, ORDER-FREE: it resolves wherever the file assigns the member, before the use or after it. Exactly one collected record of the name resolves, and
+	/// only when that record is an environment read; no record, two or more records (of any form: the table does not know which object a member belongs to), or one record that is
+	/// not an environment read are all indeterminate. The word of the record is the word of its fallback.
+	/// </summary>
+	public bool TryResolveMemberRecordUnambiguously(string name, out ResolvedSymbol symbol)
+	{
+		ArgumentNullException.ThrowIfNull(name);
+
+		bool resolved = false;
+		symbol = new ResolvedSymbol(string.Empty, SymbolSourceKind.Literal);
+
+		if (_membersByName.TryGetValue(name, out List<Declaration>? members)
+			&& members.Count == 1
+			&& members[0].SourceKind == SymbolSourceKind.Environment)
+		{
+			symbol = new ResolvedSymbol(members[0].Value, members[0].SourceKind);
+			resolved = true;
+		}
+
+		return resolved;
+	}
+
+	/// <summary>How many member records of a name the file holds, of every form. The count is the mechanism, as it is for <see cref="DeclarationCountOf"/>.</summary>
+	public int MemberRecordCountOf(string name)
+	{
+		ArgumentNullException.ThrowIfNull(name);
+
+		return _membersByName.TryGetValue(name, out List<Declaration>? members)
+			? members.Count
+			: 0;
+	}
+
+	/// <summary>
+	/// One member record: collected only in code, at the position of the member name. The expression collects a member of any value form and marks an environment read with the empty
+	/// group <see cref="EnvironmentDeclarationGroups.MARKER"/>; a record that is not an environment read is a literal-kind record with an empty word.
+	/// </summary>
+	private static void RecordMember(
+		Match match,
+		ZoneMask mask,
+		Dictionary<string, List<Declaration>> membersByName)
+	{
+		Group nameGroup = match.Groups[NAME_CAPTURE_GROUP];
+		Group openingGroup = match.Groups[MEMBER_OPENING_CAPTURE_GROUP];
+		bool isEnvironment = match.Groups[EnvironmentDeclarationGroups.MARKER].Success;
+		int openingPosition = openingGroup.Success ? openingGroup.Index : nameGroup.Index;
+
+		if (nameGroup.Success && LiesInCode(openingPosition, mask))
+		{
+			if (!membersByName.TryGetValue(nameGroup.Value, out List<Declaration>? members))
+			{
+				members = [];
+				membersByName[nameGroup.Value] = members;
+			}
+
+			members.Add(new Declaration
+			{
+				Position = nameGroup.Index,
+				Value = isEnvironment ? match.Groups[EnvironmentDeclarationGroups.FALLBACK_WORD].Value : string.Empty,
+				SourceKind = isEnvironment ? SymbolSourceKind.Environment : SymbolSourceKind.Literal
+			});
+		}
+	}
+
 	private static void RecordDeclaration(
 		Match match,
 		ZoneMask mask,
@@ -166,8 +278,9 @@ public sealed class FileSymbolTable
 	{
 		Group nameGroup = match.Groups[NAME_CAPTURE_GROUP];
 		Group valueGroup = match.Groups[VALUE_CAPTURE_GROUP];
+		bool isEnvironment = match.Groups[EnvironmentDeclarationGroups.MARKER].Success;
 
-		if (nameGroup.Success && valueGroup.Success && LiesInCode(match.Index, mask))
+		if (nameGroup.Success && (valueGroup.Success || isEnvironment) && LiesInCode(match.Index, mask))
 		{
 			if (!declarationsByName.TryGetValue(nameGroup.Value, out List<Declaration>? declarations))
 			{
@@ -178,7 +291,8 @@ public sealed class FileSymbolTable
 			declarations.Add(new Declaration
 			{
 				Position = nameGroup.Index,
-				Value = valueGroup.Value
+				Value = isEnvironment ? match.Groups[EnvironmentDeclarationGroups.FALLBACK_WORD].Value : valueGroup.Value,
+				SourceKind = isEnvironment ? SymbolSourceKind.Environment : SymbolSourceKind.Literal
 			});
 		}
 	}
@@ -205,5 +319,11 @@ public sealed class FileSymbolTable
 		internal required int Position { get; init; }
 
 		internal required string Value { get; init; }
+
+		/// <summary>Whether the declaration is a string constant, which is every record an expression without the environment marker produces, or an environment read.</summary>
+		internal SymbolSourceKind SourceKind { get; init; }
 	}
 }
+
+/// <summary>The record a name resolves to: its word and where it came from.</summary>
+public readonly record struct ResolvedSymbol(string Value, SymbolSourceKind SourceKind);

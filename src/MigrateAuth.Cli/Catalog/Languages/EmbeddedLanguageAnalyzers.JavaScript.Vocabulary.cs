@@ -107,17 +107,25 @@ internal static partial class JavaScriptPatternExpressions
 	private const string _PLACEHOLDER_BODY =
 		@"(?i:[*x.\-_#]{3,}|<[^>\n]{0,100}>|\[[^\]\n]{0,100}\]|\{\{[^}\n]{0,100}\}\}|%[^%\n]{0,100}%|placeholder|changeme|change-me|change_me|replace-me|replaceme|your-password|your_password|redacted|todo|fixme|dummy|not-a-real-secret)";
 
+	/// <summary>
+	/// The value terminator that makes a literal the WHOLE value: after the closing delimiter and optional blanks, a comma, a closing parenthesis, brace or bracket, a semicolon, the end of the line, the start of a
+	/// comment or the end of the text. Any other token after the delimiter (a plus sign, a dot, a question mark, an opening bracket or parenthesis, a backtick, another operator) makes the value a concatenation or an
+	/// expression, and the literal in it is not a credential literal. A look-ahead of a few blanks and one token, run only after a literal.
+	/// </summary>
+	private const string _VALUE_TERMINATOR =
+		@"(?=[ \t]*(?:[,)}\];\n]|//|/\*|\z))";
+
 	private const string _CREDENTIAL_LITERAL =
-		@"(?:\x27(?!" + _PLACEHOLDER_BODY + @"\x27)(?<credential>[^\x27\\\n]{1,200})\x27|\x22(?!" + _PLACEHOLDER_BODY + @"\x22)(?<credential>[^\x22\\\n]{1,200})\x22|`(?!" + _PLACEHOLDER_BODY + @"`)(?<credential>(?>[^`$\\\n]|\$(?!\{)){1,200})`)";
+		@"(?:\x27(?!" + _PLACEHOLDER_BODY + @"\x27)(?<credential>[^\x27\\\n]{1,200})\x27" + _VALUE_TERMINATOR + @"|\x22(?!" + _PLACEHOLDER_BODY + @"\x22)(?<credential>[^\x22\\\n]{1,200})\x22" + _VALUE_TERMINATOR + @"|`(?!" + _PLACEHOLDER_BODY + @"`)(?<credential>(?>[^`$\\\n]|\$(?!\{)){1,200})`" + _VALUE_TERMINATOR + @")";
 
 	private const string _PAIR_CREDENTIAL =
-		@"(?:\x27[^\x27\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"\x27)(?<credential>[^\x27\\\n]{1,200})\x27|\x22[^\x22\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"\x22)(?<credential>[^\x22\\\n]{1,200})\x22|`[^`\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"`)(?<credential>(?>[^`$\\\n]|\$(?!\{)){1,200})`)";
+		@"(?:\x27[^\x27\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"\x27)(?<credential>[^\x27\\\n]{1,200})\x27" + _VALUE_TERMINATOR + @"|\x22[^\x22\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"\x22)(?<credential>[^\x22\\\n]{1,200})\x22" + _VALUE_TERMINATOR + @"|`[^`\\\n:]{0,100}:(?!" + _PLACEHOLDER_BODY + @"`)(?<credential>(?>[^`$\\\n]|\$(?!\{)){1,200})`" + _VALUE_TERMINATOR + @")";
 
 	private const string _WHOLE_LITERAL_PAIR =
 		@"[\x27\x22`][^\x27\x22`:\s]{1,100}:[^\x27\x22`\s]{1,200}[\x27\x22`]";
 
 	private const string _USERINFO_URL_CREDENTIAL =
-		@"(?:(?=[\x27\x22`]https?://[^\s:/@\x27\x22`$\\]{1,64}:(?!" + _PLACEHOLDER_BODY + @"@)(?<credential>[^\s/@\x27\x22`$\{\}\\]{1,200})@))?";
+		@"(?:(?=[\x27\x22`]https?://[^\s:/@\x27\x22`$\\]{1,64}:(?!" + _PLACEHOLDER_BODY + @"@)(?<credential>[^\s/@\x27\x22`$\{\}\\]{1,200})@(?>[^\x27\x22`\n$]|\$(?!\{)){0,300}[\x27\x22`]" + _VALUE_TERMINATOR + @"))?";
 
 	private const string _USERINFO_URL =
 		_USERINFO_URL_CREDENTIAL + @"[\x27\x22`]https?://[^\s:/@\x27\x22`$\\]{1,64}:[^\s/@\x27\x22`$\{\}\\]{1,200}@";

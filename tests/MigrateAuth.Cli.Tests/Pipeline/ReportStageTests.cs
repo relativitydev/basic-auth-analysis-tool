@@ -28,6 +28,7 @@ public sealed class ReportStageTests
 	private const string _ORDINARY_CONTENT = "public sealed class Ordinary\n{\n}\n";
 	private const string _STAGE_NAME_SEPARATOR = ": ";
 	private const int _ONE_FINDING = 1;
+	private const string _RELATIVE_DESTINATION_TEXT = "./Outputs";
 
 	private static readonly string _credentialContent =
 		$"class Credentials\n{{\n\tvoid Build() => {PipelineLanguageAnalyzer.TEMPLATED_CONSTRUCT}(user, secret);\n}}\n";
@@ -50,7 +51,7 @@ public sealed class ReportStageTests
 
 	/// <summary>
 	/// Each "Written" line names the output folder as well as the file, so the user can find it.
-	/// The folder is named by its label, never by its path.
+	/// The folder is named as the user supplied it (here an absolute path, so the same text).
 	/// </summary>
 	[Fact]
 	public void EachWrittenLineNamesTheFileAndTheOutputFolder()
@@ -67,12 +68,51 @@ public sealed class ReportStageTests
 					System.Globalization.CultureInfo.InvariantCulture,
 					ReportStage.ARTIFACT_WRITTEN_MESSAGE_FORMAT,
 					fileName,
-					harness.Destination.Label),
+					harness.Destination.ConsoleDisplayText),
+				harness.Transcript,
+				StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>
+	/// A relative or default destination is shown relative to the working folder, and the
+	/// canonical resolved path is never printed - the console transcript carries only the text the user supplied.
+	/// </summary>
+	[Fact]
+	public void TheWrittenLineEchoesTheSuppliedRelativeFolderAndNeverTheCanonicalPath()
+	{
+		using PipelineHarness harness = PipelineHarness.CreateWithDestinationShownAs(_RELATIVE_DESTINATION_TEXT);
+		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
+
+		harness.RunTheWholeWorkflow();
+
+		foreach (string fileName in harness.WrittenArtifactNames())
+		{
+			Assert.Contains(
+				$"Written: {fileName} (in the output folder {_RELATIVE_DESTINATION_TEXT}).",
 				harness.Transcript,
 				StringComparison.Ordinal);
 		}
 
-		Assert.DoesNotContain(harness.Destination.CanonicalPath, harness.Transcript, StringComparison.Ordinal);
+		Assert.DoesNotContain(harness.Destination.CanonicalPath, harness.Transcript, StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>The report and the artifact stay label-only: neither names the output folder, in any form.</summary>
+	[Fact]
+	public void NeitherArtifactNamesTheOutputFolder()
+	{
+		using PipelineHarness harness = PipelineHarness.CreateWithDestinationShownAs(_RELATIVE_DESTINATION_TEXT);
+		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
+
+		harness.RunTheWholeWorkflow();
+
+		string report = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport);
+		string artifact = harness.ReadWrittenArtifact(OutputArtifactKind.StructuredDataArtifact);
+
+		Assert.DoesNotContain(harness.Destination.CanonicalPath, report, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain(harness.Destination.CanonicalPath, artifact, StringComparison.OrdinalIgnoreCase);
+		Assert.DoesNotContain(_RELATIVE_DESTINATION_TEXT, report, StringComparison.Ordinal);
+		Assert.DoesNotContain(_RELATIVE_DESTINATION_TEXT, artifact, StringComparison.Ordinal);
 	}
 
 	/// <summary>

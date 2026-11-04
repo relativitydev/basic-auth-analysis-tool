@@ -253,6 +253,58 @@ public sealed class ScannerThroughputTimingTests
 		Assert.False(scanner.Scan(ceilingFile).WasAbandonedMidFile, label);
 	}
 
+	/// <summary>
+	/// THE PREDICATE THROUGHPUT GATE OF THE `TypeScript` PROFILE. Its backward predicate is the `JavaScript` one with one coded branch for the exclamation mark: a mark directly after an operand end is postfix and the slash divides;
+	/// otherwise the mark is a logical not and the slash opens a regular expression. The branch reads the character directly before the mark and, for an identifier character, the word that ends there (capped at the line ceiling), so it is
+	/// gated here on its own worst shapes beside the inherited ones: ten thousand lines of a postfix mark then a slash, chains of them, runs of marks, a mark after an identifier of 9,990 characters and after a keyword look-alike, and a mark
+	/// before a whitespace gap below and above the cap. The assertion is the shape of the volume proof above: per-megabyte cost at the file-size ceiling stays within the admitted ratio of the same cost at 64 KiB. The figures are this machine's
+	/// and are reported.
+	/// </summary>
+	[Fact]
+	public void TypeScriptPredicateCostOnTenThousandNonNullSlashLinesDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_SLASH_LINE_UNIT, "ten thousand lines of a postfix mark then a slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_DIVISION_CHAIN_UNIT, "division chain of postfix marks on lines at the ceiling");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_SPACED_BANG_UNIT, "postfix marks with spaces around the slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_REGEX_OPENERS_UNIT, "logical not before a regular expression, after a keyword and after a parenthesis");
+	}
+
+	[Fact]
+	public void TypeScriptPredicateCostOnWordAndGapShapesDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_AFTER_IDENTIFIER_GAP_UNIT, "identifier of 9,990 characters, a mark, then a slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_AFTER_KEYWORD_LOOKALIKE_UNIT, "keyword look-alike of 9,990 characters, a mark, then a slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_THEN_GAP_BELOW_THE_CAP_UNIT, "mark, whitespace gap just below the 10,000 character cap, then a slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_THEN_BLANK_LINES_ABOVE_THE_CAP_UNIT, "mark, blank lines above the 10,000 character cap, then a slash");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_BANG_RUN_UNIT, "a run of marks of 9,980 characters, then a slash");
+	}
+
+	[Fact]
+	public void TypeScriptLexicalCostOnAnnotationsGenericsAndNestedTemplateTypesDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_ANNOTATION_HEAVY_LINE_UNIT, "lines at the ceiling of long annotations, unions and divisions");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_GENERIC_CALL_DIVISION_UNIT, "generic calls, assertions and casts each followed by a division");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_NESTED_TEMPLATE_TYPE_UNIT, "template-literal types nested to the recursion bound");
+		AssertTheTypeScriptPredicateShapeDoesNotDegrade(_DECLARATION_FILE_ANCHOR_UNIT, "declaration-file members dense in anchor words, with a triple-slash directive");
+	}
+
+	private void AssertTheTypeScriptPredicateShapeDoesNotDegrade(string unit, string label)
+	{
+		LexicalScanner scanner = new(TypeScriptShapedProfile.Build());
+		string smallFile = NestingSource(unit, _SMALL_FILE_SIZE_IN_CHARACTERS);
+		string ceilingFile = NestingSource(unit, _CEILING_FILE_SIZE_IN_CHARACTERS);
+
+		WarmUp(scanner, smallFile);
+
+		Measurement small = Measure(scanner, [smallFile], $"{label}, 64 KiB");
+		Measurement ceiling = Measure(scanner, [ceilingFile], $"{label}, 2 MB ceiling");
+		double ratio = ceiling.SecondsPerMegabyte / small.SecondsPerMegabyte;
+
+		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, _RATIO_FORMAT, ratio));
+		Assert.True(ratio < _ADMITTED_COST_RATIO, $"Per-megabyte cost of the TypeScript predicate grew with file size on: {label}.");
+		Assert.False(scanner.Scan(ceilingFile).WasAbandonedMidFile, label);
+	}
+
 	private const int _WHITESPACE_GAP_BELOW_THE_CAP_IN_CHARACTERS = 9_980;
 	private const int _BLANK_LINE_LENGTH_IN_CHARACTERS = 9_990;
 	private const int _BLANK_LINES_ABOVE_THE_CAP = 3;
@@ -277,6 +329,53 @@ public sealed class ScannerThroughputTimingTests
 	private static readonly string _IDENTIFIER_GAP_UNIT = $"{new string('a', _IDENTIFIER_GAP_IN_CHARACTERS)}/b\n";
 
 	private static readonly string _KEYWORD_LOOKALIKE_GAP_UNIT = $"{new string('a', _KEYWORD_LOOKALIKE_PREFIX_IN_CHARACTERS)}return/b\n";
+
+	private const int _BANG_DIVISION_CHAIN_REPETITIONS = 330;
+	private const int _BANG_RUN_LENGTH_IN_CHARACTERS = 9_980;
+	private const int _ANNOTATION_HEAVY_REPETITIONS = 150;
+	private const string _BANG_DIVISION_CHAIN_LINK = "a!/b!/c!/d!/e!/f!/g!/h!/i!/j!/";
+	private const string _BANG_SLASH_LINE_UNIT = "const quotient: number = value!/scale;\n";
+	private const string _SPACED_BANG_UNIT = "const r: number = a! / b! / c!; const s: number = d! /e! / f!;\n";
+	private const string _BANG_REGEX_OPENERS_UNIT = "if (!/re/.test(s) && !/x[/]y/.test(t)) { return!/z/.test(u); } const k = (p)!/q; const m = [r]!/s;\n";
+	private const string _ANNOTATION_HEAVY_LINK = "const a: Record<string, Array<Map<string, 'x' | 'y'>>> = b / c / d; ";
+	private const string _GENERIC_CALL_DIVISION_UNIT = "const a: number = id<number>(8) / 2; const b: number = (value as number) / 2; const c: number = (<number>value) / 2; const d = f<A<B>>(x) / y! / z;\n";
+	private const string _NESTED_TEMPLATE_TYPE_UNIT = "type T = `a${`b${`c${`d${`e${`f${`g${string}`}`}`}`}`}`}`; // a / b\n";
+	private const string _DECLARATION_FILE_ANCHOR_UNIT =
+		"/// <reference path=\"x.d.ts\" />\ninterface Options { auth: { username: string; password: string }; headers: { Authorization: 'Basic' }; url: `https://${string}:${string}@host.example/a/b`; }\ndeclare function btoa(v: string): string; // Buffer.from( / and so on\n";
+
+	private static readonly string _BLANK_LINES_ABOVE_THE_CAP_RUN = string.Concat(Enumerable.Repeat(_BLANK_LINE, _BLANK_LINES_ABOVE_THE_CAP));
+
+	private static readonly string _BANG_DIVISION_CHAIN_UNIT = $"{string.Concat(Enumerable.Repeat(_BANG_DIVISION_CHAIN_LINK, _BANG_DIVISION_CHAIN_REPETITIONS))}k\n";
+
+	private static readonly string _ANNOTATION_HEAVY_LINE_UNIT = $"{string.Concat(Enumerable.Repeat(_ANNOTATION_HEAVY_LINK, _ANNOTATION_HEAVY_REPETITIONS))}\n";
+
+	private static readonly string _BANG_AFTER_IDENTIFIER_GAP_UNIT = $"{new string('a', _IDENTIFIER_GAP_IN_CHARACTERS)}!/b\n";
+
+	private static readonly string _BANG_AFTER_KEYWORD_LOOKALIKE_UNIT = $"{new string('a', _KEYWORD_LOOKALIKE_PREFIX_IN_CHARACTERS)}return!/b\n";
+
+	private static readonly string _BANG_THEN_GAP_BELOW_THE_CAP_UNIT = $"x!{new string(' ', _WHITESPACE_GAP_BELOW_THE_CAP_IN_CHARACTERS)}/ b / c\n";
+
+	private static readonly string _BANG_THEN_BLANK_LINES_ABOVE_THE_CAP_UNIT = $"x!{_BLANK_LINES_ABOVE_THE_CAP_RUN}/ x\n";
+
+	private static readonly string _BANG_RUN_UNIT = $"x{new string('!', _BANG_RUN_LENGTH_IN_CHARACTERS)}/y\n";
+
+	/// <summary>Every predicate shape of the `TypeScript` throughput gate with its label, so that the non-timing checks can scan each one at a small size.</summary>
+	internal static IReadOnlyList<(string Label, string Unit)> TypeScriptPredicateShapeUnits { get; } =
+	[
+		("postfix-mark-slash-lines", _BANG_SLASH_LINE_UNIT),
+		("postfix-mark-division-chain", _BANG_DIVISION_CHAIN_UNIT),
+		("spaced-postfix-marks", _SPACED_BANG_UNIT),
+		("logical-not-before-regular-expressions", _BANG_REGEX_OPENERS_UNIT),
+		("mark-after-identifier-gap", _BANG_AFTER_IDENTIFIER_GAP_UNIT),
+		("mark-after-keyword-look-alike", _BANG_AFTER_KEYWORD_LOOKALIKE_UNIT),
+		("mark-then-gap-below-the-cap", _BANG_THEN_GAP_BELOW_THE_CAP_UNIT),
+		("mark-then-blank-lines-above-the-cap", _BANG_THEN_BLANK_LINES_ABOVE_THE_CAP_UNIT),
+		("run-of-marks", _BANG_RUN_UNIT),
+		("annotation-heavy-lines", _ANNOTATION_HEAVY_LINE_UNIT),
+		("generic-calls-and-casts-then-division", _GENERIC_CALL_DIVISION_UNIT),
+		("nested-template-types", _NESTED_TEMPLATE_TYPE_UNIT),
+		("declaration-file-anchors", _DECLARATION_FILE_ANCHOR_UNIT)
+	];
 
 	private const string _NESTING_BALANCED_UNIT =
 		"$a = \"id $(Get-Item (Join-Path (Get-Root) 'x')) end\"\n$b = @\"  \nbody line\n\"@\n# a comment (with parens)\n";

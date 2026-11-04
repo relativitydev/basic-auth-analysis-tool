@@ -46,5 +46,26 @@ public enum WorstCaseFileKind
 	JavaScriptJsxSource = 13,
 
 	/// <summary>An extensionless JavaScript script whose first line is a <c>node</c> hashbang, so only its first line attributes it. Only a tree asked for a JavaScript share holds any.</summary>
-	JavaScriptNodeScript = 14
+	JavaScriptNodeScript = 14,
+
+	/// <summary>A TypeScript source with the <c>.ts</c> extension, ordinary typed code, a share of which mentions a candidate anchor word. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptSource = 15,
+
+	/// <summary>A TypeScript source with the <c>.tsx</c> extension, ordinary typed code with one element template. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptTsxSource = 16,
+
+	/// <summary>A TypeScript source with the <c>.mts</c> extension, ordinary typed code. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptModuleSource = 17,
+
+	/// <summary>A TypeScript source with the <c>.cts</c> extension, ordinary typed code. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptCommonJsSource = 18,
+
+	/// <summary>A declaration file with the <c>.d.ts</c> extension, anchor-dense in the files that mention a candidate anchor word. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptDeclarationFile = 19,
+
+	/// <summary>A declaration file with the <c>.d.mts</c> extension, shaped like the <c>.d.ts</c> form. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptModuleDeclarationFile = 20,
+
+	/// <summary>A declaration file with the <c>.d.cts</c> extension, shaped like the <c>.d.ts</c> form. Only a tree asked for a TypeScript share holds any.</summary>
+	TypeScriptCommonJsDeclarationFile = 21
 }

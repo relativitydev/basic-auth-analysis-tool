@@ -14,18 +14,18 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// <summary>
 /// THE DECLARED UNSUPPORTED COVERAGE OF THE SHIPPED `JavaScript` ANALYZER, and the report section that lists it.
 ///
-/// Forty-one entries are declared: the thirty-seven the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
+/// Forty-six entries are declared: the forty-two the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
 /// word that only that entry's construct carries, so a dropped, duplicated or merged entry fails here. A form the catalog says is not supported must yield no finding, and the
 /// tests below write such a form. Every script is invented, with placeholder names.
 /// </summary>
 public sealed class JavaScriptDeclaredCoverageTests
 {
-	private const int _DECLARED_ENTRY_COUNT = 41;
-	private const int _ENTRIES_OF_THE_CATALOG_LIST = 37;
+	private const int _DECLARED_ENTRY_COUNT = 46;
+	private const int _ENTRIES_OF_THE_CATALOG_LIST = 42;
 	private const int _INTERNAL_LIMIT_COUNT = 4;
-	private const int _UNSUPPORTED_ENTRY_COUNT = 16;
+	private const int _UNSUPPORTED_ENTRY_COUNT = 22;
 	private const int _COST_ENTRY_COUNT = 12;
-	private const int _NOT_APPLICABLE_ENTRY_COUNT = 8;
+	private const int _NOT_APPLICABLE_ENTRY_COUNT = 7;
 	private const string _LANGUAGE_NAME = "JavaScript";
 	private const int _NESTED_TEMPLATE_DEPTH_BEYOND_THE_BOUND = 9;
 
@@ -53,7 +53,6 @@ public sealed class JavaScriptDeclaredCoverageTests
 		("cost:O5-19", "upper-case folders Dist and BUILD"),
 		("O5-20", "any line over 10,000 characters"),
 		("cost:O5-21", "JSX beyond the two rules"),
-		("na:O5-22", "TypeScript files"),
 		("cost:O5-23", "a quoted carrier key"),
 		("unsupported:O5-24", "more than 300 characters from it"),
 		("cost:O5-25", "written after a closing parenthesis"),
@@ -66,9 +65,15 @@ public sealed class JavaScriptDeclaredCoverageTests
 		("unsupported:O5-32", "assembled from parts"),
 		("na:O5-33", "where a credential lives"),
 		("cost:O5-34", "follows a brace or a semicolon"),
-		("na:O5-35", "folder the repository walk never enters"),
+		("na:O5-35", "folder the repository walk skips"),
 		("unsupported:O5-36", "flat array"),
 		("cost:O5-37", "scheme is not visible"),
+		("unsupported:O5-38", "a bare member name for the user name or the password"),
+		("unsupported:O5-39", "built inside the project's own function"),
+		("unsupported:O5-40", "whose name does not end with authorization"),
+		("unsupported:O5-41", "read by bracket access"),
+		("unsupported:O5-42", "the project's own encoder function"),
+		("unsupported:O5-43", "chosen by a selector"),
 		("K-1", "takes too long"),
 		("K-2", "findings cap"),
 		("K-3", "a call goes to RelativityOne"),
@@ -76,7 +81,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 	];
 
 	[Fact]
-	public void TheAnalyzerDeclaresTheThirtySevenEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
+	public void TheAnalyzerDeclaresTheFortyTwoEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
 	{
 		ImmutableArray<DeclaredUnsupportedCoverage> declared = [.. JavaScriptRegisteredExpressions.Analyzer.LanguageIdentification.DeclaredUnsupportedCoverage];
 
@@ -106,7 +111,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 	}
 
 	[Fact]
-	public void TheIdentifiersAreUniqueAndTheGroupsHoldSixteenUnsupportedTwelveCostAndEightNotApplicableEntries()
+	public void TheIdentifiersAreUniqueAndTheGroupsHoldTwentyTwoUnsupportedTwelveCostAndSevenNotApplicableEntries()
 	{
 		Assert.Equal(DeclaredEntries.Length, DeclaredEntries.Select(entry => entry.Id).Distinct(StringComparer.Ordinal).Count());
 		Assert.Equal(_UNSUPPORTED_ENTRY_COUNT, DeclaredEntries.Count(entry => entry.Id.StartsWith("unsupported:", StringComparison.Ordinal)));
@@ -135,14 +140,14 @@ public sealed class JavaScriptDeclaredCoverageTests
 	}
 
 	[Fact]
-	public void AJavaScriptRowIsNoLongerDeclaredUnsupportedAndATypeScriptRowStillIs()
+	public void AJavaScriptRowAndATypeScriptRowAreBothSupportedAndNeitherIsDeclaredUnsupported()
 	{
 		ImmutableArray<LanguageCoverageRow> rows = CoverageStatement.Compose(
 			LanguageCatalogRegistry.BuildEmbeddedCatalog(),
 			new HashSet<AssessedLanguage> { AssessedLanguage.JavaScript, AssessedLanguage.TypeScript });
 
 		Assert.Equal(LanguageCoverageState.Supported, rows.Single(row => row.Language == AssessedLanguage.JavaScript).State);
-		Assert.Equal(LanguageCoverageState.DeclaredUnsupported, rows.Single(row => row.Language == AssessedLanguage.TypeScript).State);
+		Assert.Equal(LanguageCoverageState.Supported, rows.Single(row => row.Language == AssessedLanguage.TypeScript).State);
 	}
 
 	// ------------------------------------------------------------------------------------------
@@ -160,6 +165,11 @@ public sealed class JavaScriptDeclaredCoverageTests
 	[InlineData("await request(url, { headers: ['Authorization', 'Basic ' + encoded] });\n")]
 	[InlineData("const target = 'https://exampleUser:' + secret + '@host.example/path';\n")]
 	[InlineData("const options = loadOptions();\nawait fetch(url, options);\nconst auth = options;\n")]
+	[InlineData("const settings = {\n\tauth: process.env.API_AUTH\n};\nawait fetch(url, { headers: { Authorization: settings.auth } });\n")]
+	[InlineData("const settings = {\n\tserviceAuthorization: process.env.API_AUTH\n};\nawait fetch(url, { headers: { Authorization: settings['serviceAuthorization'] } });\n")]
+	[InlineData("const settings = {\n\tserviceAuthorization: process.env.API_AUTH || 'Bearer exampleToken'\n};\nawait fetch(url, { headers: { Authorization: settings.serviceAuthorization } });\n")]
+	[InlineData("const settings = {\n\tserviceAuthorization: process.env.API_HOST\n};\nawait fetch(url, { headers: { Authorization: settings.serviceAuthorization } });\n")]
+	[InlineData("class Client {\n\tserviceAuthorization = 'fixed';\n}\nawait fetch(url, { headers: { Authorization: this.serviceAuthorization } });\n")]
 	public void AFormTheCatalogDeclaresNotSupportedYieldsNoFinding(string source)
 	{
 		ImmutableArray<RecognizedConstruct> constructs = new JavaScriptRecognitionHarness().Recognize(source);

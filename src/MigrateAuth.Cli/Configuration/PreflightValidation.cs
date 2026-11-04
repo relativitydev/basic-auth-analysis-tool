@@ -337,8 +337,8 @@ public static class PreflightValidation
 	/// <summary>
 	/// The write-boundary call site. It is <see cref="WriteBoundary.Evaluate"/> and not a comparison of its
 	/// own: one implementation, and an early check that cannot disagree with the enforcement point
-	/// because it is the same code. The refusal names both folders by label, which the verdict
-	/// already does.
+	/// because it is the same code. The refusal names the repository by label and the destination as the user supplied it,
+	/// which the verdict already does.
 	/// </summary>
 	private static PreflightVerdict? EvaluateWriteBoundary(
 		RepositoryFolderPath repositoryFolder,

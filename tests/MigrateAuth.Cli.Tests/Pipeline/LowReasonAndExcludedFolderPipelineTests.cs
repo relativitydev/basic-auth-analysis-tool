@@ -27,7 +27,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 	private const string _DEMOTED_FILE = "Deployment/Demoted.cs";
 	private const string _HIGH_FILE = "src/High.cs";
 	private const string _EXCLUDED_FILE = "node_modules/generated.cs";
-	private const string _NESTED_EXCLUDED_FILE = "src/bin/generated.cs";
+	private const string _NESTED_EXCLUDED_FILE = "src/obj/generated.cs";
 
 	private static readonly string _classLowContent =
 		$"class A\n{{\n\tvoid B() => {PipelineLanguageAnalyzer.LOW_CONSTRUCT}();\n}}\n";
@@ -90,7 +90,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 		ArtifactExcludedFoldersDocument excluded = ReadArtifact(harness).ScanSummary.ExcludedFolders;
 
 		Assert.Equal(2, excluded.Count);
-		Assert.Equal(["node_modules", "src/bin"], excluded.Paths);
+		Assert.Equal(["node_modules", "src/obj"], excluded.Paths);
 		Assert.Equal(0, excluded.OmittedPathCount);
 		Assert.Contains("Folders excluded from the walk and not read: 2.", report, StringComparison.Ordinal);
 		Assert.Contains("- node\\_modules", report, StringComparison.Ordinal);
