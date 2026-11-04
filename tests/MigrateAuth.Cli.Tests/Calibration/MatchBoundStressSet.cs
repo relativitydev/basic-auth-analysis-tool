@@ -1,0 +1,384 @@
+using System.Collections.Immutable;
+using System.Globalization;
+using System.Text;
+
+using MigrateAuth.Cli.Reading;
+
+namespace MigrateAuth.Cli.Tests.Calibration;
+
+/// <summary>
+/// One synthetic stress file of the match-bound calibration: a name that says which shape it is, and
+/// the source text the recognition engine is timed against.
+/// </summary>
+internal sealed record MatchBoundStressShape
+{
+	internal required string Name { get; init; }
+
+	internal required string Text { get; init; }
+}
+
+/// <summary>
+/// THE SEPARATE SYNTHETIC STRESS SET OF THE MATCH-BOUND CALIBRATION. THE MATCH BOUND IS CALIBRATED
+/// HERE AND ONLY HERE: a bound tuned against the graded benchmark would be a bound chosen to
+/// let that benchmark through.
+///
+/// WHAT "BENIGN" MEANS HERE. Every shape is legal, ordinary-looking C# that a client repository
+/// could contain - nothing is built to make an expression backtrack catastrophically, because that
+/// is what the bound exists to STOP, not what it must let through. What the shapes do is push every
+/// honest cost to the ceilings the reader enforces: files at the size ceiling, lines at
+/// the line-length ceiling, anchors and matches at the densest a generated file plausibly carries,
+/// and the five-line proximity windows of CS-009, CS-013, CS-016, CS-007's direct assignment and
+/// CS-019's file-transfer request and directory entry, opened over and over - closed in the
+/// match-density shape, never closed in the open-window shape.
+///
+/// Every shape is deterministic - the same text on every run and every machine - so two
+/// calibrations differ only by the machine that ran them.
+/// </summary>
+internal static class MatchBoundStressSet
+{
+	/// <summary>
+	/// Each shape is filled to just under the reader's per-file size ceiling. The margin keeps a shape
+	/// whose last repetition runs long from ever crossing the ceiling the reader would skip it at.
+	/// </summary>
+	internal const int TARGET_SIZE_IN_CHARACTERS = ReadingCeilings.MAXIMUM_FILE_SIZE_IN_BYTES - _SIZE_MARGIN_IN_CHARACTERS;
+
+	/// <summary>The long-line shape stays this far below the reader's line-length ceiling.</summary>
+	internal const int LONG_LINE_LENGTH_IN_CHARACTERS = ReadingCeilings.MAXIMUM_LINE_LENGTH_IN_CHARACTERS - _LINE_MARGIN_IN_CHARACTERS;
+
+	private const int _SIZE_MARGIN_IN_CHARACTERS = 16 * 1024;
+	private const int _LINE_MARGIN_IN_CHARACTERS = 16;
+
+	/// <summary>
+	/// The statement that opens CS-007's direct-assignment window: an
+	/// allow-listed handler constructed into a variable, whose <c>Credentials</c> write may follow
+	/// within five lines. Shared by the match-density shape, which closes the window, and the
+	/// open-window shape, which never does.
+	/// </summary>
+	internal const string DIRECT_HANDLER_ASSIGNMENT_WINDOW_OPENER = "\t\tvar directHandler = new HttpClientHandler();";
+
+	/// <summary>The statement that closes CS-007's direct-assignment window.</summary>
+	internal const string DIRECT_HANDLER_ASSIGNMENT_WINDOW_CLOSER = "\n\t\tdirectHandler.Credentials = new NetworkCredential(userName, password);";
+
+	/// <summary>
+	/// The statement that opens CS-019's file-transfer request window: the
+	/// request obtained by a cast from the factory, whose <c>Credentials</c> write may follow within
+	/// five lines.
+	/// </summary>
+	internal const string FILE_TRANSFER_REQUEST_WINDOW_OPENER = "\t\tvar fileTransferRequest = (FtpWebRequest)WebRequest.Create(transferUri);";
+
+	/// <summary>The statement that closes CS-019's file-transfer request window.</summary>
+	internal const string FILE_TRANSFER_REQUEST_WINDOW_CLOSER = "\n\t\tfileTransferRequest.Credentials = new NetworkCredential(userName, password);";
+
+	/// <summary>
+	/// The statement that opens CS-019's directory-entry window: a credential
+	/// constructed into a variable, which a directory entry constructed within five lines may read.
+	/// </summary>
+	internal const string DIRECTORY_CREDENTIAL_WINDOW_OPENER = "\t\tvar directoryCredential = new NetworkCredential(userName, password);";
+
+	/// <summary>The statement that closes CS-019's directory-entry window.</summary>
+	internal const string DIRECTORY_CREDENTIAL_WINDOW_CLOSER = "\n\t\tvar directoryRoot = new DirectoryEntry(directoryPath, directoryCredential.UserName, directoryCredential.Password);";
+
+	/// <summary>
+	/// The statement that opens CS-019's mail-client windows, credential first: a credential built from an
+	/// object initializer into a variable, whose password assignment and mail-client binding may follow.
+	/// </summary>
+	internal const string MAIL_CREDENTIAL_WINDOW_OPENER = "\t\tNetworkCredential mailCredential = new NetworkCredential { UserName = userName };";
+
+	/// <summary>The statements that close the credential-first mail-client window.</summary>
+	internal const string MAIL_CREDENTIAL_WINDOW_CLOSER = "\n\t\tmailCredential.Password = password;\n\t\tvar mailer = new SmtpClient(host, port) { Credentials = mailCredential };";
+
+	/// <summary>The statement that opens CS-019's mail-client windows, sink first.</summary>
+	internal const string MAIL_SINK_WINDOW_OPENER = "\t\tvar sinkFirstMailer = new SmtpClient(host, port);";
+
+	/// <summary>The statements that close the sink-first mail-client window.</summary>
+	internal const string MAIL_SINK_WINDOW_CLOSER = "\n\t\tNetworkCredential sinkCredential = new NetworkCredential { UserName = userName };\n\t\tsinkCredential.Password = password;\n\t\tsinkFirstMailer.Credentials = sinkCredential;";
+
+	private const string _LINE_BREAK = "\n";
+	private const string _MEMBER_FORMAT = "\tinternal static void Member{0:D6}()\n\t{{\n{1}\t}}\n";
+	private const string _FILLER_STATEMENT = "\t\tint total = first + second;\n";
+
+	private static readonly ImmutableArray<string> _ORDINARY_STATEMENTS =
+	[
+		"\t\tvar order = repository.Find(orderIdentifier);",
+		"\t\tif (order is null) { return; }",
+		"\t\tdecimal amount = order.Lines.Sum(line => line.Quantity * line.UnitPrice);",
+		"\t\tlogger.LogInformation(\"Order {Identifier} totals {Amount}\", order.Identifier, amount);",
+		"\t\tawait publisher.PublishAsync(new OrderTotalled(order.Identifier, amount), cancellationToken);"
+	];
+
+	private static readonly ImmutableArray<string> _ANCHOR_DENSE_NEAR_MISSES =
+	[
+		"\t\tstring credentialLabel = options.CredentialName ?? defaultCredentialName;",
+		"\t\tbool hasAuthorization = request.Headers.Contains(\"Authorization\");",
+		"\t\tstring displayedUserName = form.UserName.Trim();",
+		"\t\tstring payload = Convert.ToBase64String(documentBytes);",
+		"\t\tICredentials fallback = CredentialCache.DefaultCredentials;",
+		"\t\tstring authenticatorName = nameof(Authenticator);",
+		"\t\tvar settingsLabel = typeof(ServiceFactorySettings).Name;",
+		"\t\tstring schemeName = headerValue.Scheme;",
+		"\t\tbool isBase64 = Base64Validator.IsValid(candidate);"
+	];
+
+	private static readonly ImmutableArray<string> _EVERY_CLASS_CONSTRUCTS =
+	[
+		"\t\tCredentials credentials = new UsernamePasswordCredentials(userName, password);",
+		"\t\tvar client = new RSAPIClient(rsapiUri, new UsernamePasswordCredentials(userName, password));",
+		"\t\tcache.Add(new Uri(instanceUrl), \"Basic\", new NetworkCredential(userName, password));",
+		"\t\tvar authenticator = new HttpBasicAuthenticator(userName, password);",
+		"\t\tclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(\"Basic\", encodedCredentials);",
+		"\t\tclient.DefaultRequestHeaders.Add(\"Authorization\", $\"Basic {encodedCredentials}\");",
+		"\t\tvar handler = new HttpClientHandler { Credentials = new NetworkCredential(userName, password) };",
+		"\t\tvar credential = new NetworkCredential(userName, password);",
+		"\t\tstring pair = identifier + \":\" + secret;\n\t\tstring encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair));",
+		"\t\tclient.Headers[HttpRequestHeader.Authorization] = \"Basic \" + encoded;",
+		"\t\tbinding.Security.Transport.ClientCredentialType = HttpClientCredentialType.Basic;\n\t\tclient.ClientCredentials.UserName.UserName = userName;\n\t\tclient.ClientCredentials.UserName.Password = password;",
+		"\t\tvar result = client.WithBasicAuth(userName, password);",
+		"\t\tvar importApi = new ImportAPI(userName, password, webServiceUrl);",
+		"\t\tNetworkCredential assembled = new NetworkCredential { UserName = userName };\n\t\tassembled.Password = password;",
+		"\t\timportJob.Settings.RelativityUsername = userName;\n\t\timportJob.Settings.RelativityPassword = password;",
+		"\t\tstring tokenPair = \"\" + \":\" + accessToken;\n\t\tstring tokenEncoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(tokenPair));",
+		"\t\tvar sink = new SmtpClient(host, port);\n\t\tsink.Credentials = new NetworkCredential(userName, password);",
+		DIRECT_HANDLER_ASSIGNMENT_WINDOW_OPENER + DIRECT_HANDLER_ASSIGNMENT_WINDOW_CLOSER,
+		FILE_TRANSFER_REQUEST_WINDOW_OPENER + FILE_TRANSFER_REQUEST_WINDOW_CLOSER,
+		DIRECTORY_CREDENTIAL_WINDOW_OPENER + DIRECTORY_CREDENTIAL_WINDOW_CLOSER,
+		"\t\tstring headerValue = string.Format(\"Basic {0}\", EncodingHelper.ToBase64(pair));\n\t\trequest.AddHeader(\"Authorization\", headerValue);",
+		"\t\tstring inlineEncoded = Convert.ToBase64String(Encoding.UTF8.GetBytes($\"{\"\"}:{accessToken}\"));",
+		"\t\tclient.Headers[HttpRequestHeader.Authorization] = CreateBasicValue(userName, password);",
+		"\t\tvar multiLineApi = new ImportAPI(\n\t\t\tuserName, // operator\n\t\t\tpassword,\n\t\t\twebServiceUrl);",
+		MAIL_CREDENTIAL_WINDOW_OPENER + MAIL_CREDENTIAL_WINDOW_CLOSER,
+		MAIL_SINK_WINDOW_OPENER + MAIL_SINK_WINDOW_CLOSER,
+		"\t\tvar configured = new UsernamePasswordCredentials(settings[\"User\"], settings[\"Password\"]);",
+		"\t\tvar pairCredential = new NetworkCredential(values[0][1], parts[index + 1]);",
+		"\t\trequest.Headers.Add(HttpRequestHeader.Authorization, \"Basic \" + parts[1]);",
+		"\t\trequest.Headers.Set(HttpRequestHeader.Authorization, \"Basic \" + encoded);",
+		"\t\tstring inlinePair = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName + \":\" + password));",
+		"\t\tstring formattedPair = Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format(\"{0}:{1}\", userName, password)));",
+		"\t\tcache.Add(endpoint, \"Basic\", new NetworkCredential(userName, password));",
+		"\t\tcache.Add(host, port, \"Basic\", new NetworkCredential(userName, password));",
+		"\t\tvar inlineAddressClient = new RSAPIClient(new Uri(instanceUrl), new UsernamePasswordCredentials(userName, password));"
+	];
+
+	private static readonly ImmutableArray<string> _OPEN_PROXIMITY_WINDOWS =
+	[
+		"\t\tstring pair = identifier + \":\" + secret;",
+		"\t\tbinding.Security.Transport.ClientCredentialType = HttpClientCredentialType.Basic;",
+		"\t\tNetworkCredential assembled = new NetworkCredential { UserName = userName };",
+		DIRECT_HANDLER_ASSIGNMENT_WINDOW_OPENER,
+		FILE_TRANSFER_REQUEST_WINDOW_OPENER,
+		DIRECTORY_CREDENTIAL_WINDOW_OPENER,
+		"\t\tstring headerValue = string.Format(\"Basic {0}\", encoded);",
+		MAIL_CREDENTIAL_WINDOW_OPENER + "\n\t\tmailCredential.Password = password;",
+		MAIL_SINK_WINDOW_OPENER,
+		"\t\tstring openPair = Convert.ToBase64String(Encoding.ASCII.GetBytes(" + _ENCODER_FILLER_WITHOUT_A_PAIR,
+		"\t\tcache.Add(host, port, \"Basic\", keys[" + _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET
+	];
+
+	/// <summary>
+	/// A run of ordinary characters the encoder window of the inline pair reads in full and never closes: no
+	/// colon-joined pair and no statement end within the window.
+	/// </summary>
+	private static readonly string _ENCODER_FILLER_WITHOUT_A_PAIR = new string('x', 190);
+
+	/// <summary>A run the indexer suffix reads up to its length bound and never closes with a bracket.</summary>
+	private static readonly string _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET = new string('y', 130);
+
+	/// <summary>
+	/// Near-miss lines for the indexer suffix and the inline pair: indexers inside indexers, a comma inside a
+	/// bracket, an indexer past its length bound, and an encoder whose window holds no pair.
+	/// </summary>
+	private static readonly ImmutableArray<string> _INDEXER_AND_INLINE_PAIR_NEAR_MISSES =
+	[
+		"\t\tvar nested = new NetworkCredential(values[keys[0]], parts[1, 2]);",
+		"\t\tvar overlong = new UsernamePasswordCredentials(values[" + new string('z', 125) + "], password);",
+		"\t\tvar collection = new NetworkCredential([userName], [password]);",
+		"\t\tstring single = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName));",
+		"\t\tstring outside = Convert.ToBase64String(bytes); string joined = userName + \":\" + password;",
+		"\t\tcache.Add(host[0], port[index][0], \"Basic\", factory.Create(userName, password));"
+	];
+
+	private static readonly ImmutableArray<string> _LONG_LINE_TOKENS =
+	[
+		"credential.UserName + \":\" + ",
+		"Authorization + ",
+		"Convert.ToBase64String(bytes) + ",
+		"new NetworkCredential(a, b).Password + ",
+		"\"Basic \" + "
+	];
+
+	private static readonly ImmutableArray<string> _LITERAL_AND_COMMENT_LINES =
+	[
+		"\t\t// Credential, Authorization and UserName appear here only in prose, never in code.",
+		"\t\tstring path = @\"C:\\data\\credentials\\archive\\Authorization\\UserName\";",
+		"\t\tstring message = $\"Credential {name} refreshed for {userName} at {DateTime.UtcNow:O}\";",
+		"\t\t/* new NetworkCredential(userName, password) was removed in the migration */",
+		"\t\tstring note = \"Basic authentication is disabled; use a bearer token instead.\";"
+	];
+
+	/// <summary>
+	/// Every flow-signal shape's name starts with this, so the shapes that carry a High construct
+	/// can be told apart from the six that do not.
+	/// </summary>
+	internal const string FLOW_SHAPE_NAME_PREFIX = "flow-";
+
+	/// <summary>
+	/// The one High finding an invented flow-signal shape opens with: a basic-authentication
+	/// extension call over invented operands. It makes the engine evaluate the seventeen flow signals
+	/// over the whole file, inside the same match-bound accumulator as the detection rules.
+	/// </summary>
+	internal const string FLOW_SHAPE_HIGH_CONSTRUCT_LINE = "var result = client.WithBasicAuth(operatorName, accessKey);\n";
+
+	private const int _FLOW_LONG_LITERAL_LENGTH = 200;
+	private const int _FLOW_OPERAND_ARGUMENT_LENGTH = 118;
+	private const int _FLOW_FILLER_STATEMENTS_PER_WINDOW = 3;
+	private const string _FLOW_FILLER_STATEMENT = "\tvar total = first + second;\n";
+
+	/// <summary>
+	/// Text built to make each flow signal do its most work: each shape repeats, up to the size
+	/// ceiling, the construct that opens one signal's window or alternation without ever completing
+	/// it. Every statement is invented, ordinary-looking C#; none comes from the graded benchmark.
+	/// </summary>
+	private static readonly ImmutableArray<(string Name, string Statements)> _FLOW_SHAPE_STATEMENTS =
+	[
+		("credential-words-dense", "\tvar passwordValue = secretText + pinCode + apiKeyValue; // password secret token pin\n"),
+		("read-key-with-no-credential-word", "\tvar pressed = Console.ReadKey(true);\n"),
+		("read-key-beside-enter-comparisons", "\tif (pressed.Key == ConsoleKey.Enter) { }\n\tvar pressed = Console.ReadKey(true);\n"),
+		("console-writes-with-long-literals", $"\tConsole.Write(\"{new string('a', _FLOW_LONG_LITERAL_LENGTH)}\");\n"),
+		("secret-client-mentions-with-no-fetch", "\tSecretClient holder;\n"),
+		("posted-attributes-with-no-login-method", "\t[HttpPost]\n\tpublic IActionResult SaveRecord(RecordInput input)\n"),
+		("indexers-with-plain-keys", "\tvar value = table[\"Name\"] + table[\"Db:Passage\"];\n"),
+		("form-and-collection-names", "\tvar entry = form  [  \"aaa\" + platformForm[ \"Bypass\" ];\n"),
+		("instance-setting-style-calls", "\tvar value = settings.GetString(\"Section\", \"PageSize\");\n"),
+		("html-and-type-assignments", "\tvar markup = \"<input type=\\\"text\\\" />\"; var type = \"aaa\";\n"),
+		("member-names-of-the-signals-without-arguments", "\tvar names = nameof(AddUserSecrets) + nameof(Unprotect) + nameof(PasswordBox) + nameof(GetValue);\n"),
+		("open-windows-with-filler", OpenFlowWindowsWithFiller()),
+		("credential-keyed-indexers-on-configuration-receivers", "\tvar value = configuration[\"Db:Password\"] + config?[\"Api:Token\"] + authSection[\"Secret\"] + configuration.GetSection(\"Auth\")[\"Password\"];\n"),
+		("credential-keyed-indexers-on-other-receivers", "\tvar value = Request.Headers[\"token\"] + Session[\"password\"] + values[\"ApiKey\"] + payload.GetValue(\"secret\") + options.GetValue<string>(\"Db:Pwd\");\n"),
+		("password-box-casts-with-no-read-in-the-window", "\tvar box = (PasswordBox)sender;\n\tvar total = first + second;\n\tvar holder = other as PasswordBox;\n\t((PasswordBox)sender).Focus();\n"),
+		("password-box-casts-read-on-other-variables", "\tvar box = (PasswordBox)sender; var entered = other.Password + outerbox.Password + holder.box.Password;\n"),
+		("password-box-casts-read-directly-and-stored", "\tvar box = (PasswordBox)sender; var entered = box.Password + ((PasswordBox)sender).SecurePassword + (sender as PasswordBox).Password;\n"),
+		("password-box-as-calls-with-no-read-in-the-window", $"\tvar box = FindName(\"PasswordInput\") as PasswordBox;\n\tvar holder = this.Root.Find(\"{new string('a', _FLOW_OPERAND_ARGUMENT_LENGTH)}\") as PasswordBox;\n\tvar other = controls[\"entry\"][index] as PasswordBox;\n\t((PasswordBox)FindName(\"PasswordInput\")).Focus();\n\tvar open = Locate(\"{new string('b', _FLOW_OPERAND_ARGUMENT_LENGTH)} as PasswordBox;\n"),
+		("receiver-names-with-no-key-after-them", "\tvar value = configuration + config?[ index ] + Section [ \"Plain\" ] + GetSection(\"a\" + \"b\")(\"c\") + GetSection(((((\n")
+	];
+
+	/// <summary>
+	/// The six benign shapes followed by the flow-signal shapes, in a fixed order. Each name is what
+	/// the calibration table reports.
+	/// </summary>
+	internal static ImmutableArray<MatchBoundStressShape> Build()
+	{
+		return
+		[
+			Shape("ordinary-code-at-size-ceiling", FillWithMembers(_ORDINARY_STATEMENTS)),
+			Shape("anchor-dense-near-misses", FillWithMembers(_ANCHOR_DENSE_NEAR_MISSES)),
+			Shape("every-class-at-match-density", FillWithMembers(_EVERY_CLASS_CONSTRUCTS)),
+			Shape("open-proximity-windows", FillWithMembers(InterleaveWithFiller(_OPEN_PROXIMITY_WINDOWS))),
+			Shape("long-lines-at-line-ceiling", FillWithLongLines()),
+			Shape("literal-and-comment-heavy", FillWithMembers(_LITERAL_AND_COMMENT_LINES)),
+			Shape("indexer-and-inline-pair-near-misses", FillWithMembers(_INDEXER_AND_INLINE_PAIR_NEAR_MISSES)),
+			.. FlowShapes()
+		];
+	}
+
+	/// <summary>
+	/// The flow-signal shapes. Each opens with <see cref="FLOW_SHAPE_HIGH_CONSTRUCT_LINE"/> so the
+	/// engine evaluates the flow signals over it, and is then filled with the statements that make
+	/// one signal do its most work.
+	/// </summary>
+	private static ImmutableArray<MatchBoundStressShape> FlowShapes()
+	{
+		return
+		[
+			.. _FLOW_SHAPE_STATEMENTS.Select(flowShape => Shape(
+				FLOW_SHAPE_NAME_PREFIX + flowShape.Name,
+				FLOW_SHAPE_HIGH_CONSTRUCT_LINE + FillWithMembers([flowShape.Statements.TrimEnd('\n')])))
+		];
+	}
+
+	private static string OpenFlowWindowsWithFiller()
+	{
+		string filler = string.Concat(Enumerable.Repeat(_FLOW_FILLER_STATEMENT, _FLOW_FILLER_STATEMENTS_PER_WINDOW));
+
+		return "\tvar seed = password + Console.ReadKey(true);\n" + filler
+			+ "\tSecretClient holder;\n" + filler
+			+ "\t[HttpPost]\n" + filler;
+	}
+
+	private static MatchBoundStressShape Shape(string name, string text)
+	{
+		return new MatchBoundStressShape { Name = name, Text = text };
+	}
+
+	/// <summary>
+	/// Wraps the statements in members of a class and repeats them until the text reaches the
+	/// target size. A member holds one pass over the statements, so every statement recurs at the
+	/// same density from the first line of the file to the last.
+	/// </summary>
+	private static string FillWithMembers(ImmutableArray<string> statements)
+	{
+		StringBuilder builder = new();
+		string body = string.Concat(statements.Select(statement => statement + _LINE_BREAK));
+		int memberIndex = 0;
+
+		builder.Append("namespace Synthetic.Stress\n{\ninternal static class StressSubject\n{\n");
+
+		while (builder.Length < TARGET_SIZE_IN_CHARACTERS)
+		{
+			builder.AppendFormat(CultureInfo.InvariantCulture, _MEMBER_FORMAT, memberIndex, body);
+			memberIndex++;
+		}
+
+		builder.Append("}\n}\n");
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// Follows each window-opening statement with four ordinary statements, so the five-line
+	/// window each opens is searched in full and never closed.
+	/// </summary>
+	private static ImmutableArray<string> InterleaveWithFiller(ImmutableArray<string> openingStatements)
+	{
+		const int FILLER_STATEMENTS_PER_WINDOW = 4;
+		string filler = string.Concat(Enumerable.Repeat(_FILLER_STATEMENT, FILLER_STATEMENTS_PER_WINDOW)).TrimEnd('\n');
+
+		return [.. openingStatements.Select(opening => opening + _LINE_BREAK + filler)];
+	}
+
+	/// <summary>
+	/// Lines at the line-length ceiling, each one long concatenation of anchor-bearing tokens -
+	/// the shape a generated file produces, and the one where an expression's per-line work is
+	/// largest.
+	/// </summary>
+	private static string FillWithLongLines()
+	{
+		StringBuilder builder = new();
+		string longLine = BuildOneLongLine();
+
+		while (builder.Length < TARGET_SIZE_IN_CHARACTERS)
+		{
+			builder.Append(longLine);
+			builder.Append(_LINE_BREAK);
+		}
+
+		return builder.ToString();
+	}
+
+	private static string BuildOneLongLine()
+	{
+		const string LINE_OPENING = "\t\tstring assembled = ";
+		const string LINE_CLOSING = "string.Empty;";
+		StringBuilder line = new(LINE_OPENING);
+		int tokenIndex = 0;
+		int bodyLimit = LONG_LINE_LENGTH_IN_CHARACTERS - LINE_CLOSING.Length;
+
+		while (line.Length + _LONG_LINE_TOKENS[tokenIndex % _LONG_LINE_TOKENS.Length].Length <= bodyLimit)
+		{
+			line.Append(_LONG_LINE_TOKENS[tokenIndex % _LONG_LINE_TOKENS.Length]);
+			tokenIndex++;
+		}
+
+		line.Append(LINE_CLOSING);
+
+		return line.ToString();
+	}
+}

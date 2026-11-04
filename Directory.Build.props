@@ -1,0 +1,29 @@
+<Project>
+
+	<!--
+		Repository-wide build settings.
+
+		Scope note: this file carries only what every project in the repository shares.
+		Native AOT publish settings, runtime feature switches and the diagnosability
+		properties required by DR-01 live in src/MigrateAuth.Cli/MigrateAuth.Cli.csproj,
+		because they apply to the shipped binary and must not silently apply to the
+		test project, which runs on the shared framework.
+
+		DR-01 rejects net472 outright. This is a standalone cross-platform CLI, not a
+		Relativity-hosted application, so the net472 rule of the global Linear workflow
+		does not apply and any tooling warning to that effect is expected.
+	-->
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+		<GenerateDocumentationFile>false</GenerateDocumentationFile>
+		<NeutralLanguage>en</NeutralLanguage>
+		<Deterministic>true</Deterministic>
+	</PropertyGroup>
+
+</Project>
