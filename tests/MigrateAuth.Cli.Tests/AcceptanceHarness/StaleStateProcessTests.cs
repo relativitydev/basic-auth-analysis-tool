@@ -103,11 +103,9 @@ public sealed class StaleStateProcessTests
 
 	private static void AssertTheResultsDescribeThePreModificationInventory(CliProcessOutcome analyzeProcess)
 	{
+		Assert.Equal(1, _INVENTORIED_CANDIDATE_COUNT);
 		Assert.Contains(
-			string.Format(
-				CultureInfo.InvariantCulture,
-				AnalyzeStage.ANALYSIS_STARTED_MESSAGE_FORMAT,
-				_INVENTORIED_CANDIDATE_COUNT),
+			AnalyzeStage.SINGLE_CANDIDATE_ANALYSIS_STARTED_MESSAGE,
 			analyzeProcess.StandardOutput,
 			StringComparison.Ordinal);
 

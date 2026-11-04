@@ -16,35 +16,38 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Recognition;
 
 /// <summary>
-/// <see cref="SkippedItemCategory.MalformedMatch"/>, GUARDING AGAINST A <c>[GeneratedRegex]</c>
-/// SOURCE-GENERATOR DEFECT THE MATCH BOUND DOES NOT COVER.
+/// THE <see cref="SkippedItemCategory.MalformedMatch"/> CATEGORY, GUARDING AGAINST A
+/// <c>[GeneratedRegex]</c> SOURCE-GENERATOR DEFECT THE MATCH BOUND DOES NOT COVER.
 ///
-/// The source generator on SDK 10.0.201 / runtime 10.0.5 can return a "successful"
-/// <see cref="Match"/> for <c>a(?:(?:[^\n]*\n){0,5}?b)?</c> against <c>"za\n\n\n\n\n"</c> whose span
-/// does not contain its own declared group: <see cref="Match.Length"/> ZERO with a participating,
-/// non-empty anchor group the empty span cannot contain. Feeding the SAME trigger text to itself
-/// twice back to back produces genuine non-advancing repetition, from a whole range of resumed
-/// search positions. This suite carries its own fixture built from that exact reproduction.
+/// The source generator can return a "successful" <see cref="Match"/> for
+/// <c>a(?:(?:[^\n]*\n){0,5}?b)?</c> against <c>"za\n\n\n\n\n"</c> whose span does not contain its
+/// own declared group: <see cref="Match.Length"/> ZERO with a participating, non-empty anchor
+/// group the empty span cannot contain. Feeding the SAME trigger text to itself twice back to back
+/// produces genuine non-advancing repetition, from a whole range of resumed search positions rather
+/// than from one - see <see cref="TheEngineResumesPastAGenuinelyStuckMatchAndStillFindsALaterWellFormedOne"/>
+/// for that shape and what the engine does about it.
 ///
-/// SEVEN THINGS ARE PROVED. First, that the fixture actually reproduces the defect on this SDK -
-/// if a future SDK fixes the generator, that test fails and says to replace or retire this fixture
-/// rather than leave a guard nothing exercises. Second, that the real engine drops the zero-length
-/// corrupted match, records <see cref="SkippedItemCategory.MalformedMatch"/> exactly once, never
-/// trips <see cref="SkippedItemCategory.MatchBoundExceeded"/>, and still finds a second, well-formed
-/// rule's own finding in the same file. Third, that an anchor group legitimately outside its own
-/// match's span - a lookahead or a lookbehind - is classified normally rather than dropped, proved
-/// through deterministic constructions that do not depend on the generator defect. Fourth, that a
-/// match which genuinely fails to advance does not abandon the rest of the file for its rule: the
-/// engine resumes past the stuck position and still finds a later, well-formed match of the SAME
-/// rule, with the file still counted exactly once. Fifth, that the resume mechanism reaches the same
-/// outcome across MULTIPLE consecutive stuck attempts - see
+/// SEVEN THINGS ARE PROVED. First, that the fixture actually reproduces
+/// the defect on this SDK - if a future SDK update fixes the generator, that test fails and tells
+/// the team to replace or retire this fixture rather than leave a guard nothing exercises. Second,
+/// that the real engine drops the zero-length corrupted match, records that category exactly
+/// once, never trips <see cref="SkippedItemCategory.MatchBoundExceeded"/>, and still finds a second,
+/// well-formed rule's own finding in the same file. Third, that an anchor group legitimately outside
+/// its own match's span - a lookahead or a lookbehind, per the analyzer contract - is classified
+/// normally rather than dropped, proved through deterministic, non-generator-bug constructions
+/// rather than through the buggy generator, because nothing about a lookaround depends on this SDK's
+/// defect. Fourth, that a match which genuinely fails to advance does not abandon the rest of the
+/// file for its rule: the engine resumes past the stuck position and still finds a later, well-formed
+/// match of the SAME rule, with the file still counted exactly once. Fifth, that the resume mechanism
+/// reaches the same correct outcome across MULTIPLE consecutive stuck attempts, not just one - see
 /// <see cref="TheEngineResumesThroughMultipleConsecutiveStuckAttemptsAndStillFindsTheLaterWellFormedOne"/>.
-/// Sixth, that the NON-ZERO-LENGTH malformed shape is dropped as
-/// <see cref="SkippedItemCategory.MalformedMatch"/> too, with the well-formed findings either side of
-/// it kept; see
+/// Sixth, that the interpreted cross-check drops the NON-ZERO-LENGTH corrupted shape as
+/// <see cref="SkippedItemCategory.MalformedMatch"/> too, with the genuinely well-formed
+/// findings either side of it kept; see
 /// <see cref="TheEngineDropsTheObservedNonZeroLengthMalformedMatchAndKeepsTheLegitimateFindingsAroundIt"/>.
-/// Seventh, that a BARE, zero-length lookaround with no other content is classified rather than
-/// dropped; see <see cref="APureZeroLengthLookaroundMatchIsNowClassifiedRatherThanDropped"/>.
+/// Seventh, that a BARE, zero-length lookaround with no other content - a shape geometry alone
+/// cannot tell apart from the defect - is classified rather than dropped; see
+/// <see cref="APureZeroLengthLookaroundMatchIsNowClassifiedRatherThanDropped"/>.
 /// </summary>
 public sealed class MalformedMatchGuardTests
 {
@@ -220,9 +223,9 @@ public sealed class MalformedMatchGuardTests
 	// --------------------------------------------------------------------------------------------
 	// An anchor group legitimately outside its own match's span - a lookahead, then a lookbehind.
 	// Both are ordinary, correctly-functioning matches under the analyzer contract; nothing about
-	// either depends on the generator defect, which is why both are built as deterministic
-	// constructions rather than against the expression above. Both must be CLASSIFIED, not dropped:
-	// neither reports zero consumed text.
+	// either depends on this SDK's generator defect, which is why both are built as deterministic,
+	// non-generator-bug constructions rather than against the buggy expression above. Both must be
+	// CLASSIFIED, not dropped.
 	// --------------------------------------------------------------------------------------------
 
 	[Fact]
@@ -615,8 +618,8 @@ public sealed class MalformedMatchGuardTests
 /// <summary>
 /// EXPRESSIONS DECLARED AS <c>[GeneratedRegex]</c> BECAUSE THE DEFECT THIS SUITE GUARDS AGAINST IS
 /// A PROPERTY OF THE SOURCE GENERATOR, NEVER OF THE INTERPRETER - <c>new Regex(pattern)</c> reads
-/// every pattern below correctly, which is exactly why the catalog's own rules, which declare
-/// <c>[GeneratedRegex]</c>, are exposed to it.
+/// every pattern below correctly, which is exactly why the catalog's own rules must declare
+/// <c>[GeneratedRegex]</c> to be exposed to it at all.
 /// </summary>
 internal static partial class MalformedMatchFixturePatterns
 {
@@ -641,8 +644,8 @@ internal static partial class MalformedMatchFixturePatterns
 	/// the overall match's own span under ordinary, non-defective regex semantics. Deterministic
 	/// and reproducible on any runtime: this is not the generator defect, it is a controlled way to
 	/// present the engine with an anchor group outside the match's span WHILE the match itself
-	/// consumes real text (<see cref="Match.Length"/> non-zero), an ordinary, legitimate shape that
-	/// must be classified rather than dropped.
+	/// consumes real text (<see cref="Match.Length"/> non-zero), which is an ordinary, legitimate
+	/// shape under the analyzer contract and must be classified rather than dropped.
 	/// </summary>
 	[GeneratedRegex(
 		@"x(?=(?<construct>yz))",

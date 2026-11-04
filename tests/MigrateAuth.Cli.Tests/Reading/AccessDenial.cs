@@ -7,16 +7,20 @@ namespace MigrateAuth.Cli.Tests.Reading;
 /// <summary>
 /// Takes read access away from the running user, and gives it back.
 ///
-/// A TEST MAY INSPECT PERMISSIONS; THE PRODUCT MAY NOT. The product never reads an access control
-/// list or a file mode: it has to work out whether it can read something, which attempting answers
-/// directly and inspecting answers approximately. This code is doing the opposite job: it is
-/// CREATING the condition, which is the one thing the platform API is exactly right for. The
-/// product's side of the same fixture never calls anything in this file.
+/// A TEST MAY INSPECT PERMISSIONS; THE PRODUCT MAY NOT. The product is forbidden from reading
+/// an access control list or a file mode, and the reason is that the product has to work out
+/// whether it can read something - which attempting answers directly and inspecting answers
+/// approximately. This code is doing the opposite job: it is CREATING the condition, which is
+/// the one thing the platform API is exactly right for. The product's side of the same fixture
+/// never calls anything in this file.
 ///
-/// It is written for both permission models. The Windows half adds a deny entry for the running
-/// user's own security identifier - a deny entry is evaluated before any allow entry, including one
-/// inherited from the Administrators group, so it denies even a user who owns the file. The Unix
-/// half removes every mode bit.
+/// It is written for both permission models, though only one of them can be exercised here. The
+/// Windows half adds a deny entry for the running user's own security identifier - a deny entry
+/// is evaluated before any allow entry, including one inherited from the Administrators group,
+/// so it denies even a user who owns the file. The Unix half removes every mode bit. Proving
+/// that the outcomes match is the whole of the remaining check on the other two platforms; what
+/// this file can do is make the test itself portable, so that proof needs a machine rather than
+/// a rewrite.
 /// </summary>
 internal static class AccessDenial
 {

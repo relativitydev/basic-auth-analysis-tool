@@ -177,7 +177,7 @@ public sealed class ConfigurationResolverTests
 
 	/// <summary>
 	/// A field a later release adds is ignored rather than making the file malformed, and so is a
-	/// language name this build does not know.
+	/// language name this build does not know. That is the configuration read's version tolerance.
 	/// </summary>
 	[Fact]
 	public void AnUnknownFieldAndAnUnknownLanguageAreToleratedRatherThanMalformed()
@@ -380,7 +380,7 @@ public sealed class ConfigurationResolverTests
 	/// <summary>
 	/// The output path is not read from the repository at all - not narrowed, not widened, not
 	/// read. And the value is not recorded either, because a path out of the audited repository is
-	/// never emitted.
+	/// what the data invariant forbids emitting.
 	/// </summary>
 	[Fact]
 	public void TheRepositoryFileOutputPathIsNeverReadAndItsValueIsNeverRecorded()

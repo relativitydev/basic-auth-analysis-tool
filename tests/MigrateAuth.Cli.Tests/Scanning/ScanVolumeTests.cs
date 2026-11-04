@@ -12,20 +12,23 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 /// <summary>
 /// THE VOLUME PROOF FOR THE TERM THAT GROWS WITH THE REPOSITORY.
 ///
-/// The candidate set is the one thing that grows with the repository, and it is deliberately NOT
-/// capped: capping it means silently declining to analyze files, which is a worse failure than the
-/// memory it saves. So this plants a tree in which EVERY file carries an anchor - the worst case -
-/// and reconciles the candidate count against the planted count.
+/// The candidate set is the one thing in this design that grows with the repository
+/// and it is deliberately NOT capped: capping it means silently declining to analyze
+/// files, which is a worse failure than the memory it saves. A claim like that is only worth
+/// anything if the uncapped case has been run, so this builds a tree in which EVERY file carries
+/// an anchor and reconciles the candidate count against the number of files created.
+///
+/// The worst case is this one: every file, 100 %.
 ///
 /// IT ALSO MEASURES, and the number it prints is this machine's. The assertion is against the required
 /// floor of 5,000 files a minute and never against a reference figure, because a test that fails
-/// when a machine is busy proves nothing about the product.
+/// when a laptop is busy is a test that gets deleted.
 /// </summary>
 public sealed class ScanVolumeTests
 {
 	private const int _FOLDER_COUNT = 60;
 	private const int _FILES_PER_FOLDER = 50;
-	private const int _PLANTED_FILE_COUNT = _FOLDER_COUNT * _FILES_PER_FOLDER;
+	private const int _TREE_FILE_COUNT = _FOLDER_COUNT * _FILES_PER_FOLDER;
 	private const int _REQUIRED_FILES_PER_MINUTE = 5000;
 	private const int _SECONDS_PER_MINUTE = 60;
 	private const string _CANDIDATE_CONTENT = "var credentials = NewExemplarCredentials(user, secret);\n";
@@ -44,7 +47,7 @@ public sealed class ScanVolumeTests
 
 	/// <summary>
 	/// EVERY FILE A CANDIDATE. Nothing drops one, nothing truncates the list, and the count the
-	/// stage reports is the count that was planted - which is what "uncapped, deliberately" has to
+	/// stage reports is the count that was created - which is what "uncapped, deliberately" has to
 	/// mean to be worth stating.
 	/// </summary>
 	[Fact]
@@ -52,14 +55,14 @@ public sealed class ScanVolumeTests
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 
-		PlantTree(harness, everyFileCarriesAnAnchor: true);
+		CreateTree(harness, everyFileCarriesAnAnchor: true);
 
 		InventoryResult inventory = Measure(harness, "every file a candidate");
 
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.Inventory.TotalFileCount);
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.Inventory.TotalCandidateFileCount);
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.CandidateRelativePaths.Count);
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.CandidateRelativePaths.Distinct(StringComparer.Ordinal).Count());
+		Assert.Equal(_TREE_FILE_COUNT, inventory.Inventory.TotalFileCount);
+		Assert.Equal(_TREE_FILE_COUNT, inventory.Inventory.TotalCandidateFileCount);
+		Assert.Equal(_TREE_FILE_COUNT, inventory.CandidateRelativePaths.Count);
+		Assert.Equal(_TREE_FILE_COUNT, inventory.CandidateRelativePaths.Distinct(StringComparer.Ordinal).Count());
 	}
 
 	/// <summary>
@@ -72,17 +75,17 @@ public sealed class ScanVolumeTests
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 
-		PlantTree(harness, everyFileCarriesAnAnchor: false);
+		CreateTree(harness, everyFileCarriesAnAnchor: false);
 
 		InventoryResult inventory = Measure(harness, "no file a candidate");
 
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.Inventory.TotalFileCount);
+		Assert.Equal(_TREE_FILE_COUNT, inventory.Inventory.TotalFileCount);
 		Assert.Empty(inventory.CandidateRelativePaths);
 	}
 
 	/// <summary>
 	/// The whole stage at volume, through the state it writes to. Half a million paths is the
-	/// worst case this term is declared against; three thousand is what a test can plant in a
+	/// worst case this term is declared against; three thousand is what a test can create in a
 	/// second, and what it establishes is that nothing between the walk and the state loses or
 	/// duplicates one.
 	/// </summary>
@@ -91,13 +94,13 @@ public sealed class ScanVolumeTests
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 
-		PlantTree(harness, everyFileCarriesAnAnchor: true);
+		CreateTree(harness, everyFileCarriesAnAnchor: true);
 
 		SessionState state = SessionState.Fresh(harness.Catalog.Version, _REPOSITORY_ROOT_LABEL);
 		StageRunOutcome outcome = harness.BuildStage().Run(state, CancellationToken.None);
 
 		Assert.Equal(StageRunOutcome.Completed, outcome);
-		Assert.Equal(_PLANTED_FILE_COUNT, state.CandidateRelativePaths.Count);
+		Assert.Equal(_TREE_FILE_COUNT, state.CandidateRelativePaths.Count);
 	}
 
 	/// <summary>
@@ -111,15 +114,15 @@ public sealed class ScanVolumeTests
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 
-		PlantFirstLineTree(harness);
+		CreateFirstLineTree(harness);
 
 		InventoryResult inventory = Measure(harness, "every file attributed by first line");
 
-		Assert.Equal(_PLANTED_FILE_COUNT, inventory.Inventory.TotalCandidateFileCount);
+		Assert.Equal(_TREE_FILE_COUNT, inventory.Inventory.TotalCandidateFileCount);
 		Assert.Equal(0, inventory.Inventory.FirstLineFallbackCount);
 	}
 
-	private static void PlantFirstLineTree(ScanHarness harness)
+	private static void CreateFirstLineTree(ScanHarness harness)
 	{
 		for (int folder = 0; folder < _FOLDER_COUNT; folder++)
 		{
@@ -132,7 +135,7 @@ public sealed class ScanVolumeTests
 		}
 	}
 
-	private static void PlantTree(ScanHarness harness, bool everyFileCarriesAnAnchor)
+	private static void CreateTree(ScanHarness harness, bool everyFileCarriesAnAnchor)
 	{
 		string content = everyFileCarriesAnAnchor ? _CANDIDATE_CONTENT : _ORDINARY_CONTENT;
 

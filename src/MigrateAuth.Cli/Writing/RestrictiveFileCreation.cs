@@ -4,9 +4,11 @@ namespace MigrateAuth.Cli.Writing;
 
 /// <summary>
 /// The one place a file this product writes is created, so that the state file, the report and
-/// the data artifact cannot drift apart on how restrictively they are permissioned. The report and
-/// the data artifact matter most here: with the literal-credential signal they are a precise index of
-/// where a repository's embedded credentials are.
+/// the data artifact cannot drift apart on how restrictively they are permissioned.
+///
+/// The two shareable artifacts carry the same permissions as the state file, because with the
+/// literal-credential signal they are a precise index of where a repository's embedded
+/// credentials are.
 ///
 /// Restrictive permissions are applied where the platform expresses them as a file mode. On
 /// Windows nothing is applied and the file inherits the destination folder's access control
@@ -38,10 +40,12 @@ public static class RestrictiveFileCreation
 	}
 
 	/// <summary>
-	/// Opens a writer over a file created under the supplied mode with the same permissions,
+	/// Opens a writer over a file created under the supplied mode with the SAME permissions,
 	/// encoding and sharing rules as <see cref="WriteText"/>, and without demanding the content
-	/// in advance, so that an artifact can be written streaming rather than serialized to a string
-	/// first. This is the writer <see cref="WriteText"/> already constructs internally, exposed so that a
+	/// in advance.
+	///
+	/// It exists because the artifact is written streaming rather than serialized to a string
+	/// first. It is the writer <see cref="WriteText"/> constructs internally, exposed so that a
 	/// caller can write into it incrementally. The caller owns the returned writer and disposes it.
 	/// </summary>
 	public static StreamWriter CreateTextWriter(string path, FileMode creationMode)

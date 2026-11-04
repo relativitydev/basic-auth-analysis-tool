@@ -91,8 +91,8 @@ public enum ConfigurationFileCondition
 ///
 /// IT CARRIES NO TEXT FROM THE REPOSITORY. <see cref="WouldHaveBeen"/> is composed from this
 /// product's own closed vocabularies - language canonical names and confidence level names - and
-/// never from the file's raw contents, because this record is rendered into a report a client
-/// receives. The two fields that can be ignored, the
+/// never from the file's raw contents. That is the rule that nothing from the audited repository is emitted, applied to a record
+/// that is rendered into a report a client receives. The two fields that can be ignored, the
 /// output path and the default flow, carry no value at all: a path from the audited repository is
 /// precisely what may not be emitted, and the flow is never inspected there.
 /// </summary>
@@ -150,7 +150,7 @@ public sealed record ConfidenceLevelChange
 /// count it.
 ///
 /// IT CARRIES ONLY THIS PRODUCT'S CLOSED VOCABULARIES - language enumeration members and level
-/// enumeration members - and never text from the file. A language
+/// enumeration members - and never text from the file, because nothing from the audited repository is emitted. A language
 /// name this build does not know is therefore absent from it.
 /// </summary>
 public sealed record RepositoryConfigurationEffect
@@ -195,8 +195,9 @@ public sealed record LanguageEnablement
 /// where the effective value came from, what the repository's own file changed, and everything it
 /// asked for that did not happen.
 ///
-/// IT IS DATA HERE AND RENDERED LATER, in the report and the data artifact. It is meaningful
-/// because the effective configuration is a SESSION-SCOPED CONSTANT - resolved once
+/// IT IS DATA HERE AND RENDERED LATER. The effective configuration and its origin are rendered in
+/// the report and the data artifact, in a section of their own. The record holds for the whole
+/// session because the effective configuration is a SESSION-SCOPED CONSTANT - resolved once
 /// before the prompt exists, never re-read per stage. A provenance record of something re-read
 /// per stage would describe the stage that happened to read it rather than the session.
 ///

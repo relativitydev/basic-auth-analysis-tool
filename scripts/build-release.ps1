@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-	Builds the Windows release artifact: a Native AOT publish of the command-line tool from the current commit.
+	Builds the release artifact for one runtime identifier: a Native AOT publish of the command-line tool from the current commit.
 .DESCRIPTION
-	Refuses a working tree with modified tracked files, publishes with the same command the release-evidence script uses,
-	fails when the publish reports any warning, copies the published binary to the output folder as migrate-auth-<version>-<rid> (with .exe on Windows), and writes beside it the hash
+	Refuses a working tree with modified tracked files, publishes the Release configuration for the requested runtime identifier,
+	fails when the publish reports any warning, copies the published binary to the output folder as migrate-auth-<version>-<rid> (with .exe for a win-* identifier only), and writes beside it the hash
 	line (sha256sum format) and a small build record. It signs nothing, notarizes nothing, creates no release and no tag,
 	and contacts no service other than what dotnet publish itself needs.
 	The output folder must be outside the repository.
@@ -23,7 +23,6 @@ $ErrorActionPreference = 'Stop'
 $ExitFailed = 1
 $ExitUsage = 2
 $ProjectRelativePath = 'src/MigrateAuth.Cli/MigrateAuth.Cli.csproj'
-$PublishedBinaryName = 'migrate-auth.exe'
 $ArtifactBaseName = 'migrate-auth'
 $WindowsRidPrefix = 'win'
 $WindowsExtension = '.exe'
@@ -34,18 +33,28 @@ $AllowedWarningCount = 0
 
 if (-not $Repository) { $Repository = Split-Path -Parent $PSScriptRoot }
 
+function Get-BinaryExtension {
+	$isWindowsRuntime = $RuntimeIdentifier.StartsWith($WindowsRidPrefix, [System.StringComparison]::Ordinal)
+	return $(if ($isWindowsRuntime) { $WindowsExtension } else { '' })
+}
+
+function Get-PublishedBinaryName {
+	return "$ArtifactBaseName$(Get-BinaryExtension)"
+}
+
 function Get-ArtifactName {
 	$projectText = Get-Content -Raw -Path (Join-Path $Repository $ProjectRelativePath)
 	$versionMatch = [regex]::Match($projectText, $VersionPattern)
 	if (-not $versionMatch.Success) { throw "no <Version> in $ProjectRelativePath" }
-	$extension = if ($RuntimeIdentifier.StartsWith($WindowsRidPrefix, [System.StringComparison]::Ordinal)) { $WindowsExtension } else { '' }
-	return "$ArtifactBaseName-$($versionMatch.Groups[1].Value.Trim())-$RuntimeIdentifier$extension"
+	return "$ArtifactBaseName-$($versionMatch.Groups[1].Value.Trim())-$RuntimeIdentifier$(Get-BinaryExtension)"
 }
 
 function Test-OutputOutsideRepository {
 	param([string]$RepositoryPath, [string]$OutputPath)
 	$repositoryPrefix = $RepositoryPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
-	return -not (($OutputPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar).StartsWith($repositoryPrefix, [System.StringComparison]::OrdinalIgnoreCase))
+	$caseInsensitiveFileSystem = [System.IO.Path]::DirectorySeparatorChar -eq '\'
+	$comparison = if ($caseInsensitiveFileSystem) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+	return -not (($OutputPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar).StartsWith($repositoryPrefix, $comparison))
 }
 
 function Test-TrackedTreeClean {
@@ -105,7 +114,7 @@ function Invoke-ReleaseBuild {
 	if ($publishExit -ne 0) {
 		Write-Host "publish failed with exit code $publishExit"
 	} else {
-		$result = Complete-ReleaseBuild -PublishedPath (Join-Path (Join-Path $workFolder 'publish') $PublishedBinaryName) -OutputPath $outputPath -LogPath $logPath -Commit $commit -ArtifactName (Get-ArtifactName)
+		$result = Complete-ReleaseBuild -PublishedPath (Join-Path (Join-Path $workFolder 'publish') (Get-PublishedBinaryName)) -OutputPath $outputPath -LogPath $logPath -Commit $commit -ArtifactName (Get-ArtifactName)
 	}
 	if (Test-Path $workFolder) { Remove-Item -Recurse -Force $workFolder }
 	return $result
@@ -118,7 +127,7 @@ function Complete-ReleaseBuild {
 	if ($warnings -ne $AllowedWarningCount) {
 		Write-Host "the publish reported $warnings warning(s); none are allowed"
 	} elseif (-not (Test-Path $PublishedPath)) {
-		Write-Host "the publish did not produce $PublishedBinaryName"
+		Write-Host "the publish did not produce $(Get-PublishedBinaryName)"
 	} else {
 		$artifactPath = Join-Path $OutputPath $ArtifactName
 		Copy-Item -Path $PublishedPath -Destination $artifactPath -Force

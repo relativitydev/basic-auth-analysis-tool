@@ -4,10 +4,11 @@ using System.Text;
 namespace MigrateAuth.Cli.Session;
 
 /// <summary>
-/// A path is untrusted text on the way out. A folder name is chosen by the repository, and on one
-/// platform it may carry a line ending or a terminal control sequence. Anything the session echoes
-/// back - a folder label, a token the user typed - passes through here first, so that a name cannot
-/// repaint the terminal or forge a line of output that looks like the tool's own.
+/// The other half of the path rule: a path is untrusted text on the way out. A folder name
+/// is chosen by the repository, and on one platform it may carry a line ending or a terminal
+/// control sequence. Anything the session echoes back - a folder label, a token the user typed
+/// - passes through here first, so that a name cannot repaint the terminal or forge a line of
+/// output that looks like the tool's own.
 ///
 /// Escaping for Markdown belongs to <see cref="Emission.EmittedPathText"/>, which calls this
 /// first and then escapes what remains; the data artifact relies on its own encoder.

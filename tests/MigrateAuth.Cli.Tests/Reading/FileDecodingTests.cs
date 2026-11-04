@@ -1,5 +1,6 @@
 using System.Text;
 
+using MigrateAuth.Cli.Findings;
 using MigrateAuth.Cli.Reading;
 
 using Xunit;
@@ -25,6 +26,18 @@ public sealed class FileDecodingTests
 	private const int _EVERY_THIRD_BYTE = 3;
 	private const byte _PRINTABLE_BYTE = 0x41;
 	private const byte _HIGH_ASCII_BYTE = 0x7F;
+	private const int _WINDOWS_1252_CODE_PAGE = 1252;
+	private const string _ACCENTED_COMMENT_LINE = "// Autor: José Peña\n$headers = @{ Authorization = 'Basic ' + $encoded }";
+	private const string _SMART_QUOTES_LINE = "// \u201Cquoted\u201D \u20AC5 \u2013 done";
+	private const byte _NULL_BYTE = 0x00;
+	private const byte _START_OF_HEADING_BYTE = 0x01;
+	private const byte _ESCAPE_BYTE = 0x1B;
+	private const byte _TAB_BYTE = 0x09;
+	private const byte _FORM_FEED_BYTE = 0x0C;
+	private const byte _DELETE_BYTE = 0x7F;
+	private const byte _E_ACUTE_IN_WINDOWS_1252 = 0xE9;
+
+	private static readonly Encoding _windows1252 = CodePagesEncodingProvider.Instance.GetEncoding(_WINDOWS_1252_CODE_PAGE)!;
 
 	[Fact]
 	public void PlainUtf8DecodesAsItself()
@@ -195,12 +208,159 @@ public sealed class FileDecodingTests
 		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
 	}
 
+	/// <summary>
+	/// The last resort's case: bytes that are not valid UTF-8, hold
+	/// no null, no control byte and none of the five undefined bytes. Windows-1252 decodes every byte
+	/// it defines, so this is read - and reported as Windows-1252, never as UTF-8.
+	/// </summary>
 	[Fact]
-	public void InvalidUtf8ThatIsNotTwoByteTextIsUndecodable()
+	public void InvalidUtf8ThatLooksLikeSingleByteTextIsReadAsWindows1252()
 	{
 		byte[] bytes = [0xC3, 0x28, 0xA0, 0xA1, 0xE2, 0x28, 0xA1, 0xF0];
 
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(DetectedEncoding.Windows1252, content.Encoding);
+		Assert.Equal(_windows1252.GetString(bytes), content.Text);
+	}
+
+	[Fact]
+	public void AWindows1252FileWithAccentedCommentsIsDecodedAndReportedAsWindows1252()
+	{
+		byte[] bytes = _windows1252.GetBytes(_ACCENTED_COMMENT_LINE);
+
+		Assert.Throws<DecoderFallbackException>(() => new UTF8Encoding(false, true).GetString(bytes));
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(_ACCENTED_COMMENT_LINE, content.Text);
+		Assert.Equal(DetectedEncoding.Windows1252, content.Encoding);
+	}
+
+	/// <summary>The 0x80 to 0x9F range is where Windows-1252 differs from Latin-1: typographic characters, not controls.</summary>
+	[Fact]
+	public void TheTypographicRangeOfWindows1252DecodesToItsCharactersAndNotToControls()
+	{
+		byte[] bytes = _windows1252.GetBytes(_SMART_QUOTES_LINE);
+
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(_SMART_QUOTES_LINE, content.Text);
+		Assert.Equal(DetectedEncoding.Windows1252, content.Encoding);
+	}
+
+	/// <summary>
+	/// THE DECISION ON THE FIVE UNDEFINED BYTES, pinned: a file holding one is not Windows-1252, so it
+	/// is undecodable and counted, rather than read as mojibake with a control character in its place.
+	/// </summary>
+	[Theory]
+	[InlineData((byte)0x81)]
+	[InlineData((byte)0x8D)]
+	[InlineData((byte)0x8F)]
+	[InlineData((byte)0x90)]
+	[InlineData((byte)0x9D)]
+	public void AByteWindows1252LeavesUndefinedMakesTheFileUndecodable(byte undefinedByte)
+	{
+		byte[] bytes = [.. Encoding.ASCII.GetBytes("// Autor: Jos"), _E_ACUTE_IN_WINDOWS_1252, undefinedByte, .. Encoding.ASCII.GetBytes("\n")];
+
 		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
+	}
+
+	/// <summary>A single-byte code page decodes any byte, so the NUL rule has to run in front of it, over the whole file.</summary>
+	[Fact]
+	public void ANullByteAnywhereKeepsASingleByteFileFromBeingRead()
+	{
+		byte[] filler = _windows1252.GetBytes(new string('a', FileDecoding.PROBE_WINDOW_IN_BYTES * 2));
+		byte[] bytes = [_E_ACUTE_IN_WINDOWS_1252, .. filler, _NULL_BYTE, .. filler];
+
+		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
+	}
+
+	[Theory]
+	[InlineData(_START_OF_HEADING_BYTE)]
+	[InlineData(_ESCAPE_BYTE)]
+	[InlineData(_DELETE_BYTE)]
+	public void ANonTextControlByteKeepsASingleByteFileFromBeingRead(byte controlByte)
+	{
+		byte[] bytes = [.. _windows1252.GetBytes("// Peña\n"), controlByte, .. _windows1252.GetBytes("x")];
+
+		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
+	}
+
+	[Fact]
+	public void TabsAndFormFeedsDoNotKeepASingleByteFileFromBeingRead()
+	{
+		byte[] bytes = [.. _windows1252.GetBytes("// Peña"), _TAB_BYTE, _FORM_FEED_BYTE, .. _windows1252.GetBytes("\r\n")];
+
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(DetectedEncoding.Windows1252, content.Encoding);
+	}
+
+	[Fact]
+	public void ABinaryFileWithHighBytesIsStillUndecodable()
+	{
+		byte[] bytes = [0x7F, 0x45, 0x4C, 0x46, 0x02, 0x01, 0x01, 0x00, 0xE9, 0xFF, 0x00, 0x00, 0xC3, 0x28];
+
+		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
+	}
+
+	/// <summary>The earlier rungs keep what they had: valid UTF-8 with accents is UTF-8, never Windows-1252.</summary>
+	[Fact]
+	public void ValidNonAsciiUtf8IsStillUtf8AndNotWindows1252()
+	{
+		Assert.True(FileDecoding.TryDecode(Encoding.UTF8.GetBytes(_ACCENTED_COMMENT_LINE), out DecodedContent content));
+		Assert.Equal(_ACCENTED_COMMENT_LINE, content.Text);
+		Assert.Equal(DetectedEncoding.Utf8, content.Encoding);
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void AMarklessTwoByteFileWithAccentsIsStillTwoByteAndNotWindows1252(bool bigEndian)
+	{
+		byte[] bytes = new UnicodeEncoding(bigEndian, byteOrderMark: false).GetBytes(_ACCENTED_COMMENT_LINE);
+
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(_ACCENTED_COMMENT_LINE, content.Text);
+		Assert.Equal(
+			bigEndian ? DetectedEncoding.Utf16BigEndian : DetectedEncoding.Utf16LittleEndian,
+			content.Encoding);
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void AMarkedFourByteFileWithAccentsIsStillFourByte(bool bigEndian)
+	{
+		UTF32Encoding encoding = new(bigEndian, byteOrderMark: true);
+		byte[] bytes = [.. encoding.GetPreamble(), .. encoding.GetBytes(_ACCENTED_COMMENT_LINE)];
+
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+		Assert.Equal(_ACCENTED_COMMENT_LINE, content.Text);
+		Assert.Equal(
+			bigEndian ? DetectedEncoding.Utf32BigEndian : DetectedEncoding.Utf32LittleEndian,
+			content.Encoding);
+	}
+
+	/// <summary>A mark settles the question: a marked file whose body is single-byte text is not retried as Windows-1252.</summary>
+	[Fact]
+	public void AMarkedFileIsNeverFallenThroughToWindows1252()
+	{
+		byte[] bytes = [.. Encoding.UTF8.GetPreamble(), _E_ACUTE_IN_WINDOWS_1252, 0x41];
+
+		Assert.False(FileDecoding.TryDecode(bytes, out DecodedContent _));
+	}
+
+	[Fact]
+	public void TheDecodeReportsPositionsOverTheDecodedTextAfterAccentedCharacters()
+	{
+		const string line = "// José Peña, then the construct: Basic";
+		byte[] bytes = _windows1252.GetBytes(line);
+
+		Assert.True(FileDecoding.TryDecode(bytes, out DecodedContent content));
+
+		int offset = content.Text.IndexOf("Basic", StringComparison.Ordinal);
+		TextPosition position = TextPositions.LineAndColumnOf(content.Text, offset);
+
+		Assert.Equal(DetectedEncoding.Windows1252, content.Encoding);
+		Assert.Equal(TextPositions.FIRST_LINE, position.Line);
+		Assert.Equal(line.IndexOf("Basic", StringComparison.Ordinal) + TextPositions.FIRST_COLUMN, position.Column);
 	}
 
 	[Fact]

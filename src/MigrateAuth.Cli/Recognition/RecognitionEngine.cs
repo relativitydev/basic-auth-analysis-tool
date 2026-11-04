@@ -10,18 +10,28 @@ using MigrateAuth.Cli.Reading;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// Steps 3, 4 and 5 of the analysis pipeline, for one file: file-scoped symbol collection,
-/// recognition with the anchor tested against the zone mask, and classification by minimum over
+/// STEPS 3, 4 AND 5 OF THE ANALYSIS PIPELINE, FOR ONE FILE: file-scoped symbol collection,
+/// recognition with the anchor tested against the mask, and classification by minimum over
 /// candidate levels.
 ///
-/// It emits no finding. Findings acquire identity, a fingerprint and a global ordinal in a later
-/// stage, over the full ordered set once every file has been recognized; what leaves here is a value,
-/// returned to the caller. The one thing it does emit is a file the match bound stops, reported as a
-/// skipped item through <see cref="EmissionPoint.Emit"/>.
+/// IT EMITS NO FINDING, AND THAT IS THE BOUNDARY OF THIS STAGE. Findings acquire identity, a
+/// fingerprint and a global ordinal in the stage after this one, and those are assigned over the
+/// FULL ordered set once every file has been recognized - so a per-file component that emitted
+/// findings would be emitting them before the only thing that can number them exists. What leaves
+/// here is a value, returned to the caller.
 ///
-/// Rules run in a fixed order, sorted by pattern class identifier, so the sequence of matches - and
-/// therefore which rules have run when the bound trips - does not depend on the enumeration order of
-/// the frozen rule set.
+/// THE ONE THING IT DOES EMIT IS A HOLE IN ITS OWN COVERAGE, which is the opposite case: the
+/// match bound stops a file, every file it stops must be counted in its own skipped
+/// category and reported like every other, and a count that waited for a later stage to notice would
+/// be a count nobody produced. It goes through <see cref="EmissionPoint.Emit"/> for the same
+/// reason the scanner's lexical anomaly does - there is no second reporting path for a hole.
+///
+/// RULES ARE RUN IN A FIXED ORDER, AND THAT IS DETERMINISM RATHER THAN TIDINESS. The contract hands the
+/// rule set over as a <see cref="System.Collections.Frozen.FrozenDictionary{TKey, TValue}"/>
+/// precisely so that an analyzer's ordering cannot survive into the engine, and the enumeration
+/// order of one is not specified. Ordering by pattern class identifier before iterating is what
+/// makes the sequence of matches - and therefore which rules have run when the bound trips - a
+/// property of the catalog's names rather than of a hash seed.
 /// </summary>
 public sealed class RecognitionEngine
 {
@@ -30,29 +40,35 @@ public sealed class RecognitionEngine
 
 	/// <summary>
 	/// Reset once per file in <see cref="Recognize"/>, alongside <see cref="MatchBoundWatch.BeginFile"/>.
-	/// A malformed match can recur across a rule's own matches and across rules, but the skipped item is
-	/// counted once per file, like <see cref="SkippedItemCategory.MatchBoundExceeded"/>.
+	/// A malformed match is a per-RULE event that can recur - the same defect can repeat across a
+	/// rule's own further matches, and a second rule in the same catalog can carry the identical
+	/// shape - but the skipped item is a per-FILE count, exactly like
+	/// <see cref="SkippedItemCategory.MatchBoundExceeded"/>'s own single emission for a file the
+	/// bound stops regardless of how many rules never ran.
 	/// </summary>
 	private bool _malformedMatchAlreadyReportedForThisFile;
 
 	/// <summary>
-	/// One interpreted <see cref="Regex"/> per rule, built lazily on first need and kept for this engine
-	/// instance's lifetime - one analysis run. Keyed by <see cref="DetectionRule"/> reference, which is
-	/// stable for the run. <see cref="InterpretedExpressionFor"/> is this cache's only reader and writer.
-	/// No concurrency primitive guards it, because the engine never runs two files, or two rules of the
-	/// same file, concurrently.
+	/// ONE INTERPRETED <see cref="Regex"/> PER RULE, BUILT LAZILY ON FIRST NEED AND
+	/// KEPT FOR THIS ENGINE INSTANCE'S OWN LIFETIME - ONE ANALYSIS RUN, PER this type's own
+	/// construction contract; nothing recycles a <see cref="RecognitionEngine"/> across files or
+	/// across runs. Keyed by <see cref="DetectionRule"/> REFERENCE rather than by pattern class
+	/// identifier: the analyzer contract hands the catalog's rules over already constructed and the analyzer holds
+	/// them for the run, so reference identity is stable for as long as this dictionary is, and a
+	/// second key derived from the rule's own content would buy nothing a reference does not
+	/// already give for free. <see cref="InterpretedExpressionFor"/> is this cache's only reader and
+	/// writer. No concurrency primitive guards it, because nothing else in this engine runs two
+	/// files - or two rules of the same file - concurrently (the product introduces no
+	/// parallelism).
 	/// </summary>
 	private readonly Dictionary<DetectionRule, Regex> _interpretedExpressionByRule = [];
 
 	/// <summary>
-	/// DIAGNOSTIC ONLY, READ BY NOTHING THIS ENGINE DOES. The
-	/// calibration harness (<c>Tests.Calibration.MatchBoundCalibration</c>) needs the exact total
-	/// this run charged against <see cref="MatchBoundWatch"/>'s budget - symbol table, demotion
-	/// signals and every rule together - to calibrate the bound from the same quantity the bound
-	/// itself enforces, rather than from an independent re-summing of a subset of it. Exposed as a
-	/// plain <see cref="TimeSpan"/> so the calibration project needs no visibility into the internal
-	/// <see cref="MatchBoundWatch"/> type. Overwritten on every call to <see cref="Recognize"/>,
-	/// exactly like the watch's own accumulator it mirrors.
+	/// DIAGNOSTIC ONLY, READ BY NOTHING THIS ENGINE DOES: the exact total this run charged against
+	/// <see cref="MatchBoundWatch"/>'s budget - symbol table, demotion signals and every rule together -
+	/// for a timing harness. Exposed as a plain <see cref="TimeSpan"/> so the harness needs no visibility
+	/// into the internal <see cref="MatchBoundWatch"/> type. Overwritten on every call to
+	/// <see cref="Recognize"/>, exactly like the watch's own accumulator it mirrors.
 	/// </summary>
 	public TimeSpan LastFileMatchingTimeForDiagnostics { get; private set; }
 
@@ -88,9 +104,10 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// Every construct this file yields, classified, subsumption applied, in the total finding order.
-	/// Empty where the file holds none, and equally empty where the match bound stopped it; that case is
-	/// reported as a skipped item rather than signalled in the return value.
+	/// Every construct this file yields, classified, subsumption applied, in the total ordering. Empty
+	/// where the file holds none - and equally empty where the match bound stopped it, which is why
+	/// the skipped item is emitted rather than signalled in the return value: a caller that had to
+	/// tell the two apart from a result would be a caller that could forget to.
 	/// </summary>
 	public RecognitionResult Recognize(FileRecognitionContext context)
 	{
@@ -108,9 +125,10 @@ public sealed class RecognitionEngine
 		}
 		else
 		{
-			// The partial set is discarded rather than kept: which rules had already run before the bound
-			// tripped depends on machine speed, so a kept remainder would differ between two runs of the same
-			// input on two machines while looking complete.
+			// The match-bound exception is stated at the level of the FILE, and the partial set is discarded
+			// rather than kept: WHICH rules had already run before the bound tripped is itself
+			// machine-speed-dependent, so a kept remainder would be a finding set that differs
+			// between two runs of the same input on two machines while looking complete.
 			result = new RecognitionResult { Constructs = [] };
 			ReportTheFileAsStoppedByTheMatchBound(context.Path);
 		}
@@ -157,11 +175,14 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The file's two pre-rule phases, each bounded, then the rule loop.
+	/// THE FILE'S TWO PRE-RULE PHASES, EACH BOUNDED, THEN THE RULE LOOP.
+	///
+	/// Symbol-table collection and demotion-signal evaluation each run an analyzer-declared expression
+	/// over the whole file, exactly like a detection rule, so both are charged to the match bound.
 	/// <see cref="FileSymbolTable.TryCollect"/> and <see cref="FileDemotionSignals.TryEvaluate"/> report
-	/// whether they completed within the file's budget, as <see cref="RecognizeOneRule"/> does for a rule,
-	/// and a trip in either one skips the rule loop and discards the file exactly as a rule's own trip
-	/// would - through the single <c>completed</c> value this method returns.
+	/// whether they completed within the file's budget on the same terms <see cref="RecognizeOneRule"/>
+	/// reports for a rule, and a trip in either one skips the rule loop entirely and discards the file
+	/// exactly as a rule's own trip would - through the single <c>completed</c> value this method returns.
 	/// </summary>
 	private bool RecognizeEveryRule(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
 	{
@@ -192,10 +213,12 @@ public sealed class RecognitionEngine
 	/// only when a surviving construct is High or Medium. The findings cap is applied later, in
 	/// composition, so this runs whether or not the file's findings are admitted under it.
 	///
-	/// A flow-signal timeout - the watch's own bound or an expression's own match timeout - is caught
-	/// here, inside the flow phase alone, so the constructs the file already produced are kept. Partial
-	/// signal evidence is discarded, the file's evidence is <see cref="FlowEvidence.None"/> with a trip
-	/// mark, the trip is counted, and the file is not skipped.
+	/// A flow-signal timeout - the watch's own bound or an expression's own match timeout - is
+	/// caught HERE, inside the flow phase alone, so the constructs the file already produced are kept.
+	/// The exception object is not bound to a variable for the reason <see cref="TryRecognizeEveryRule"/>
+	/// states. Partial signal evidence is discarded, the file's evidence is
+	/// <see cref="FlowEvidence.None"/> with a trip mark, the trip is counted, and the file is not
+	/// skipped. This narrows the machine-speed exception from findings to flow decisions.
 	/// </summary>
 	private RecognitionResult ReduceAndEvaluateFlow(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
 	{
@@ -269,23 +292,42 @@ public sealed class RecognitionEngine
 
 	/// <summary>
 	/// One rule over the whole text. The bound is polled before the rule starts and again between
-	/// successive matches; only the <c>Match</c> and <c>NextMatch</c> calls themselves are timed, through
-	/// <see cref="TimedRegexEvaluation.Match(MatchBoundWatch, Regex, string)"/> and
-	/// <see cref="TimedRegexEvaluation.NextMatch"/>.
+	/// successive matches, which is every point at which this component is in control - inside a
+	/// single call to <c>Match</c> nothing outside the matching loop can look at a clock. Only
+	/// <c>Match</c> and <c>NextMatch</c> themselves are timed, through <see cref="TimedRegexEvaluation"/>;
+	/// the malformed-match guard and classification that follow a match run outside that bracket.
 	///
-	/// Every match is checked by the malformed-match guard before it is classified: the
+	/// EVERY MATCH IS ALSO CHECKED AGAINST THE MALFORMED-MATCH GUARD BEFORE IT IS CLASSIFIED. The
 	/// <c>[GeneratedRegex]</c> source generator can return a "successful" <see cref="Match"/> that does
 	/// not advance past the one before it - see <see cref="AdvancesPastThePreviousMatch"/> and
-	/// <see cref="MatchStartsAtOrAfterTheSearchOrigin"/>. A match that advances is handed to
-	/// <see cref="TryClassifyOrResumePastCorruption"/>, which re-evaluates through the interpreter any
-	/// match whose anchor group lies outside the match's own span (see
-	/// <see cref="InterpretedCrossCheckConfirmsTheMatch"/>).
+	/// <see cref="MatchStartsAtOrAfterTheSearchOrigin"/> for the two things "advances" means.
 	///
-	/// A match that fails to advance, or that the cross-check rejects, does not stop the rule for the rest
-	/// of the file: <see cref="TryResumePastAMalformedMatch"/> resumes from the search origin - the
-	/// previous well-formed match's end (<c>Index + Length</c>), or one past its start when that match was
-	/// empty. The file is counted under <see cref="SkippedItemCategory.MalformedMatch"/> exactly once,
-	/// through <see cref="ReportTheFileAsHoldingAMalformedMatch"/>, however many times this loop resumes.
+	/// AN ANCHOR GROUP OUTSIDE THE MATCH'S OWN SPAN IS RESOLVED BY AN INTERPRETED CROSS-CHECK.
+	/// <see cref="TryClassifyOrResumePastCorruption"/> is what a match that DOES advance is handed to
+	/// next. Whenever its anchor group participates but sits outside the match's own span, at any
+	/// length, the SAME rule is re-evaluated through the interpreter (<c>new Regex(pattern)</c> rather
+	/// than <c>[GeneratedRegex]</c>), from the exact position the generator's own attempt started from.
+	/// A match the interpreter reproduces exactly (Index, Length, and the anchor group's own
+	/// Index/Length) is legitimate and classified normally - this is what a lookaround anchor looks like.
+	/// A match the interpreter does NOT reproduce is corrupted regardless of its length, and is resumed
+	/// past exactly like a non-advancing match.
+	///
+	/// A MATCH THAT FAILS TO ADVANCE, OR THAT THE CROSS-CHECK REJECTS, DOES NOT STOP THE RULE FOR THE
+	/// REST OF THE FILE - BOTH CONVERGE ON THE SAME RESUME. THE SEARCH ORIGIN IS DEFINED PRECISELY: the
+	/// previous well-formed match's own end (<c>Index + Length</c>), or one past its own start when that
+	/// match was empty - exactly the position <see cref="AdvancesPastThePreviousMatch"/> requires the
+	/// NEXT ordinary match to reach, and exactly the position the cross-check re-evaluates from.
+	/// <see cref="TryResumePastAMalformedMatch"/> first attempts
+	/// <see cref="TimedRegexEvaluation.Match(MatchBoundWatch, Regex, string, int)"/> AT <c>searchOrigin</c>
+	/// itself, a different call than the <c>NextMatch</c> that produced the stuck result. Only when that
+	/// attempt is ITSELF untrustworthy - starting before <c>searchOrigin</c> or reproducing the
+	/// immediately preceding stuck attempt's own span - does the search origin advance by one and try
+	/// again, strictly increasing on every such step, which bounds this to at most the text's own length
+	/// in resume attempts; a candidate that clears both is handed back to THIS method's own caller, which
+	/// re-examines it through the same cross-check before trusting it. The file is counted under
+	/// <see cref="SkippedItemCategory.MalformedMatch"/> exactly once, through
+	/// <see cref="ReportTheFileAsHoldingAMalformedMatch"/>, no matter how many times this loop resumes or
+	/// how many times the cross-check rejects a match.
 	/// </summary>
 	private bool RecognizeOneRule(RuleRecognitionState state, List<ClassifiedMatch> classifiedMatches)
 	{
@@ -332,15 +374,18 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// Resolves an advancing match. If its anchor group does not participate, or participates inside the
-	/// match's own span, it is classified straight away. Otherwise <see
-	/// cref="InterpretedCrossCheckConfirmsTheMatch"/> decides: confirmed, and it is classified like any
-	/// other match; not confirmed, and <paramref name="match"/> is treated like a non-advancing one -
-	/// resumed through <see cref="TryResumePastAMalformedMatch"/>, which records the malformed-match
-	/// category. <paramref name="matchWasResumed"/> is <see langword="true"/> only in that second case,
-	/// telling the caller that <paramref name="resumedMatch"/> - not <paramref name="match"/> - is the
-	/// next value to examine. Returns <see langword="false"/> only when the match bound trips while this
-	/// method is in control, which the caller reads like any other incomplete rule.
+	/// AN ADVANCING MATCH'S OWN RESOLUTION. If its anchor group does not participate, or participates
+	/// INSIDE its own span, it is classified straight away. Otherwise <see
+	/// cref="InterpretedCrossCheckConfirmsTheMatch"/> decides: confirmed, and it is classified exactly
+	/// like any other match (a genuine lookaround, zero-length or not); not confirmed, and <paramref
+	/// name="match"/> is treated exactly like a non-advancing one - resumed through <see
+	/// cref="TryResumePastAMalformedMatch"/>, which itself records the malformed-match category. <paramref
+	/// name="matchWasResumed"/> is <see langword="true"/> only in that second case, telling the caller
+	/// that <paramref name="resumedMatch"/> - not <paramref name="match"/> - is the next value to
+	/// examine, with the comparison to the previous match reset exactly as a non-advancing resume
+	/// resets it. Returns <see langword="false"/> only when the match bound trips while this
+	/// method is itself in control - before the cross-check's own attempt, or during the resume it may
+	/// call into - which the caller reads exactly like any other incomplete rule.
 	/// </summary>
 	private bool TryClassifyOrResumePastCorruption(
 		RuleRecognitionState state,
@@ -383,13 +428,16 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// Resumes one stuck match. Records the malformed-match category once per file, then tries
-	/// <c>Match(text, searchOrigin)</c> at the current search origin itself before moving on. Only a
-	/// candidate that is itself untrustworthy (<see cref="IsAlsoStuck"/>) advances <paramref
-	/// name="searchOrigin"/> by one and tries again; the method returns as soon as a trustworthy
-	/// candidate is found, the file's match bound trips, or the text is exhausted. It is called for a
-	/// non-advancing match and for a match that <see cref="TryClassifyOrResumePastCorruption"/>'s
-	/// interpreted cross-check rejects.
+	/// ONE STUCK MATCH, RESUMED. Records the malformed-match category once (idempotent per file, regardless of how
+	/// many times this method itself is called), then tries <c>Match(text, searchOrigin)</c> AT the
+	/// current search origin itself - a fresh attempt on a different call than the <c>NextMatch</c> that
+	/// produced <paramref name="stuckMatch"/> - before conceding the position and moving on. Only a
+	/// candidate that is ITSELF untrustworthy (<see cref="IsAlsoStuck"/>) advances <paramref
+	/// name="searchOrigin"/> by one and tries again; <paramref name="searchOrigin"/> therefore strictly
+	/// increases on every such step and this method returns as soon as a trustworthy candidate is found,
+	/// the file's match bound trips, or the text is exhausted. It is reached from two places - a
+	/// non-advancing match and a match <see cref="TryClassifyOrResumePastCorruption"/>'s own interpreted
+	/// cross-check rejects - and both report the same category through the same idempotent call.
 	/// </summary>
 	private bool TryResumePastAMalformedMatch(
 		RuleRecognitionState state,
@@ -489,14 +537,16 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The trigger for the interpreted cross-check: a match whose participating anchor group sits outside
-	/// the match's own span, at any length. A rule may name a capture group inside a lookaround:
-	/// <c>x(?=(?&lt;construct&gt;yz))</c> and <c>(?&lt;=(?&lt;construct&gt;Foo)\s*)\(</c> are both
-	/// correct matches whose anchor group is outside the match's own span. This method answers only
-	/// whether that shape is present; <see cref="InterpretedCrossCheckConfirmsTheMatch"/> tells a
-	/// legitimate lookaround apart from the source-generator defect. A group that did not participate
-	/// (<see cref="Group.Success"/> false) is not this shape: <see cref="TryClassify"/> already treats a
-	/// non-participating anchor as not recognized.
+	/// THE TRIGGER FOR THE INTERPRETED CROSS-CHECK: a match's own participating anchor group sits outside
+	/// its own span, AT ANY LENGTH. <see cref="DetectionRule.AnchorPosition"/> is the construct position,
+	/// and a rule may name a capture group that sits inside a lookaround: <c>x(?=(?&lt;construct&gt;yz))</c>
+	/// and <c>(?&lt;=(?&lt;construct&gt;Foo)\s*)\(</c> are both ordinary, correctly-functioning matches
+	/// whose anchor group is legitimately outside the match's own span. This method answers only
+	/// WHETHER that shape is present, never whether it is legitimate;
+	/// <see cref="InterpretedCrossCheckConfirmsTheMatch"/> tells a legitimate lookaround apart from a
+	/// corrupted generated match. A group that did not participate (<see cref="Group.Success"/> false) is
+	/// not this shape: <see cref="TryClassify"/> already treats a non-participating anchor as "not
+	/// recognized".
 	/// </summary>
 	private static bool AnchorGroupParticipatesButLiesOutsideTheMatchSpan(
 		DetectionRule rule, Match match, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? anchorGroupName)
@@ -564,13 +614,24 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// One interpreted <see cref="Regex"/> per rule, built lazily and cached in
-	/// <see cref="_interpretedExpressionByRule"/>. Built from the generated instance's own
+	/// ONE INTERPRETED <see cref="Regex"/> PER RULE, BUILT LAZILY AND CACHED IN
+	/// <see cref="_interpretedExpressionByRule"/> - see that field's own doc comment for the cache's
+	/// lifetime and why no concurrency primitive guards it. Built from the generated instance's own
 	/// <see cref="Regex.ToString"/>, <see cref="Regex.Options"/> and <see cref="Regex.MatchTimeout"/>,
-	/// never from a second copy of the pattern text. The options of every generated rule are
-	/// <c>CultureInvariant | ExplicitCapture</c>; a rule carrying <see cref="RegexOptions.Compiled"/>
-	/// would need that option stripped here, because a compiled interpreter uses <c>Reflection.Emit</c>,
-	/// which Native AOT does not support.
+	/// never from a second copy of the pattern text: the catalog's contract hands the
+	/// expression over already constructed, and this is the one place in the engine allowed to read it
+	/// back apart, precisely because the interpreted reading is what this cross-check needs and the
+	/// generated one cannot supply. <see cref="Regex.Options"/> READ BACK FROM A GENERATED RULE IS
+	/// <c>CultureInvariant | ExplicitCapture</c>, PLUS <see cref="RegexOptions.IgnoreCase"/> WHERE THE
+	/// LANGUAGE IS CASE-INSENSITIVE (<c>IgnoreCase | CultureInvariant</c> rules are legal, and
+	/// the cross-check copies <see cref="Regex.Options"/> as it finds them) - in particular never <see cref="RegexOptions.Compiled"/>, which a source-
+	/// generated regex has no reason to carry and which would otherwise need stripping before reaching
+	/// an interpreter constructed at run time under Native AOT (a compiled interpreter uses
+	/// <c>Reflection.Emit</c>, which Native AOT does not support). Nothing strips options here because
+	/// there is, today, nothing to strip; a future rule declaring <c>RegexOptions.Compiled</c> on its
+	/// own <c>[GeneratedRegex]</c> attribute - meaningless there, since the source generator already
+	/// compiles at build time - would need this method revisited before it reached production, which is
+	/// recorded here rather than guarded against silently.
 	/// </summary>
 	private Regex InterpretedExpressionFor(DetectionRule rule)
 	{
@@ -584,11 +645,12 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The level composition, and the ways a match yields no finding at all. Neither of the first two is
-	/// a Low finding: an anchor that does not resolve was never recognized, and a demonstrated negative
-	/// scheme verdict means the construct is not an instance of the class. A third, narrower way: after
-	/// a lexical budget trip the match or its anchor lies where <see cref="ZoneMask.IsAnalyzableAt"/> is
-	/// false, and no finding is emitted there.
+	/// The confidence composition, and the two ways a match yields no finding at all. Neither of them is a
+	/// Low finding: an anchor that does not resolve was never recognized, and a demonstrated
+	/// negative scheme verdict means the construct is NOT AN INSTANCE OF THE CLASS - that is placed
+	/// in recognition rather than in classification, which is what keeps "every finding
+	/// receives exactly one level" true. A THIRD, NARROWER WAY: after a lexical budget trip the match
+	/// or its anchor lies where <see cref="ZoneMask.IsAnalyzableAt"/> is false, and no finding is emitted there.
 	/// </summary>
 	private static bool TryClassify(RuleRecognitionState state, Match match, out ClassifiedMatch classifiedMatch)
 	{
@@ -628,23 +690,33 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The literal-credential signal, computed from the zone and never from the value: the engine
-	/// establishes that a credential is embedded in source without reading it. It is computed here
-	/// because only here does the match still exist; the credential position is a named capture group.
+	/// THE LITERAL-CREDENTIAL SIGNAL, COMPUTED FROM THE ZONE AND NEVER FROM THE VALUE. The
+	/// engine establishes that a credential is embedded in source without reading it, which is what
+	/// makes the signal compatible with never reporting a secret's value.
 	///
-	/// The signal is true only where every position across the credential group's captured extent is
+	/// IT IS COMPUTED HERE AND NOWHERE ELSE, because here is the only place the MATCH still exists.
+	/// The credential position is a named capture group of the analyzer contract, and only a match turns
+	/// a name into an offset; the stage that builds findings holds the text and the mask but not the
+	/// match, so a signal computed there would mean running the expression a second time.
+	///
+	/// IT READS THE WHOLE CAPTURE EXTENT, DELIMITER-AGNOSTIC, RATHER THAN ONE OFFSET. The
+	/// signal is true only where EVERY position across the credential group's captured extent is
 	/// trustworthy per <see cref="ZoneMask.IsTrustworthyAt"/> and is either
-	/// <see cref="LexicalZone.StringBody"/> or <see cref="LexicalZone.Delimiter"/>, and at least one
+	/// <see cref="LexicalZone.StringBody"/> or <see cref="LexicalZone.Delimiter"/>, AND at least one
 	/// of those positions is <see cref="LexicalZone.StringBody"/>. A capture that opens on its own
-	/// delimiter therefore signals true, while a capture spanning a concatenation
-	/// (`user + ":" + password`) signals false, because the operator and the identifiers it joins are
-	/// <see cref="LexicalZone.Code"/> positions inside the same extent.
+	/// delimiter therefore signals true - the delimiter is still part of the literal - while a
+	/// capture spanning a concatenation (`user + ":" + password`) signals false, because the
+	/// operator and the identifiers it joins are <see cref="LexicalZone.Code"/> positions inside the
+	/// same extent.
 	///
-	/// Every way of not knowing is false rather than an error: the rule declares no credential position,
-	/// the declared group did not participate in this match, the group's captured extent is empty, some
-	/// position in that extent is one the scanner does not vouch for, some position is
-	/// <see cref="LexicalZone.Code"/>, or every position is a delimiter with no
-	/// <see cref="LexicalZone.StringBody"/> position at all.
+	/// EVERY WAY OF NOT KNOWING IS FALSE RATHER THAN AN ERROR, and there are six: the rule
+	/// declares no credential position (the contract makes the field optional and "none" the honest answer
+	/// for a class where no argument is the credential), the declared group did not participate in
+	/// this match, the group's captured extent is empty, some position in that extent is one the
+	/// scanner does not vouch for, some position in that extent is <see cref="LexicalZone.Code"/>,
+	/// or every position is a delimiter with no <see cref="LexicalZone.StringBody"/> position at
+	/// all - an empty literal's quotes carry no body to report on. None of the six is evidence that
+	/// a credential was written into the source, so none of them may report that it was.
 	/// </summary>
 	private static bool ReadTheLiteralCredentialSignal(RuleRecognitionState state, Match match)
 	{
@@ -664,7 +736,7 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The four-clause rule, over the group's whole captured extent rather than one offset.
+	/// THE FOUR-CLAUSE RULE, OVER THE GROUP'S WHOLE CAPTURED EXTENT rather than one offset.
 	/// Every position must be trustworthy and either <see cref="LexicalZone.StringBody"/> or
 	/// <see cref="LexicalZone.Delimiter"/>, and at least one position must be
 	/// <see cref="LexicalZone.StringBody"/> - a capture holding only delimiters, such as an empty
@@ -709,7 +781,7 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The level table, and nothing else. Every signal proposes; the set is complete before anything
+	/// THE CONFIDENCE TABLE, AND NOTHING ELSE. Every signal PROPOSES; the set is complete before anything
 	/// is computed from it; the minimum is taken once. There is no level variable here for a later
 	/// edit to lower a second time.
 	/// </summary>
@@ -780,9 +852,9 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// The malformed-match skipped-item category, emitted at most once per file. The event is
-	/// deterministic - the same expression against the same text on the same runtime produces the same
-	/// corrupted match every time, unlike the match bound's own wall-clock exception - so nothing here
+	/// THE MALFORMED-MATCH CATEGORY, EMITTED AT MOST ONCE PER FILE. The event is deterministic -
+	/// the same expression against the same text on the same runtime produces the same corrupted
+	/// match every time, unlike the match bound's own wall-clock exception - so nothing here
 	/// discards the rest of the file's findings the way <see cref="ReportTheFileAsStoppedByTheMatchBound"/>
 	/// does. It only records that the hole exists, once, no matter how many matches or how many
 	/// rules in this file hit it.

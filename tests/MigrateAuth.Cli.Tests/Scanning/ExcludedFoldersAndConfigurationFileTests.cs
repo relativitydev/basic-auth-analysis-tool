@@ -15,7 +15,7 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 ///
 /// An excluded folder is a policy of the tool and not a hole it could not avoid, so the first group of
 /// tests is as much about what it is NOT - a skipped item - as about the count and the list. No test
-/// here depends on which names are on the list beyond the two the tests plant.
+/// here depends on which names are excluded beyond two of them: the tests create folders of those names.
 /// </summary>
 public sealed class ExcludedFoldersAndConfigurationFileTests
 {

@@ -13,11 +13,12 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
 /// A language analyzer supplies exactly the six contract elements, whose rule element
-/// carries eight fields per class, and never orders, numbers or writes.
+/// carries eight fields per class, and
+/// never orders, numbers or writes.
 ///
-/// The counts are asserted here; the rest of what the contract forbids is enforced by the shape of
-/// the types rather than by a prohibition, and these assertions are the check that the shape still
-/// holds.
+/// The counts are asserted here; the rest of
+/// what the contract forbids is enforced by the shape of the types rather than by a prohibition, and
+/// these assertions are the check that the shape still holds.
 /// </summary>
 public sealed class AnalyzerContractSurfaceTests
 {
@@ -210,8 +211,8 @@ public sealed class AnalyzerContractSurfaceTests
 	}
 
 	/// <summary>
-	/// The unterminated-construct policy and the recursion bound are the engine's. There is no field
-	/// for either, so a profile author cannot supply one.
+	/// The unterminated-construct policy and the recursion bound are
+	/// the engine's. There is no field for either, so a profile author cannot supply one.
 	/// </summary>
 	[Fact]
 	public void ProfileCannotExpressTheEngineOwnedUnterminatedPolicyOrRecursionBound()

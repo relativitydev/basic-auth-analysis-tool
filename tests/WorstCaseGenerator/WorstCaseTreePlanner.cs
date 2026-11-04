@@ -17,6 +17,9 @@ public readonly record struct WorstCaseFilePlan(long Index, string RelativePath,
 /// of its index): 5% files with a few High constructs, 1% undecodable, 0.5% with an over-long line,
 /// 10% of a type no analyzer claims, the rest ordinary C#. The first file after the heavy ones always
 /// holds a High construct, so a tree larger than the heavy files always has one past the global cap.
+///
+/// PowerShell, only when asked: <see cref="WorstCaseTreeOptions.PowerShellScriptBasisPoints"/> turns that share of the ordinary files into PowerShell
+/// scripts, on streams of their own, so no other file's kind changes and a tree asked for no PowerShell is the same tree it always was.
 /// </summary>
 public static class WorstCaseTreePlanner
 {
@@ -37,6 +40,11 @@ public static class WorstCaseTreePlanner
 	private const string _CANDIDATE_EXTENSION = ".cs";
 	private const int _NON_CANDIDATE_EXTENSION_COUNT = 4;
 	private const int _STREAM_EXTENSION = 2;
+	private const int _STREAM_POWERSHELL_SHARE = 6;
+	private const int _STREAM_POWERSHELL_FORM = 7;
+	private const int _POWERSHELL_FORM_COUNT = 2;
+	private const string _POWERSHELL_SCRIPT_EXTENSION = ".ps1";
+	private const string _NO_EXTENSION = "";
 
 	private static readonly string[] _NonCandidateExtensions = [".txt", ".md", ".json", ".xml"];
 
@@ -44,11 +52,20 @@ public static class WorstCaseTreePlanner
 	public static WorstCaseFilePlan PlanFile(WorstCaseTreeOptions options, long index)
 	{
 		WorstCaseFileKind kind = KindOf(options, index);
-		string extension = kind == WorstCaseFileKind.NonCandidate
-			? _NonCandidateExtensions[DeterministicRandom.Below(_NON_CANDIDATE_EXTENSION_COUNT, options.Seed, index, _STREAM_EXTENSION)]
-			: _CANDIDATE_EXTENSION;
+		string extension = ExtensionOf(options, index, kind);
 
 		return new WorstCaseFilePlan(index, RelativePathOf(index, extension), kind);
+	}
+
+	private static string ExtensionOf(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		return kind switch
+		{
+			WorstCaseFileKind.NonCandidate => _NonCandidateExtensions[DeterministicRandom.Below(_NON_CANDIDATE_EXTENSION_COUNT, options.Seed, index, _STREAM_EXTENSION)],
+			WorstCaseFileKind.PowerShellScript => _POWERSHELL_SCRIPT_EXTENSION,
+			WorstCaseFileKind.PowerShellShebangScript => _NO_EXTENSION,
+			_ => _CANDIDATE_EXTENSION
+		};
 	}
 
 	/// <summary>The kind of the file at an index.</summary>
@@ -72,6 +89,21 @@ public static class WorstCaseTreePlanner
 		else
 		{
 			kind = KindByBasisPoints(DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, STREAM_KIND));
+		}
+
+		return kind == WorstCaseFileKind.Filler ? PowerShellInsteadOfFiller(options, index) : kind;
+	}
+
+	/// <summary>An ordinary file is a PowerShell script for the share the options ask for, and its form is decided on a stream of its own.</summary>
+	private static WorstCaseFileKind PowerShellInsteadOfFiller(WorstCaseTreeOptions options, long index)
+	{
+		WorstCaseFileKind kind = WorstCaseFileKind.Filler;
+
+		if (DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_POWERSHELL_SHARE) < options.PowerShellScriptBasisPoints)
+		{
+			kind = DeterministicRandom.Below(_POWERSHELL_FORM_COUNT, options.Seed, index, _STREAM_POWERSHELL_FORM) == 0
+				? WorstCaseFileKind.PowerShellScript
+				: WorstCaseFileKind.PowerShellShebangScript;
 		}
 
 		return kind;

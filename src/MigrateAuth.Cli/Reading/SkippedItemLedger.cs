@@ -7,11 +7,11 @@ namespace MigrateAuth.Cli.Reading;
 /// <summary>
 /// One category's holes: how many, and up to a hundred of them by name.
 ///
-/// The enumeration is bounded and the count never is. A single unreadable subtree can produce
-/// hundreds of thousands of paths in a large walk - so the list is truncated and the truncation
-/// is declared, while the count stays whole. A reader scanning skipped paths is looking for the
-/// SHAPE of the hole, and a hundred shows that as well as a thousand does; the count is what
-/// carries completeness.
+/// The bound applies to the enumeration and never to the count. A single unreadable subtree can produce
+/// hundreds of thousands of paths in a walk of the largest supported size, in a document that caps findings for
+/// exactly this reason - so the list is truncated and the truncation is declared, while the
+/// count stays whole. A reader scanning skipped paths is looking for the SHAPE of the hole, and
+/// a hundred shows that as well as a thousand does; the count is what carries completeness.
 /// </summary>
 public sealed record SkippedItemTally
 {
@@ -41,16 +41,18 @@ public sealed record SkippedItemTally
 /// <summary>
 /// WHERE SKIPPED ITEMS ACCUMULATE UNTIL A REPORT EXISTS TO READ THEM.
 ///
-/// The walk produces the skip data; the report that renders it comes later. This holds it in
-/// between as a sink on the emission point rather than as a return value threaded out of the walk:
-/// every skip then goes through <see cref="EmissionPoint.Emit"/> like everything else that leaves
-/// this process, so the walk has no second path to output, and a skip observed deep inside a
-/// directory-by-directory traversal does not have to be carried back up through the iterator to be
-/// counted.
+/// The walk produces the skip data; the report that renders it comes later. Something had to hold it
+/// in between, and the two candidates were a sink on the emission point or a return value
+/// threaded out of the walk. It is a sink, for three reasons: every skip then goes through
+/// <see cref="EmissionPoint.Emit"/> like everything else that leaves this process, so the walk
+/// has no second path to output; the report set replaces this consumer without the walk
+/// changing; and a skip observed deep inside a directory-by-directory traversal does not have
+/// to be carried back up through the iterator to be counted.
 ///
-/// IT IS BOUNDED. Eleven categories, a hundred paths each, and integers - eleven hundred paths is
-/// its ceiling no matter how large the repository or how much of it was unreadable. Nothing here
-/// grows with the file count.
+/// IT IS BOUNDED, which is the property that matters at the largest supported size. Eleven categories, a hundred
+/// paths each, and integers - eleven hundred paths is its ceiling no matter how large the
+/// repository or how much of it was unreadable. Nothing here grows with the file count, which
+/// is the same discipline applied when refusing to retain a per-file record.
 ///
 /// IT IS NOT A DESTINATION AND RENDERS NOTHING. It stores the typed path rather than text, so
 /// no escaping happens here; it declares the destination that escapes nothing, and the sink
@@ -87,8 +89,8 @@ public sealed class SkippedItemLedger : IEmissionSink
 	/// <summary>
 	/// Files that were skipped, across the ten file-counted categories. It is deliberately NOT
 	/// a total of everything skipped: <see cref="DirectoriesOfUnknownContents"/> is a different
-	/// unit and there is no property here that adds the two, because the sum would be false
-	/// reassurance.
+	/// unit and there is no property here that adds the two, because the sum is the false
+	/// reassurance the skipped-item design exists to prevent.
 	/// </summary>
 	public int SkippedFiles => SumOf(SkippedItemUnit.Files);
 
@@ -109,8 +111,8 @@ public sealed class SkippedItemLedger : IEmissionSink
 	/// EACH WORKFLOW STAGE THAT EMITS THROUGH THIS LEDGER CALLS IT AT THE START OF ITS OWN RUN, and
 	/// snapshots <see cref="Tallies"/> into <see cref="Session.SessionState"/> at completion - Scan
 	/// for its own tallies, Analyze for its own. Without a clear, a second run in the SAME process
-	/// would double-count everything the first run already recorded, since nothing else ever removes
-	/// an entry from a <see cref="CategoryLedger"/>.
+	/// would double-count everything the first run already recorded, since nothing else ever
+	/// removes an entry from a <see cref="CategoryLedger"/>.
 	/// </summary>
 	public void Clear()
 	{
@@ -171,7 +173,7 @@ public sealed class SkippedItemLedger : IEmissionSink
 
 	/// <summary>
 	/// The count and the bounded path list for one category. The list stops growing at the
-	/// ceiling while the count does not.
+	/// ceiling while the count does not, which is the whole of the bound.
 	/// </summary>
 	private sealed class CategoryLedger
 	{

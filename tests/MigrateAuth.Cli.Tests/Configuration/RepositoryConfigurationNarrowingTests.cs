@@ -25,6 +25,16 @@ public sealed class RepositoryConfigurationNarrowingTests
 		"The configuration file in the repository root was found but does not have the expected structure. The built-in default configuration is used instead.";
 	private const string _PROFILE_MALFORMED_MESSAGE =
 		"The configuration file in the user profile folder was found but does not have the expected structure. The built-in default configuration is used instead.";
+	private const string _REPOSITORY_MALFORMED_BESIDE_PROFILE_MESSAGE =
+		"The configuration file in the repository root was found but does not have the expected structure. Each setting is taken from the next source: the configuration file in the user profile folder where it sets one, the built-in default otherwise.";
+	private const string _PROFILE_MALFORMED_BESIDE_REPOSITORY_MESSAGE =
+		"The configuration file in the user profile folder was found but does not have the expected structure. The built-in defaults take its place for every setting the configuration file in the repository root does not set.";
+	private const string _REPOSITORY_UNREADABLE_BESIDE_PROFILE_MESSAGE =
+		"The configuration file in the repository root was found and could not be read. Each setting is taken from the next source: the configuration file in the user profile folder where it sets one, the built-in default otherwise.";
+	private const string _REPOSITORY_TOO_LARGE_MESSAGE =
+		"The configuration file in the repository root was found but is larger than the 262,144 bytes (256 KiB) this tool reads, so it was not read. The built-in default configuration is used instead.";
+	private const string _VALID_PROFILE_DOCUMENT = "{ \"minimumConfidenceLevel\": \"High\" }";
+	private const string _VALID_REPOSITORY_DOCUMENT = "{ \"minimumConfidenceLevel\": \"Medium\" }";
 	private const int _OVERSIZED_FILE_LENGTH = 262145;
 	private const int _REFUSAL_EXIT_CODE = 6;
 
@@ -122,12 +132,86 @@ public sealed class RepositoryConfigurationNarrowingTests
 	}
 
 	[Fact]
+	public void AMalformedRepositoryFileBesideAnAppliedProfileSaysTheProfileSuppliesTheSettings()
+	{
+		PreflightRun run = RunWith(profileContents: _VALID_PROFILE_DOCUMENT, repositoryContents: "{ not json");
+
+		Assert.Equal(_REPOSITORY_MALFORMED_BESIDE_PROFILE_MESSAGE, FirstLineOf(run.Output));
+		Assert.Equal(MigrateAuth.Cli.Catalog.ConfidenceLevel.High, run.Configuration.MinimumConfidenceLevel);
+	}
+
+	[Fact]
+	public void AMalformedProfileBesideAnAppliedRepositoryFileDoesNotClaimTheDefaultsReplaceEverything()
+	{
+		PreflightRun run = RunWith(profileContents: "{ not json", repositoryContents: _VALID_REPOSITORY_DOCUMENT);
+
+		Assert.Equal(_PROFILE_MALFORMED_BESIDE_REPOSITORY_MESSAGE, FirstLineOf(run.Output));
+		Assert.Equal(MigrateAuth.Cli.Catalog.ConfidenceLevel.Medium, run.Configuration.MinimumConfidenceLevel);
+	}
+
+	[Fact]
+	public void TwoMalformedFilesStillSayTheBuiltInDefaultsApply()
+	{
+		string[] lines = LinesOf(RunWith(profileContents: "{ not json", repositoryContents: "{ not json").Output);
+
+		Assert.Contains(_REPOSITORY_MALFORMED_MESSAGE, lines);
+		Assert.Contains(_PROFILE_MALFORMED_MESSAGE, lines);
+	}
+
+	[Fact]
+	public void AnUnreadableRepositoryFileBesideAnAppliedProfileUsesTheSameConsequence()
+	{
+		string message = string.Format(
+			System.Globalization.CultureInfo.InvariantCulture,
+			PreflightValidation.CONFIGURATION_FILE_UNREADABLE_MESSAGE_FORMAT,
+			PreflightValidation.REPOSITORY_ROOT_LOCATION_LABEL,
+			PreflightValidation.DEGRADATION_TO_USER_PROFILE_MESSAGE);
+
+		Assert.Equal(_REPOSITORY_UNREADABLE_BESIDE_PROFILE_MESSAGE, message);
+	}
+
+	[Theory]
+	[InlineData(null, "{ \"enabledLanguages\": [] }", "in the repository root")]
+	[InlineData("{ \"enabledLanguages\": [] }", null, "in the user profile folder")]
+	[InlineData("{ \"enabledLanguages\": [ \"Go\" ] }", "{ \"enabledLanguages\": [] }", "in the repository root")]
+	[InlineData("{ \"enabledLanguages\": [] }", "{ \"minimumConfidenceLevel\": \"High\" }", "in the user profile folder")]
+	public void TheNoLanguageRefusalNamesTheFileToFix(string? profileContents, string? repositoryContents, string expectedLocation)
+	{
+		PreflightRun run = RunWith(profileContents, repositoryContents);
+
+		Assert.Contains(
+			$"Enable at least one language in .migrate-auth.json {expectedLocation} before starting a session.",
+			run.Output,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void ARepositoryListOfOnlyUnknownLanguagesRefusesTheSessionAndWarnsAboutTheName()
 	{
 		PreflightRun run = RunWith(repositoryContents: "{ \"enabledLanguages\": [ \"Rust\" ] }");
 
 		Assert.Equal(PreflightOutcome.NoLanguageEnabled, run.Verdict.Outcome);
 		Assert.Contains("names the language \"Rust\", which this version does not know", run.Output, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void AListOfOnlyUnknownLanguagesSaysEveryNameWasUnknownNamesThemAndListsTheAcceptedNames()
+	{
+		string[] lines = LinesOf(RunWith(repositoryContents: "{ \"enabledLanguages\": [ \"Klingon\", \"Rust\" ] }").Output);
+
+		Assert.Contains(
+			"Every language the enabled languages list names is unknown to this version (\"Klingon\", \"Rust\"), so no language is enabled. The accepted names are CSharp, VBNet, JavaScript, TypeScript, Python, Go, PowerShell, Shell.",
+			lines);
+		Assert.Contains(PreflightValidation.NO_LANGUAGE_ENABLED_MESSAGE, lines);
+	}
+
+	[Fact]
+	public void AnEmptyListSaysNothingAboutUnknownNames()
+	{
+		PreflightRun run = RunWith(repositoryContents: "{ \"enabledLanguages\": [] }");
+
+		Assert.Equal(PreflightOutcome.NoLanguageEnabled, run.Verdict.Outcome);
+		Assert.DoesNotContain("unknown to this version", run.Output, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -212,12 +296,24 @@ public sealed class RepositoryConfigurationNarrowingTests
 	}
 
 	[Fact]
-	public void AnOversizedFileIsSaidToBeTooLarge()
+	public void AnOversizedFileIsReportedWithTheSizeLimitAndNotAsAnUnexpectedStructure()
 	{
 		string[] lines = LinesOf(RunWith(repositoryContents: new string(' ', _OVERSIZED_FILE_LENGTH)).Output);
 
-		Assert.Equal(_REPOSITORY_MALFORMED_MESSAGE, lines[0]);
-		Assert.Contains("too large", lines[1], StringComparison.Ordinal);
+		Assert.Equal(_REPOSITORY_TOO_LARGE_MESSAGE, Assert.Single(lines));
+		Assert.DoesNotContain(lines, line => line.StartsWith("Detail:", StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void AnOversizedProfileFileIsReportedWithTheSizeLimitAndTheConsequenceForTheRepositoryFile()
+	{
+		string[] lines = LinesOf(RunWith(profileContents: new string(' ', _OVERSIZED_FILE_LENGTH), repositoryContents: _VALID_REPOSITORY_DOCUMENT).Output);
+
+		Assert.Equal(
+			"The configuration file in the user profile folder was found but is larger than the 262,144 bytes (256 KiB) this tool reads, so it was not read. The built-in defaults take its place for every setting the configuration file in the repository root does not set.",
+			lines[0]);
+		Assert.DoesNotContain(lines, line => line.Contains("expected structure", StringComparison.Ordinal));
+		Assert.DoesNotContain(lines, line => line.StartsWith("Detail:", StringComparison.Ordinal));
 	}
 
 	/// <summary>

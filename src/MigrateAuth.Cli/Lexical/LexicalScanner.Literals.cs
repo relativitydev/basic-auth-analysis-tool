@@ -6,7 +6,8 @@ namespace MigrateAuth.Cli.Lexical;
 
 // THE LITERAL HALF OF THE MUTUAL RECURSION. Everything here is reached from ScanCodeRegion and
 // reaches back into it through an interpolation hole. It is a separate FILE and deliberately not a
-// separate TYPE: splitting the two halves into two types would let someone give them two pointers.
+// separate TYPE: splitting the two halves into two types would let someone give them two pointers,
+// which is the design error the scanner's design rules out.
 public sealed partial class LexicalScanner
 {
 	/// <summary>
@@ -94,7 +95,7 @@ public sealed partial class LexicalScanner
 
 	/// <summary>
 	/// The closing run's required length. It is only ever the opening's ACTUAL matched length under
-	/// <see cref="DelimiterLength.VariableWithAtLeastEqualClosing"/> - a raw literal, where the
+	/// <see cref="DelimiterLength.VariableWithAtLeastEqualClosing"/> - the raw literal, where the
 	/// author's own run length is what the closing has to reach. Under
 	/// <see cref="DelimiterLength.Fixed"/> the closing is a constant of the rule, independent of how
 	/// long the opening happened to be, which matters wherever the two differ in length, as an
@@ -391,7 +392,7 @@ public sealed partial class LexicalScanner
 	/// <summary>
 	/// The doubled close, and THE PAIR IS CONSUMED WHOLE. Consuming one character instead of
 	/// two would let the second character close the literal and invert the mask for the rest of
-	/// the line, corrupting every verbatim literal carrying an escaped quote.
+	/// the line.
 	/// </summary>
 	private bool TryConsumeADoubledClosing(ScanContext context, LiteralOccurrence occurrence, LiteralCursor cursor)
 	{
@@ -457,7 +458,7 @@ public sealed partial class LexicalScanner
 
 	/// <summary>
 	/// A raw line feed inside a literal. Under <see cref="NewlinePolicy.Allowed"/> it is content;
-	/// otherwise it ends the literal and is an anomaly, and both halves happen here.
+	/// otherwise it "ends the literal and is an anomaly", and both halves happen here.
 	/// The line feed itself is left as a code position and the cursor does not move past it, so
 	/// the code scan resumes exactly there - the mask after the recovery is as sound as the mask
 	/// before it, which is why this anomaly does not abandon the file.
@@ -481,8 +482,8 @@ public sealed partial class LexicalScanner
 	}
 
 	/// <summary>
-	/// THE POINT WHERE THE LITERAL HALF CALLS BACK INTO THE CODE HALF. An interpolation's interior
-	/// is code, and the two hole kinds differ only in what bounds that
+	/// THE POINT WHERE THE LITERAL HALF CALLS BACK INTO THE CODE HALF. An
+	/// interpolation's interior is code, and the two hole kinds differ only in what bounds that
 	/// interior - a closing token found by the same recursive scan, or the extent of a declared
 	/// identifier expression.
 	/// </summary>
@@ -520,20 +521,49 @@ public sealed partial class LexicalScanner
 		{
 			context.Mark(cursor.Position, openingLength, LexicalZone.Delimiter);
 
-			RegionResult hole = ScanCodeRegion(context, new CodeRegion
-			{
-				Start = cursor.Position + openingLength,
-				EndExclusive = context.Text.Length,
-				Depth = holeDepth,
-				IsOutermost = false,
-				EnclosingHole = occurrence.Rule
-			});
+			RegionResult hole = ScanABracketedHoleInterior(context, occurrence, cursor.Position + openingLength);
 
 			AbandonAnUnclosedHole(context, occurrence, cursor, hole);
 			cursor.Position = hole.Position;
 		}
 
 		return true;
+	}
+
+	/// <summary>
+	/// The recovery policy for a nested hole. A hole that counted a nested opener and never closed
+	/// was misread: an unbalanced opener kept the closing from reaching depth zero, and everything
+	/// after it was read as the hole's code. The scan state is rewound to the hole's start and the hole
+	/// is read again under the first-closing rule, recording one anomaly. The outer literal's own
+	/// closing cannot be told from a nested literal's opening at that point, so the test is whether
+	/// the hole closed at all. A hole that never counted a nested opener reads identically either way
+	/// and keeps the unterminated-construct policy.
+	/// </summary>
+	private RegionResult ScanABracketedHoleInterior(ScanContext context, LiteralOccurrence occurrence, int interiorStart)
+	{
+		ScanSnapshot snapshot = context.TakeSnapshot();
+		RegionResult hole = ScanTheHoleInterior(context, occurrence, interiorStart);
+
+		if (!hole.ClosedItsConstruct && hole.CountedANestedOpening && context.CanRecoverFromNesting)
+		{
+			context.RewindForNestingRecovery(snapshot, interiorStart);
+			hole = ScanTheHoleInterior(context, occurrence, interiorStart);
+			context.ResumeNesting();
+		}
+
+		return hole;
+	}
+
+	private RegionResult ScanTheHoleInterior(ScanContext context, LiteralOccurrence occurrence, int interiorStart)
+	{
+		return ScanCodeRegion(context, new CodeRegion
+		{
+			Start = interiorStart,
+			EndExclusive = context.Text.Length,
+			Depth = occurrence.Depth + 1,
+			IsOutermost = false,
+			EnclosingHole = occurrence.Rule
+		});
 	}
 
 	private static void AbandonAnUnclosedHole(
@@ -612,7 +642,7 @@ public sealed partial class LexicalScanner
 	/// fields are decided per occurrence rather than per rule - the closing where it was captured
 	/// at the opening, the minimum closing length where the opening was variable, the escape
 	/// character where a prefix suppressed or replaced it, and whether the body interpolates
-	/// where the opening's quoting decided that. This record is the occurrence-scoped context.
+	/// where the opening's quoting decided that.
 	/// </summary>
 	private sealed record LiteralOccurrence
 	{

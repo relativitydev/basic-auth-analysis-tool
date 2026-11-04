@@ -3,22 +3,14 @@ using MigrateAuth.Cli.Catalog;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// THE CONFIDENCE COMPOSITION, MADE INTO A TYPE SO THAT A DECREMENT CHAIN CANNOT BE WRITTEN.
+/// The confidence composition rule as a type: the assigned level is the MINIMUM of the candidate
+/// levels, and no signal ever raises one.
 ///
-/// The rule is "the assigned level is the MINIMUM of the candidate levels, and no signal ever
-/// raises one". Composing the same signals as SUCCESSIVE DEMOTIONS would let a class with base
-/// Medium that is also not self-sufficient and also receives an indeterminate verdict land at LOW,
-/// out of the High-or-Medium set and without a recommendation.
+/// There is no running level variable to lower. Signals are PROPOSED, the set is complete before
+/// anything is computed from it, and the level is taken exactly once, at the end, by <see cref="Minimum"/>.
 ///
-/// THE TWO COMPOSITIONS DIFFER ONLY IN THE SHAPE OF THE CODE THAT WRITES THEM, which is why this
-/// is a type and not a helper method. A running `level` variable that four branches may lower is
-/// a decrement chain whether or not its author meant one, and it reads as correct; there is no
-/// variable here to lower. Signals are PROPOSED, the set is complete before anything is computed
-/// from it, and the level is taken exactly once, at the end, by <see cref="Minimum"/>.
-///
-/// It is not a set in the mathematical sense and does not deduplicate. Two signals proposing
-/// Medium is not the same event twice - it is two independent reasons - and under a minimum the
-/// multiplicity costs nothing, while removing it would be the first step back towards counting.
+/// It is not a set in the mathematical sense and does not deduplicate: two signals proposing the same
+/// level are two independent proposals, and under a minimum the multiplicity costs nothing.
 /// </summary>
 internal sealed class CandidateLevelSet
 {

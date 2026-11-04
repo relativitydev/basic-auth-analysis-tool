@@ -4,7 +4,7 @@ using MigrateAuth.Cli.Writing;
 namespace MigrateAuth.Cli.Agent;
 
 /// <summary>
-/// THE ONE PATH THAT CROSSES THE AGENT BOUNDARY: the prompt pack that has ALREADY BEEN
+/// THE ONE PATH THAT MAY CROSS THE AGENT BOUNDARY: the prompt pack that has ALREADY BEEN
 /// WRITTEN, named as a file rather than as text.
 ///
 /// The launch operation "launches with a prompt pack path", and a path is the exact
@@ -27,7 +27,8 @@ namespace MigrateAuth.Cli.Agent;
 /// being the only author: whatever the name is, it can only ever be one component inside the
 /// destination folder, never a route out of it.
 ///
-/// The code that writes the pack gets its <see cref="ArtifactWriteResult"/> back and turns it into one of these: this type is the parameter of the signature the launcher is reachable through.
+/// The type is the parameter of the launcher's signature: whatever writes a pack gets its
+/// <see cref="ArtifactWriteResult"/> back and turns it into one of these.
 /// </summary>
 public readonly record struct PromptPackFilePath
 {
@@ -41,7 +42,8 @@ public readonly record struct PromptPackFilePath
 
 	/// <summary>
 	/// The absolute path handed to the launched process. Working data only, exactly as
-	/// <see cref="DocumentationDestinationFolderPath.CanonicalPath"/> is: no absolute path may appear in anything the product writes, and nothing here is written.
+	/// <see cref="DocumentationDestinationFolderPath.CanonicalPath"/> is: no
+	/// absolute path may appear in anything the product writes, and nothing here is written.
 	/// </summary>
 	public string AbsolutePath { get; }
 

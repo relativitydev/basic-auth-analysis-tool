@@ -5,14 +5,16 @@ namespace MigrateAuth.Cli.Progress;
 /// <summary>
 /// ONGOING PROGRESS AND THE ADVANCE WARNING, FOR ANY STAGE THAT WORKS THROUGH A COUNTABLE SET.
 ///
-/// This class names no stage, no file, no language and no candidate. It is given a stage name and
-/// an item label as text, and a count of items, so any stage constructs one with its own two words
-/// and calls the same two methods, without this file changing and without a base type to inherit.
+/// BOTH Scan and Analysis USE IT. This class names no stage, no
+/// file, no language and no candidate: it is given a stage name and an item label as text, and a
+/// count of items, so each stage constructs one with its own two words and calls the same two
+/// methods, without this file changing and without a base type either of them has to inherit.
 ///
-/// IT IS SILENT BELOW THE THRESHOLD: progress is reported past 5,000 items, and a small repository
-/// that printed a progress line would bury the inventory it is supposed to be reading.
+/// IT IS SILENT BELOW THE THRESHOLD, which is a requirement rather than a courtesy: progress is
+/// required past 5,000 items, and a small repository that printed a progress line would bury the
+/// inventory it is supposed to be reading.
 ///
-/// DETERMINISM IS NOT PREDICATED ON THIS OUTPUT. How many progress lines appear depends
+/// DETERMINISM IS NOT PREDICATED ON THIS OUTPUT (the output must be identical on every platform). How many progress lines appear depends
 /// on how fast the machine is, so nothing derived from them may reach a report - and nothing here
 /// returns a value to a caller that could.
 /// </summary>
@@ -71,7 +73,7 @@ public sealed class StageProgressReporter
 	/// <summary>
 	/// The advance warning, which fires only where the total is already known - and that is
 	/// the ordering guarantee rather than a limitation of this class. A stage that has not
-	/// counted its work cannot warn about how long it will take, which is why the scan
+	/// counted its work cannot warn about how long it will take, which is precisely why the inventory
 	/// counts first and reads afterwards.
 	/// </summary>
 	public void WarnWhenTheWorkIsLarge()

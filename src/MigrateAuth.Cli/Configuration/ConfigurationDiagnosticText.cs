@@ -10,7 +10,7 @@ namespace MigrateAuth.Cli.Configuration;
 /// carried that this version skips.
 ///
 /// A malformed file gets the degradation message and then exactly one of the detail lines here, so
-/// the user is told which part to fix instead of only that something is wrong. A skipped key or
+/// the user is told which part to fix instead of only that something is wrong. A file above the size limit gets no detail line: its degradation message already states the limit. A skipped key or
 /// language is a warning and not a refusal: keys and language names this version does not know
 /// are ignored so that a file written for a later release still loads, and the warning is what
 /// stops a misspelt key from being ignored without anyone noticing. A known key holding a value
@@ -32,10 +32,6 @@ public static class ConfigurationDiagnosticText
 
 	/// <summary>Valid JSON whose top-level value is not an object.</summary>
 	public const string NOT_AN_OBJECT_MESSAGE = "Detail: the top-level value of the file must be a JSON object.";
-
-	/// <summary>A file above the size this tool reads.</summary>
-	public const string TOO_LARGE_MESSAGE_FORMAT =
-		"Detail: the file is too large; this tool reads a configuration file of at most {0} bytes.";
 
 	/// <summary>A wrong value for a key, when the value is not repeated. Only that key is ignored.</summary>
 	public const string MUST_BE_MESSAGE_FORMAT =
@@ -70,9 +66,6 @@ public static class ConfigurationDiagnosticText
 			ConfigurationDiagnosticKind.InvalidJson => DescribeInvalidJson(diagnostic),
 			ConfigurationDiagnosticKind.NotAnObject => NOT_AN_OBJECT_MESSAGE,
 			ConfigurationDiagnosticKind.InvalidValue => DescribeInvalidValue(diagnostic, location),
-			ConfigurationDiagnosticKind.TooLarge => Format(
-				TOO_LARGE_MESSAGE_FORMAT,
-				ConfigurationFileReader.MAXIMUM_CONFIGURATION_FILE_LENGTH_IN_BYTES.ToString(CultureInfo.InvariantCulture)),
 			ConfigurationDiagnosticKind.UnknownKey => Format(UNKNOWN_KEY_MESSAGE_FORMAT, location, diagnostic.Subject),
 			ConfigurationDiagnosticKind.UnknownLanguage => Format(UNKNOWN_LANGUAGE_MESSAGE_FORMAT, location, diagnostic.Subject),
 			_ => throw new ArgumentOutOfRangeException(nameof(diagnostic), diagnostic.Kind, "No message is declared for this diagnostic.")

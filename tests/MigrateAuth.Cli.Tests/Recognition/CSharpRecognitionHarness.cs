@@ -15,7 +15,7 @@ namespace MigrateAuth.Cli.Tests.Recognition;
 ///
 /// This is <see cref="RecognitionHarness"/>'s own shape, retargeted at the `CSharp` language name
 /// rather than the reference fixture's `ExemplarOne`: <see cref="RecognitionHarness"/> is hard-coded
-/// to the reference language, which is right for the base's own golden tests and wrong for a real
+/// to the reference language, which is right for the shared engine's own golden tests and wrong for a real
 /// language's own set. Every synthetic source text driven through this harness is written for this
 /// set, from the catalog's own stated forms and exclusions, and carries no fragment, path or
 /// third-party name from any repository.

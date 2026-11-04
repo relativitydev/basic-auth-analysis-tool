@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
+using MigrateAuth.Cli.Tests.Release;
+
 using Xunit;
 
 namespace MigrateAuth.Cli.Tests.Documentation;
@@ -16,8 +18,7 @@ internal sealed record DocumentLink(string Target);
 /// <c>docs/public/</c>, and where the link names an anchor the anchor must exist in that file. An internal
 /// link is a relative one; an absolute <c>http</c> or <c>https</c> link is not followed, because the check
 /// runs offline, but it is required to point at a Relativity documentation host, so that nothing else is
-/// linked from the guide by accident. Nothing in the public set may link into <c>docs</c> internal folders, the
-/// benchmark, the grading files or the release scripts: the public set is <c>docs/public/</c> only.
+/// linked from the guide by accident. Nothing in the public set may link into <c>docs</c> internal folders or any file the public set leaves out: the public set is <c>docs/public/</c> only.
 ///
 /// Anchors follow GitHub's rule for a heading: lower-case, punctuation other than hyphens and underscores
 /// removed, spaces to hyphens, and a numeric suffix for a heading that repeats. An explicit
@@ -51,7 +52,7 @@ public sealed class PublicLinkTests
 		"# Title\n\n## Second heading, with punctuation\n\n[ok](#second-heading-with-punctuation) [bad](#nowhere) [gone](missing.md) [out](../../v1/prd.md)\n\n```text\n[ignored](missing.md)\n```\n";
 
 	private static readonly string[] _relativityHosts = ["help.relativity.com", "platform.relativity.com"];
-	private static readonly string[] _forbiddenTargetFragments = ["docs" + "/v1", "benchmark", "tests/grading", "scripts/release-evidence"];
+	private static readonly ImmutableArray<string> _forbiddenTargetFragments = PublicSourceIdentifierTests.InternalLinkTargetFragments();
 
 	private static readonly Regex _inlineLink = new(_INLINE_LINK_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 	private static readonly Regex _referenceDefinition = new(_REFERENCE_DEFINITION_PATTERN, RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.ExplicitCapture);

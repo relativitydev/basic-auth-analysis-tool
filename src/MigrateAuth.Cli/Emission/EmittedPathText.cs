@@ -73,7 +73,7 @@ public static class EmittedPathText
 
 	/// <summary>
 	/// The same escaping for the one other piece of repository-chosen text the invariant permits
-	/// in output: the repository root as a LABEL, emitted in place of the path itself.
+	/// in output: the repository root as a LABEL, which is admitted in place of the path itself.
 	///
 	/// It is here rather than in a second escaper because the hazard is identical - a folder name
 	/// is chosen by the repository exactly as a file name is, and a label carrying a bar or a

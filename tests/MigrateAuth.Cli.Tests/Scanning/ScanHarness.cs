@@ -18,9 +18,9 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 /// <summary>
 /// A REAL TREE, A REAL CATALOG AND A CLOCK THE TEST MOVES.
 ///
-/// The tree is the walk tests' fixture rather than a second one, because the conditions this stage
+/// The tree is the walk set's fixture rather than a second one, because the conditions this stage
 /// has to survive - a denied file, an oversize file, a two-byte encoding, a link - are the ones
-/// that fixture already plants, and a scan tested against a tidier tree would be tested against a
+/// that fixture already contains, and a scan tested against a tidier tree would be tested against a
 /// repository nobody has.
 ///
 /// The catalog is <see cref="ExemplarFixtureCatalog"/>: the reference fixture analyzer followed by

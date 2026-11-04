@@ -7,18 +7,22 @@ using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
 
-namespace MigrateAuth.Cli.Tests.Calibration;
+namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
-/// CS-018's declared, source-generated expression over the benign stress shapes.
+/// CS-018's declared, source-generated expression over the benign
+/// stress shapes. The two right-empty concatenation forms must not re-enter an operand at every
+/// character of every identifier: a single <c>Match</c> call over a zero-match shape at the size
+/// ceiling must stay well inside the match bound rather than throw
+/// <see cref="RegexMatchTimeoutException"/> inside <c>MatchBoundTimingTests</c>.
 ///
 /// The shapes are scaled down to a fraction of their size and must enumerate within the same
-/// fraction of the match bound - the rate a full-size shape needs to finish inside the bound with
-/// the margin the calibration's safety multiple assumes. What is timed is one rule's own
-/// <c>Match</c>/<c>NextMatch</c> enumeration, nothing else, which is the same matching-only
-/// quantity the bound accumulates (see <see cref="RecognitionEnginePolicy"/>).
+/// fraction of the bound - the rate a full-size shape needs to finish inside the bound with the
+/// margin the match-bound timing procedure's safety multiple assumes. What this test times - one
+/// rule's own <c>Match</c>/<c>NextMatch</c> enumeration, nothing else - is the quantity the bound
+/// accumulates (see <see cref="RecognitionEnginePolicy"/>).
 /// </summary>
-[Collection(TimingSensitiveCalibrationCollection.NAME)]
+[Collection(TimingSensitiveStressCollection.NAME)]
 public sealed class CS018StressThroughputTests
 {
 	private const string _CS_018 = "CS-018";

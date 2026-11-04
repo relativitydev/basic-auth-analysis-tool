@@ -9,10 +9,8 @@ namespace MigrateAuth.Cli.Catalog;
 /// configuration only filters over it.
 ///
 /// This enumeration is load-bearing rather than descriptive. The coverage statement
-/// iterates THESE eight values and never the catalog registry, so a language nobody has built an
-/// analyzer for is still named in the report - which is the whole point, because a staged
-/// delivery otherwise produces a clean report for a repository it never looked at. The recall target
-/// sets a recall floor per value here, so the engine should have a hard dependency on it.
+/// iterates THESE eight values and never the catalog registry, so a language that has no
+/// analyzer is still named in the report.
 ///
 /// Nothing reads meaning into the numeric values beyond stability.
 /// </summary>
@@ -47,7 +45,7 @@ public enum AssessedLanguage
 /// The enumeration's canonical names and the parse that reads one back.
 ///
 /// The names are declared here as data rather than derived by reflection from the member names,
-/// because under ahead-of-time
+/// for the reason reflection-based serialization is avoided: under ahead-of-time
 /// compilation a reflective path is the failure that compiles, publishes and breaks on the
 /// client's machine. It also makes the emitted name a decision that a rename cannot change by
 /// accident, which matters because the name is what appears in a finding record and in a
@@ -99,7 +97,8 @@ public static class AssessedLanguages
 	/// <summary>
 	/// Reads a name from a configuration file. Case-insensitive, because a client writes this by
 	/// hand; ordinal, because every comparison in this product is kept free of locale data.
-	/// A name this build does not know is not a failure - the configuration read tolerates version differences, and a newer release's language is exactly that.
+	/// A name this build does not know is not a failure - the configuration read is required
+	/// to tolerate version differences, and a newer release's language is exactly that.
 	/// </summary>
 	public static bool TryParse(string canonicalName, out AssessedLanguage language)
 	{

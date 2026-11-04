@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 namespace MigrateAuth.Cli.Reading;
 
 /// <summary>
-/// THE CLOSED SKIPPED-ITEM ENUMERATION, OWNED HERE AND NOWHERE ELSE.
+/// THE CLOSED ENUMERATION OF SKIPPED-ITEM CATEGORIES, OWNED HERE AND NOWHERE ELSE.
 ///
 /// Every skipped item carries exactly one of these, and a component may not invent one locally.
 ///
@@ -11,11 +11,13 @@ namespace MigrateAuth.Cli.Reading;
 /// emitted. This one says WHY an item was skipped, and it reaches output as a further field of
 /// <see cref="Emission.EmittedFact"/> rather than as a widening of that list.
 ///
-/// FOUR ARE DECLARED HERE AND RAISED ELSEWHERE.
-/// <see cref="LexicalAnomaly"/> is raised in <c>Lexical/FileLexicalScanner.cs</c>;
-/// <see cref="MissingCandidate"/> is raised in <c>Pipeline/AnalyzeStage.cs</c>;
-/// <see cref="MatchBoundExceeded"/> and <see cref="MalformedMatch"/> are raised in
-/// <c>Recognition/RecognitionEngine.cs</c>.
+/// FOUR OF THE ELEVEN ARE DECLARED HERE AND RAISED ELSEWHERE.
+/// <see cref="LexicalAnomaly"/> belongs to the lexical scanner and is raised in
+/// <c>Lexical/FileLexicalScanner.cs</c>; <see cref="MissingCandidate"/> belongs to the
+/// candidate staleness check and is raised in <c>Pipeline/AnalyzeStage.cs</c>;
+/// <see cref="MatchBoundExceeded"/> and <see cref="MalformedMatch"/> belong to the match bound
+/// and are raised in <c>Recognition/RecognitionEngine.cs</c>. A stage that raises one finds the
+/// category already declared here.
 /// </summary>
 public enum SkippedItemCategory
 {
@@ -55,7 +57,7 @@ public enum SkippedItemCategory
 	/// <summary>
 	/// A scan abandoned mid-file, leaving it partially covered. Declared here, raised by
 	/// <c>Lexical/FileLexicalScanner.cs</c> when the zone mask it builds reports a scan abandoned
-	/// mid-file.
+	/// mid-file; the CSharp analyzer's lexical profile is the one that can trip it in this build.
 	/// </summary>
 	LexicalAnomaly = 8,
 
@@ -70,10 +72,12 @@ public enum SkippedItemCategory
 	/// <summary>
 	/// The match bound - the declared exception to determinism - stopped matching on
 	/// this file before every rule had run. Declared here, raised by
-	/// <c>Recognition/RecognitionEngine.cs</c>. Counts the whole file rather than the one rule that
-	/// timed out: which rules had already run before the bound tripped is itself
-	/// machine-speed-dependent, so the finding SET for the file is already compromised the moment
-	/// any rule on it times out.
+	/// <c>Recognition/RecognitionEngine.cs</c> once a language's catalog carries detection rules
+	/// for a file to time out against - the CSharp analyzer's catalog is the first to do so in
+	/// this build. Counts the whole file rather than the one rule that timed out: which rules had
+	/// already run before the bound tripped is itself machine-speed-dependent, so the finding SET
+	/// for the file is already compromised the moment any rule on it times out, and the exception is stated
+	/// at the level of the file for exactly that reason.
 	/// </summary>
 	MatchBoundExceeded = 10,
 
@@ -86,7 +90,7 @@ public enum SkippedItemCategory
 	/// and finds a different match (that one match alone is dropped) - a confirmed source-generator
 	/// defect (SDK 10.0.201 / runtime 10.0.5) that <see cref="Recognition.RecognitionEngine"/> drops
 	/// rather than trusts. An anchor group legitimately outside its own match's span - a lookahead
-	/// or lookbehind anchor, including a zero-length one - is confirmed
+	/// or lookbehind anchor, which the analyzer contract does not forbid, including a zero-length one - is confirmed
 	/// by the interpreted engine and classified normally; it is NOT this category. Declared here, raised beside
 	/// <see cref="MatchBoundExceeded"/> in <c>Recognition/RecognitionEngine.cs</c>. Counts the whole
 	/// FILE, once, no matter how many malformed matches, resumptions or rules produce one: the
@@ -109,8 +113,8 @@ public enum SkippedItemCategory
 }
 
 /// <summary>
-/// What a category counts. It exists as a type because the mistake to avoid is an ARITHMETIC
-/// one: adding an unlistable directory into a file count reports a hole
+/// What a category counts. It exists as a type because the mistake it guards against is an
+/// ARITHMETIC one: adding an unlistable directory into a file count reports a hole
 /// of unknown size as a hole of size one, and "3 items skipped" then reads as a near-complete
 /// scan over a subtree of four thousand unreachable files.
 ///
@@ -131,8 +135,8 @@ public static class SkippedItemCategories
 {
 	/// <summary>
 	/// The eleven, in declaration order, which is the order anything enumerating them uses. It is
-	/// fixed here rather than derived from the enum at runtime, so that the order does not depend
-	/// on reflection ordering and an AOT binary does not need it.
+	/// fixed here rather than derived from the enum at runtime, because the output needs an order that
+	/// does not depend on reflection ordering and because an AOT binary should not need it.
 	/// <see cref="SkippedItemCategory.MatchBoundExceeded"/> sits beside
 	/// <see cref="SkippedItemCategory.LexicalAnomaly"/> on one side, the other category recognition
 	/// itself raises rather than reading or walking, and beside
@@ -167,16 +171,16 @@ public static class SkippedItemCategories
 }
 
 /// <summary>
-/// THE CLOSED LIST'S STABLE, DECLARED NAMES, FOR THE ONE PLACE A CATEGORY CROSSES A
+/// THE CLOSED LIST'S STABLE, DECLARED NAMES, FOR THE ONE PLACE A CATEGORY NOW CROSSES A
 /// TRUST BOUNDARY: THE SESSION STATE FILE.
 ///
 /// <see cref="Session.SessionStateStore"/> persists a skipped-item tally per stage and reads it back
-/// as hostile input, on the same terms it applies to a completed stage's name and to a
+/// as hostile input, on the same terms already applied to a completed stage's name and to a
 /// finding's language. Neither an enum's numeric value nor its member name (<c>ToString</c>) is
 /// fit for that: the numeric value is reflection-free but meaningless to a human reading the file by
-/// hand, and the member name is a reflective path under Native AOT - a
+/// hand, and the member name is exactly the reflective path that Native AOT forbids - a
 /// trimmed build is not guaranteed to keep it. So the name is declared here as data, the same
-/// discipline <see cref="Catalog.AssessedLanguages"/> applies to the eight languages.
+/// discipline <see cref="Catalog.AssessedLanguages"/> already applies to the eight languages.
 /// </summary>
 public static class SkippedItemCategoryNames
 {

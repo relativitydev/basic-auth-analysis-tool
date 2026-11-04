@@ -14,15 +14,15 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 ///
 /// The four points are asserted by content rather than by an exact comparison, because the text is
 /// prose and an exact comparison would turn every rewording into a failing test while proving
-/// nothing about what the text says. What is pinned is the four ideas - RelativityOne,
+/// nothing about what the text says. What is pinned is the ideas the text must carry - RelativityOne,
 /// the bearer token, where the credentials live, and the statement that nothing here was
-/// characterized - plus their order.
+/// characterized - plus their order, since they are stated as an order.
 ///
-/// The thing it must not do has more tests than the things it must, and deliberately: a generic
-/// recommendation that reads like a specific one invites a developer to apply a transformation the
-/// tool never verified applies. The cheapest way to produce that failure is to reach for a field the
-/// finding happens to carry - the pattern class, the level, the language - and write it into a
-/// sentence. So those are tested for absence.
+/// The thing it must not do has more tests than the things it must, and deliberately. One failure
+/// mode matters most: a generic recommendation that reads like a specific one
+/// invites a developer to apply a transformation the tool never verified applies. The cheapest way
+/// to produce that failure is to reach for a field the finding happens to carry - the pattern
+/// class, the level, the language - and write it into a sentence. So those are tested for absence.
 /// </summary>
 public sealed class GenericRecommendationTests
 {
@@ -45,7 +45,7 @@ public sealed class GenericRecommendationTests
 	[InlineData(_NEVER_IN_SOURCE)]
 	[InlineData(_DID_NOT_RECOGNIZE)]
 	[InlineData(_NOT_CHARACTERIZED)]
-	public void TheTextMakesEachOfDr18sFourPoints(string expectedIdea)
+	public void TheTextMakesEachOfTheFourPoints(string expectedIdea)
 	{
 		string text = Describe();
 
@@ -53,13 +53,13 @@ public sealed class GenericRecommendationTests
 	}
 
 	/// <summary>
-	/// The four points form a sequence, and the sequence is the argument: the two facts
+	/// The four points are given as a sequence, and the sequence is the argument: the two facts
 	/// that can be stated without knowing the construct come first, and the admission that the
 	/// construct is unknown comes last, where it governs everything said before it. Reversed, the
 	/// text would open by disclaiming itself and then read as advice anyway.
 	/// </summary>
 	[Fact]
-	public void TheFourPointsAreMadeInDr18sOrder()
+	public void TheFourPointsAreMadeInTheirDeclaredOrder()
 	{
 		string text = Describe();
 
@@ -111,14 +111,14 @@ public sealed class GenericRecommendationTests
 	}
 
 	/// <summary>
-	/// NO SUBSTITUTION, PINNED AS A TEST.
+	/// THE TEXT CARRIES NO PART OF A FINDING.
 	///
-	/// The relative path and the line number could be substituted, and the provider declines both -
-	/// its own documentation gives the reasons, the decisive one being that
+	/// The provider substitutes neither the relative path nor the line number:
 	/// <see cref="IGenericRecommendationProvider.DescribeFor"/> receives neither a finding nor an
 	/// <see cref="EmissionDestination"/> and so could not escape a path the way
 	/// <c>RecommendationRenderer.Substitute</c> does. What follows is that the text is the same for
-	/// every finding, and that no part of any analyzed path can appear in it.
+	/// every finding, and that no part of any analyzed path can appear in it - which is the data
+	/// invariant reduced to something a single assertion can check.
 	/// </summary>
 	[Fact]
 	public void TheTextIsTheSameForEveryFindingAndCarriesNoPathOrLine()
@@ -194,12 +194,13 @@ public sealed class GenericRecommendationTests
 			ReportHarness.FindingAt(1, "source.cs", 5, ReportHarness.UNTEMPLATED_PATTERN_CLASS, ConfidenceLevel.Low));
 
 		Assert.Equal(RecommendationKind.ManualReview, rendered.Kind);
-		Assert.Equal(RecommendationRenderer.MANUAL_REVIEW_TEXT, rendered.Narrative);
+		Assert.StartsWith(RecommendationRenderer.MANUAL_REVIEW_LEAD_TEXT, rendered.Narrative, StringComparison.Ordinal);
+		Assert.EndsWith("in Part C for C# of the Migration Documentation.", rendered.Narrative, StringComparison.Ordinal);
 	}
 
 	/// <summary>
-	/// The security note rides on the literal-credential signal and not on the route, and the
-	/// generic route is the case where that matters: the embedded-secret signal comes
+	/// The fifth piece rides on the literal-credential signal and not on the route, and the
+	/// generic route is where it matters most: the embedded-secret signal comes
 	/// from the zone mask rather than from recognizing the construct, so a construct we failed to
 	/// characterize can still carry a published secret.
 	/// </summary>

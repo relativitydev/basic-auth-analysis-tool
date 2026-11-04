@@ -12,10 +12,10 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 internal sealed record CliProcessOutcome
 {
 	/// <summary>
-	/// The process's own exit code, which is the one thing no in-process composition can produce.
-	/// The exit code is last-condition-wins over a whole session, and a session is a process - so a stage
-	/// runner composed in a test can report what each stage returned and still say nothing about what a
-	/// script calling this tool would observe.
+	/// THE PROCESS'S OWN EXIT CODE, which is the one thing no in-process composition can produce.
+	/// The exit code is last-condition-wins over a whole session, and a session is a
+	/// process - so a stage runner composed in a test can report what each stage returned and still
+	/// say nothing about what a script calling this tool would observe.
 	/// </summary>
 	internal required int ExitCode { get; init; }
 
@@ -36,20 +36,18 @@ internal sealed record CliProcessOutcome
 }
 
 /// <summary>
-/// The real entry point, in its own process, with the process's own exit code.
+/// THE REAL ENTRY POINT, IN ITS OWN PROCESS, WITH THE PROCESS'S OWN EXIT CODE.
 ///
 /// What runs is <c>dotnet migrate-auth.dll</c>: a separate process, the same <c>Program.Main</c>,
-/// and an exit code the host propagates unchanged.
+/// and an exit code the host propagates unchanged. Every property the zero-candidate acceptance condition grades is a property of that
+/// process.
 ///
-/// The framework-dependent apphost (<c>migrate-auth.exe</c>) is not launched: on Windows it can be
-/// refused with a side-by-side configuration error before any managed code runs. <c>dotnet run</c> is
-/// not used because it re-enters MSBuild from inside a test run and mixes the application's exit code
-/// with the driver's own build-failure codes. The Native AOT binary under <c>artifacts/publish</c> is
-/// not used because that folder is git-ignored and machine-local.
+/// <c>dotnet run</c> is not used: it re-enters MSBuild from inside a test run - a restore and a build
+/// against an output directory the test host already holds - and mixes the application's exit code
+/// with the driver's own build-failure codes, which is precisely the value under assertion.
 ///
-/// This harness therefore exercises the JIT composition, not the published binary, and its launch is
-/// written for Windows; the one line below that names a Unix file name is the host's naming rule and
-/// not a cross-platform mechanism.
+/// The one line below that names a Unix file name is the host's naming rule and not a
+/// cross-platform mechanism.
 /// </summary>
 internal static class CliProcessHarness
 {
@@ -97,8 +95,8 @@ internal static class CliProcessHarness
 	/// written out - so a renamed command breaks this harness at compile time through the identity
 	/// rather than silently feeding an unrecognized token to the prompt.
 	///
-	/// <c>ai-assist</c> is deliberately absent: it is not shipped in this release, and running it would
-	/// not exercise the four-stage pipeline.
+	/// <c>ai-assist</c> is deliberately absent: running it here would exercise its runner rather than
+	/// the pipeline, and the zero-candidate acceptance condition names four stages.
 	/// </summary>
 	internal static ImmutableArray<string> TheFourStagesThenExit =>
 	[
@@ -156,20 +154,22 @@ internal static class CliProcessHarness
 
 	/// <summary>
 	/// Runs one session with the child's own console code page forced to UTF-8 (65001) before
-	/// it starts, so a byte-order mark sent on standard input decodes the way a Windows PowerShell pipe
-	/// on a machine whose active code page is already UTF-8 decodes it: as the single character
-	/// <c>SessionConsole</c> has to strip, not as three OEM-code-page glyphs.
+	/// it starts, so a byte-order mark sent on standard input decodes the way a Windows PowerShell
+	/// pipe on a machine whose active code page is already UTF-8 decodes it:
+	/// as the single character <c>SessionConsole</c> has to strip, not as three OEM-code-page
+	/// glyphs.
 	///
-	/// A fully redirected child with no console window of its own still resolves
-	/// <see cref="Console.InputEncoding"/> from <c>GetConsoleCP</c>, and that call falls back to the
-	/// machine's default OEM code page, which decodes a UTF-8 byte-order mark as three separate glyphs
-	/// instead of one character. Nothing on <see cref="ProcessStartInfo"/> lets a parent set that for a
-	/// child directly: it is a property of the console session the child inherits. Wrapping the launch in
-	/// <c>cmd /c chcp 65001 &amp; ...</c> changes it for the child, because the code page becomes the one
-	/// the shared console session was just set to. This is therefore the one launch in this file that is
-	/// Windows-specific in its mechanism as well as in its scope.
-	///
-	/// On Linux and macOS the plain launch already is the scenario. Standard input is decoded as
+	/// WHY THIS NEEDS A DIFFERENT LAUNCH FROM EVERY OTHER TEST HERE. A fully redirected child with
+	/// no console window of its own still resolves <see cref="Console.InputEncoding"/> from
+	/// <c>GetConsoleCP</c>, and that call falls back to the machine's own default OEM code page -
+	/// code page 437, for example, which decodes
+	/// a UTF-8 byte-order mark as three separate glyphs instead of one character. Nothing on
+	/// <see cref="ProcessStartInfo"/> lets a parent set that for a child directly: it is a property
+	/// of the console session the child inherits, not of how the parent writes to the pipe.
+	/// Wrapping the launch in <c>cmd /c chcp 65001 &amp; ...</c> changes it for the child because
+	/// the code page becomes the one the shared console session was just set to. This is therefore
+	/// the one launch in this file that is Windows-specific in its mechanism as well as in its scope.
+	/// ON LINUX AND MACOS THE PLAIN LAUNCH ALREADY IS THE SCENARIO. Standard input is decoded as
 	/// UTF-8 there by default, so the mark already reaches <c>SessionConsole</c> as the single
 	/// character U+FEFF, and there is no code page to force and no <c>cmd.exe</c> to wrap the
 	/// launch in. The same assertion therefore runs on every platform, each through the launch that
@@ -292,8 +292,8 @@ internal static class CliProcessHarness
 	}
 
 	/// <summary>
-	/// The command line: two named options, no positional form, behind the entry assembly the host is
-	/// asked to run.
+	/// The command line the tool defines: two named options, no positional form, behind the entry assembly
+	/// the host is asked to run.
 	/// </summary>
 	private static ProcessStartInfo BuildStartInfo(string repositoryFolderPath, string destinationFolderPath)
 	{
@@ -349,7 +349,7 @@ internal static class CliProcessHarness
 	/// <see cref="ProcessStartInfo.ArgumentList"/>. <c>cmd</c>'s <c>/c</c> takes one string and
 	/// splits it itself, so the arguments this parent wants the CLI to receive have to be quoted
 	/// into that one string rather than handed to the platform as separate tokens - and
-	/// <c>ArgumentList</c> quotes each of its own entries again before building the native command
+	/// <c>ArgumentList</c> quotes each of ITS OWN entries again before building the native command
 	/// line, which double-escapes a value that already carries the quotes <c>cmd</c> needs. Setting
 	/// <c>Arguments</c> directly is what keeps this string exactly what <c>cmd</c> receives.
 	/// </summary>

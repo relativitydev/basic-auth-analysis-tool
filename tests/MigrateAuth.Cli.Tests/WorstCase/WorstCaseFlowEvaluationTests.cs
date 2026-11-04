@@ -9,7 +9,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.WorstCase;
 
 /// <summary>
-/// FLOW EVALUATION OVER A GENERATED REPOSITORY.
+/// OVER A GENERATED REPOSITORY.
 ///
 /// A small worst-case tree - the heavy files that exhaust the global findings cap, then the files
 /// that come after it - is generated into the harness's own folder and run through the real embedded

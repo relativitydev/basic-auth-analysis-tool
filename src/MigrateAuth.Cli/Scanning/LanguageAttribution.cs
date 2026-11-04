@@ -39,33 +39,37 @@ public readonly record struct AttributedLanguage
 }
 
 /// <summary>
-/// The detection rule made into a lookup: a registered analyzer's extension first, then - where there
-/// is no extension - a registered analyzer's own first-line rule, then the base's own table (extension,
-/// or shebang for an extensionless file), and an unrecognized bucket for everything that answers none
+/// THE DETECTION RULE MADE INTO A LOOKUP: a registered analyzer's extension first, then - where there is no
+/// extension - a registered analyzer's own first-line rule, then the engine's own table (extension, or
+/// shebang for an extensionless file), and an unrecognized bucket for everything that answers none
 /// of those.
 ///
-/// Every input to a registered analyzer's decision comes off the analyzer contract - the extension
-/// set, the first-line expression and the name derivation - so a language added to the catalog is
-/// attributed without this file changing. <see cref="BaseLanguageDetection"/> is the one exception: it
-/// lets the inventory name all eight languages, but it yields no analyzer -
-/// <see cref="AttributedLanguage.Analyzer"/> is null for every file that path names, so candidate
-/// selection and the recognition engine never see those names.
+/// THE ENGINE KNOWS NO LANGUAGE BEYOND THE EIGHT NAMES AND THEIR EXTENSIONS AND SHEBANGS, AND ONLY
+/// FOR THE INVENTORY. Every input to a REGISTERED ANALYZER'S decision still comes off the analyzer
+/// contract - the extension set, the first-line expression and the name derivation - so a language
+/// added to the catalog is attributed without this file changing. <see cref="BaseLanguageDetection"/>
+/// is the one exception: it names a file in any of the eight languages for the inventory, even where
+/// no analyzer ships for it. It yields no analyzer: <see cref="AttributedLanguage.Analyzer"/> is still
+/// null for every file this base-only path names, so candidate selection and the recognition engine
+/// never see these names.
 ///
-/// The first-line fallback - an analyzer's own, and the base's - is scoped to files with no extension,
-/// so a first line never claims a file whose extension already said otherwise.
+/// THE FIRST-LINE FALLBACK - AN ANALYZER'S OWN, AND THE ENGINE'S - IS SCOPED TO FILES WITH NO
+/// EXTENSION, so a first line never claims a file whose extension already said otherwise.
 ///
-/// Where two analyzers could claim the same first line, the tie is broken by the ordinal order of
-/// their declared names rather than by the catalog's enumeration order, so the outcome is identical
-/// on every platform and every run. A registered analyzer's first-line rule always wins over the
-/// base's own shebang table, as a registered analyzer's extension wins over the base's own extension
-/// table: precedence runs from the specific to the generic.
+/// WHERE TWO ANALYZERS COULD CLAIM THE SAME FIRST LINE, the tie is broken by the ordinal order of
+/// their declared names rather than by the catalog's enumeration order, which is unordered by
+/// construction. The outcome must be identical on every platform and every run, and
+/// an arbitrary-but-stable-today order is not that. A registered analyzer's first-line rule always
+/// wins over the engine's own shebang table, for the same reason a registered analyzer's extension
+/// always wins over the engine's own extension table: a catalog's own declared answer is more
+/// specific than the engine's generic one, and precedence runs from the specific to the generic.
 ///
-/// The first-line expressions are charged to the lexical budget, one budget per file in this stage.
-/// Where the budget is spent, or an expression exceeds its own timeout, the file is treated as not
-/// recognized by its first line: it is attributed by its extension and the fallback is carried on
-/// <see cref="AttributedLanguage.FirstLineBudgetExceeded"/>. This is the only place a first line is
-/// matched against an analyzer's expression - Analyze reuses the attribution Scan persisted and never
-/// repeats it, so a trip cannot give one file two languages.
+/// THE FIRST-LINE EXPRESSIONS ARE CHARGED TO THE LEXICAL BUDGET, ONE BUDGET PER FILE IN THIS
+/// STAGE. Where the budget is spent, or an expression exceeds its own timeout, the file is treated
+/// as not recognized by its first line: it is attributed by its extension and the fallback is
+/// carried on <see cref="AttributedLanguage.FirstLineBudgetExceeded"/>. This is the only place a
+/// first line is matched against an analyzer's expression - Analyze reuses the attribution Scan
+/// persisted and never repeats it, so a trip cannot give one file two languages.
 /// </summary>
 public sealed class LanguageAttribution
 {
@@ -100,7 +104,8 @@ public sealed class LanguageAttribution
 	/// <summary>
 	/// Attributes one file. The first line is null during the enumeration pass, which opens
 	/// nothing, and is the decoded first line during the inventory pass - so the same file can be
-	/// attributed provisionally without a read and definitively with one.
+	/// attributed provisionally without a read and definitively with one, which is what
+	/// the first-line rule costs and the scan accepts.
 	///
 	/// Where no registered analyzer claims the file, <see cref="BaseLanguageDetection"/> is
 	/// tried before the file falls to <see cref="UNRECOGNIZED_LANGUAGE_NAME"/> - a base-table hit
@@ -172,8 +177,8 @@ public sealed class LanguageAttribution
 	}
 
 	/// <summary>
-	/// Consulted only after every registered analyzer has refused the file: the base's own
-	/// extension table, or - for an extensionless file - the base's own shebang table, exactly the
+	/// Consulted only after every registered analyzer has refused the file: the engine's own
+	/// extension table, or - for an extensionless file - the engine's own shebang table, exactly the
 	/// same "extensionless only" scoping `FindAnalyzer` already applies to a registered analyzer's
 	/// first-line rule.
 	/// </summary>

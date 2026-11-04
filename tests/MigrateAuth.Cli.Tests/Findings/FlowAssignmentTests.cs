@@ -178,8 +178,8 @@ public sealed class FlowAssignmentTests
 	}
 
 	/// <summary>
-	/// A signal that times out after the file produced a High finding leaves the finding reported,
-	/// decided Default, counted as a trip, and the session complete.
+	/// A signal that times out after the file produced a High finding
+	/// leaves the finding reported, decided Default, counted as a trip, and the session complete.
 	/// </summary>
 	[Fact]
 	public void AFlowSignalTimeoutKeepsTheFindingDecidesItDefaultAndCountsTheTrip()

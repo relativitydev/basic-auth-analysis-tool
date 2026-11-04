@@ -1,14 +1,16 @@
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The fence-opening test, shared by two renderers.
+/// THE FENCE-OPENING TEST, FACTORED OUT SO TWO RENDERERS SHARE ONE PREDICATE.
 ///
-/// <see cref="MarkdownReportRenderer"/> uses it to decide whether a template piece's label can share
-/// its bullet line with the piece's first physical line, or whether the fence forces the label onto a
-/// line of its own. <see cref="RecommendationRenderer"/> makes the same decision when it composes the
-/// JSON artifact's `recommendation` string: a consumer that renders that string as Markdown hits the
-/// same CommonMark rule - a fence marker that follows inline text on the label's own paragraph never
-/// opens a block.
+/// <see cref="MarkdownReportRenderer"/> uses it to decide whether a template piece's label can
+/// share its bullet line with the piece's first physical line, or whether the fence forces the label
+/// onto a line of its own. <see cref="RecommendationRenderer"/> makes the same decision for the same
+/// reason when it composes the JSON artifact's `recommendation` string: a piece whose first line opens a fence cannot share its label's line
+/// either, because a consumer that renders that JSON string as Markdown hits the identical CommonMark
+/// trap - the fence marker would follow inline text on the label's own paragraph and never open a
+/// block. This type is the one place that holds the two fence markers and the test against them, so
+/// the two renderers cannot drift.
 /// </summary>
 internal static class CodeFenceDetection
 {

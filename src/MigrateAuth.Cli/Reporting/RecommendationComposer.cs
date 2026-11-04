@@ -6,28 +6,32 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The single, finding-free point where a recommendation is composed.
+/// THE SINGLE, FINDING-FREE POINT WHERE A RECOMMENDATION IS COMPOSED.
 ///
 /// A recommendation is a function of three things - the language, the pattern class and the flow -
 /// and of nothing about any one finding. The Markdown report, the JSON artifact, the generated Part C
 /// blocks and the User Guide's OAuth2 Client row all compose through <see cref="Compose"/>, so the
-/// four cannot say different things about the same (language, class, flow).
+/// four cannot say different things about the same (language, class, flow), and a drift test can call
+/// the composer directly rather than render a report to find out what it would have said.
 /// <see cref="RecommendationRenderer"/> delegates here and only substitutes the finding's relative path
 /// and line number into the placeholders; it decides nothing about what is said.
 ///
-/// What is composed, in order. A catalog template for the (class, flow) contributes the four template
-/// pieces; where the catalog has none, the language's own declared text for the flow and then the
-/// base's generic text for the flow contribute one narrative. Either way the base-owned OAuth2 Client
-/// block for the flow is the fifth piece, labelled <see cref="OAUTH2_CLIENT_LABEL"/>. The security note
-/// and the flow note are not part of the composed text; they ride beside it.
+/// WHAT IS COMPOSED, IN ORDER. A catalog template for the (class, flow) contributes four pieces;
+/// where the catalog has none, the language's own declared text for the flow and then the
+/// shared engine's generic text for the flow contribute one narrative. EITHER WAY THE ENGINE-OWNED OAUTH2 CLIENT
+/// BLOCK FOR THE FLOW IS THE FIFTH PIECE, labelled <see cref="OAUTH2_CLIENT_LABEL"/>: a construct the
+/// catalog failed to characterize still needs an OAuth2 Client, and the block does not depend on
+/// characterizing it. The security note and the flow note are NOT part of the composed text; they ride
+/// beside it.
 ///
-/// A Low-confidence finding is not composed. It has no flow and no template and is routed to manual
-/// review before this class is asked anything.
+/// A LOW-CONFIDENCE FINDING IS NOT COMPOSED. It has no flow and no template and is routed to manual
+/// review before this class is asked anything; asking here would invite a caller to compose text for a
+/// finding that must never have one.
 /// </summary>
 public static class RecommendationComposer
 {
 	/// <summary>
-	/// The fifth piece's label, beside the four template pieces' (<see cref="RecommendationRenderer.SOURCE_FORM_LABEL"/>,
+	/// The fifth piece's label, beside the four template pieces (<see cref="RecommendationRenderer.SOURCE_FORM_LABEL"/>,
 	/// <see cref="RecommendationRenderer.TARGET_FORM_LABEL"/>, <see cref="RecommendationRenderer.CREDENTIALS_LABEL"/>
 	/// and <see cref="RecommendationRenderer.VERIFICATION_LABEL"/>). The block's own first line follows it.
 	/// </summary>
@@ -98,7 +102,7 @@ public static class RecommendationComposer
 	}
 
 	/// <summary>
-	/// Composes with the base's own generic provider, for the callers that have no reason to inject
+	/// Composes with the shared engine's own generic provider, for the callers that have no reason to inject
 	/// another: the generated Part C blocks and the User Guide.
 	/// </summary>
 	public static RenderedRecommendation Compose(
@@ -128,10 +132,10 @@ public static class RecommendationComposer
 	}
 
 	/// <summary>
-	/// The finding record's `recommendation`, joined from the composed pieces in one place so the Markdown
+	/// THE FINDING RECORD'S `recommendation`, joined from the composed pieces in one place so the Markdown
 	/// report's list items and the artifact's string are built from the same labels and cannot drift.
 	///
-	/// Null for <see cref="RecommendationKind.ManualReview"/>, which is exactly Low: the one expression
+	/// NULL FOR <see cref="RecommendationKind.ManualReview"/>, WHICH IS EXACTLY LOW: the one expression
 	/// of the manual-review signal in the artifact. The template route joins the four
 	/// labelled pieces and the fifth on <see cref="RecommendationRenderer.ARTIFACT_TEXT_PARAGRAPH_SEPARATOR"/>;
 	/// the generic route joins its narrative and the fifth. The security note and the flow note never
@@ -212,7 +216,7 @@ public static class RecommendationComposer
 
 	/// <summary>
 	/// The language's own declared generic text for one flow, or null where it declares none for it -
-	/// which is the signal to fall through to the base's text for that flow.
+	/// which is the signal to fall through to the shared engine's text for that flow.
 	/// </summary>
 	private static string? LanguageFallbackTextFor(LanguageCatalog catalog, AssessedLanguage language, CredentialFlow flow)
 	{

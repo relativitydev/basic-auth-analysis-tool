@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace MigrateAuth.Cli.Findings;
 
 /// <summary>
-/// THE PATH DISAMBIGUATOR: the one place that decides which raw paths sharing a key are told apart
+/// THE DISAMBIGUATOR: the one place that decides which raw paths sharing a key are told apart
 /// in a fingerprint, and how.
 ///
 /// IT IS DERIVED AND NEVER STORED. The session state persists a finding's path and ordinal only

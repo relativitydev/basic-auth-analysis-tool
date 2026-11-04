@@ -75,7 +75,7 @@ public sealed class CanonicalPathTests
 	}
 
 	/// <summary>
-	/// A short name is one of the things a string-prefix comparison gets wrong, and it
+	/// A short name is one of the things a string prefix check gets wrong, and it
 	/// is the one that arrives without anybody arranging it - the same folder handed out in two
 	/// spellings by two sources. Where the volume generates short names, resolution expands
 	/// them, so the two spellings meet as one canonical path.

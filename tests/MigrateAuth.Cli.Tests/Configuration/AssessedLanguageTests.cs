@@ -9,7 +9,7 @@ namespace MigrateAuth.Cli.Tests.Configuration;
 /// closed vocabularies a configuration file is written in.
 ///
 /// The count is asserted rather than assumed. A recall floor is set per value here
-/// and the report's coverage statement iterates these values rather than the catalog registry, so a
+/// and the coverage statement iterates these values rather than the catalog registry, so a
 /// language quietly missing from the enumeration is a language no report ever mentions - which is
 /// exactly the failure the coverage statement exists to prevent.
 /// </summary>
@@ -52,8 +52,8 @@ public sealed class AssessedLanguageTests
 	}
 
 	/// <summary>
-	/// A name this build does not know is not a failure. The configuration read tolerates version
-	/// differences, and a language a later release adds is exactly that.
+	/// A name this build does not know is not a failure. The configuration read must
+	/// tolerate version differences, and a language a later release adds is exactly that.
 	/// </summary>
 	[Fact]
 	public void AnUnknownLanguageNameDoesNotParseAndIsNotAnError()

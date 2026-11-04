@@ -10,13 +10,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Writing;
 
 /// <summary>
-/// The streaming writes, and the proof that they are the SAME write rather than a second one.
+/// The streaming siblings the writing contract requires, and the proof that they are the SAME write rather than a
+/// second one.
 ///
-/// The artifact is written streaming, not serialized to a string in memory. WHAT IS ASSERTED HERE IS
-/// THE SHAPE, NOT THE SIZE: that the signature cannot accept a whole body, and that the
+/// The contract states the artifact is written streaming, "not serialized to a string in memory". WHAT IS
+/// ASSERTED HERE IS THE SHAPE, NOT THE SIZE: that the signature cannot accept a whole body, and that the
 /// temporary-then-rename, the handling header and the collision rule behave identically to the
-/// non-streaming method. Memory figures belong to the acceptance harness, which can afford to build
-/// a hundred thousand findings; a unit test measuring process memory would be a slow test
+/// method already in use. A unit test measuring process memory would be a slow test
 /// asserting a number the runtime is free to change.
 /// </summary>
 public sealed class AtomicArtifactStreamingTests
@@ -86,7 +86,7 @@ public sealed class AtomicArtifactStreamingTests
 
 	/// <summary>
 	/// The artifact's notice is a field its own serializer places, so nothing is prepended here -
-	/// text before the bytes would make the document invalid JSON.
+	/// text before the bytes would make the document invalid for the consumers it exists to serve.
 	/// </summary>
 	[Fact]
 	public void AStreamedDataArtifactGetsNoPrependedHeader()

@@ -57,7 +57,7 @@ internal static class ZoneAssertions
 	}
 
 	/// <summary>
-	/// The zone mask's contract in its literal form: one zone per position, no position without one and
+	/// The zone contract in its literal form: one zone per position, no position without one and
 	/// none with two. The mask is a total function over the text's own length, which is what the
 	/// second half of that sentence means operationally.
 	/// </summary>

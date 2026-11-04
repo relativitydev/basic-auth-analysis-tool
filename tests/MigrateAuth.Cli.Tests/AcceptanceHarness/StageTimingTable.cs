@@ -22,12 +22,12 @@ internal sealed record StageTiming
 }
 
 /// <summary>One shape of repository, and the four timings measured over it.</summary>
-internal sealed record BenchmarkShape
+internal sealed record TimingShape
 {
 	/// <summary>How the shape is named in the table.</summary>
 	internal required string Name { get; init; }
 
-	/// <summary>What was planted, and why that shape was chosen.</summary>
+	/// <summary>What was generated, and why that shape was chosen.</summary>
 	internal required string Description { get; init; }
 
 	/// <summary>The four stages in run order.</summary>
@@ -37,19 +37,19 @@ internal sealed record BenchmarkShape
 /// <summary>
 /// THE PER-STAGE DURATION DECOMPOSITION, RENDERED SO A HUMAN CAN READ IT.
 ///
-/// It is not a reference benchmark, which wants a fixed reference rig and a full volume band. It
-/// measures the four stage boundaries on a tree sized so the numbers mean something and the suite
-/// still finishes in seconds, and it says so in its own header.
+/// It instruments the four boundaries between the stages, on a tree sized so the numbers mean
+/// something and the suite still finishes in seconds. It is not a reference timing run on a fixed
+/// rig, and it says so in its own header rather than letting a reader mistake one for the other.
 ///
 /// THE MACHINE IS DECLARED FROM WHAT THE RUNNING PROCESS CAN VOUCH FOR: the processor count, the
 /// architecture, the operating system, the framework, the build configuration and the memory the
-/// runtime sees. The processor model is not reachable from this target framework without an extra
-/// dependency, so whoever records a figure records it beside the table.
+/// runtime sees. A processor's marketing name is not reachable from this target framework without
+/// a dependency, so whoever records a figure records the processor model beside it out of band.
 /// </summary>
-internal static class StageBenchmarkTable
+internal static class StageTimingTable
 {
 	/// <summary>The file the rendered table is left in, under the git-ignored artifacts folder.</summary>
-	internal const string OUTPUT_FILE_NAME = "per-stage-benchmarks.md";
+	internal const string OUTPUT_FILE_NAME = "per-stage-timings.md";
 
 	/// <summary>The git-ignored folder the publish output already uses, so nothing reaches a commit.</summary>
 	internal const string OUTPUT_FOLDER_NAME = "artifacts";
@@ -79,9 +79,10 @@ internal static class StageBenchmarkTable
 	private const double _PERCENT = 100d;
 
 	/// <summary>
-	/// The whole document, in Markdown: what was measured on, then one table per shape.
+	/// The whole document: what was measured on, then one table per shape. It is Markdown because
+	/// the documents it feeds are Markdown, so a figure moves by being copied rather than retyped.
 	/// </summary>
-	internal static string Render(IEnumerable<BenchmarkShape> shapes, DateTimeOffset measuredAt)
+	internal static string Render(IEnumerable<TimingShape> shapes, DateTimeOffset measuredAt)
 	{
 		StringBuilder document = new();
 
@@ -89,7 +90,7 @@ internal static class StageBenchmarkTable
 		document.AppendLine();
 		document.AppendLine(DescribeTheRun(measuredAt));
 
-		foreach (BenchmarkShape shape in shapes)
+		foreach (TimingShape shape in shapes)
 		{
 			AppendShape(document, shape);
 		}
@@ -146,7 +147,7 @@ internal static class StageBenchmarkTable
 		return description.ToString();
 	}
 
-	private static void AppendShape(StringBuilder document, BenchmarkShape shape)
+	private static void AppendShape(StringBuilder document, TimingShape shape)
 	{
 		double totalMilliseconds = shape.Timings.Sum(timing => timing.Elapsed.TotalMilliseconds);
 

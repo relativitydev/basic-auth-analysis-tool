@@ -18,7 +18,7 @@ public enum SubsumptionCondition
 }
 
 /// <summary>
-/// A rule overlap: a declared triple of subsuming, subsumed and
+/// Contract element 6, and rule overlap. A declared triple of subsuming, subsumed and
 /// when. Without it, one construct matching two classes emits twice.
 ///
 /// Absent a declared relation, both classes are emitted, so the omission is visible in the

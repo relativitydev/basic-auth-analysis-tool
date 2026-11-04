@@ -21,9 +21,9 @@ namespace MigrateAuth.Cli.Tests.Recognition;
 /// The bound is a declared EXCEPTION TO DETERMINISM - a wall-clock limit makes the finding set
 /// depend on the machine - and it is accepted only on the condition that every file it stops is
 /// counted in its own skipped category and reported like every other, so that the exception is
-/// visible rather than silent. Both halves are tested here, and so is a third: this platform's
-/// timeout exception exposes THE COMPLETE INPUT in one of its properties, so neither its message
-/// nor its type may reach a log, an exception that escapes, or any other sink.
+/// visible rather than silent. Both halves are tested here, and so is the third thing the data invariant adds:
+/// this platform's timeout exception exposes THE COMPLETE INPUT in one of its properties, so
+/// neither its message nor its type may reach a log, an exception that escapes, or any other sink.
 ///
 /// TWO ROUTES REACH THE SAME OUTCOME AND BOTH ARE EXERCISED. The engine's own cooperative timer,
 /// which is what bounds an expression the analyzer handed over without a timeout of its own; and
@@ -263,7 +263,7 @@ public sealed class MatchBoundTests
 
 	/// <summary>
 	/// A probe analyzer whose expression carries a one-millisecond timeout of its own, which is
-	/// the case the engine may not rebuild around: expressions are handed over already
+	/// the case the engine may not rebuild around: the analyzer contract hands expressions over already
 	/// constructed, and a <c>Regex</c> fixes its timeout in its constructor.
 	/// </summary>
 	private static FileRecognitionContext BuildPathologicalContext(RecognitionHarness harness)

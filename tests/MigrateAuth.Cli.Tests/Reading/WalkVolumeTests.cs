@@ -11,23 +11,22 @@ namespace MigrateAuth.Cli.Tests.Reading;
 
 /// <summary>
 /// THE VOLUME PROOF: a tree large enough to be a genuine walk, with the anomalies scattered
-/// through it, reconciled item by item against what was planted.
+/// through it, reconciled item by item against what was seeded.
 ///
 /// The eight-condition fixture proves each condition exists. This proves they still behave when
 /// they are not the only thing in the tree - that a denial in one directory does not cost the
 /// files in another, that the counts are exact rather than approximately right, and that the
 /// walk holds nothing it does not need while it does so.
 ///
-/// IT ALSO MEASURES, and the number it prints is this machine's. The assertion is against the
-/// requirement's floor, because a test that fails when a machine is busy proves nothing about the
-/// product.
+/// IT ALSO MEASURES, and the number it prints is this machine's. The assertion is against the requirement's floor, because a test that fails when a laptop is busy is a test that gets
+/// deleted.
 /// </summary>
 public sealed class WalkVolumeTests
 {
 	private const int _FOLDER_COUNT = 60;
 	private const int _FILES_PER_FOLDER = 50;
 	private const int _ANOMALY_INTERVAL = 700;
-	private const int _PLANTED_OVER_LONG_LINES = (_FOLDER_COUNT * _FILES_PER_FOLDER - 1) / _ANOMALY_INTERVAL;
+	private const int _SEEDED_OVER_LONG_LINES = (_FOLDER_COUNT * _FILES_PER_FOLDER - 1) / _ANOMALY_INTERVAL;
 	private const int _READ_FILES_IN_THE_FIXTURE = 4;
 	private const int _SKIPPED_FILES_IN_THE_FIXTURE = 5;
 	private const int _REQUIRED_FILES_PER_MINUTE = 5000;
@@ -43,12 +42,12 @@ public sealed class WalkVolumeTests
 	}
 
 	/// <summary>
-	/// Every planted condition, reconciled. The numbers on the right are what the fixture put
+	/// Every seeded condition, reconciled. The numbers on the right are what the fixture put
 	/// there, one of each, and the two zeroes are the categories the scan declares and does not
 	/// raise.
 	/// </summary>
 	[Fact]
-	public void ThePlantedFixtureReconcilesItemByItem()
+	public void TheSeededFixtureReconcilesItemByItem()
 	{
 		using RepositoryFixture fixture = RepositoryFixture.CreateWithEveryCondition();
 
@@ -105,29 +104,29 @@ public sealed class WalkVolumeTests
 	/// than claimed as a cold-cache measurement, because dropping the operating system's cache
 	/// needs rights this process does not have.
 	///
-	/// Each pass gets its own ledger, so the second reconciles against what was planted rather
+	/// Each pass gets its own ledger, so the second reconciles against what was seeded rather
 	/// than against twice it.
 	/// </summary>
 	[Fact]
 	public void AFewThousandFilesWalkAtSpeedWithTheAnomaliesStillReconciling()
 	{
 		using RepositoryFixture fixture = RepositoryFixture.CreateWithEveryCondition();
-		int plantedFiles = PlantLargeTree(fixture);
+		int seededFiles = SeedLargeTree(fixture);
 
-		Measure(fixture, "first pass", plantedFiles);
+		Measure(fixture, "first pass", seededFiles);
 
-		SkippedItemLedger warmLedger = Measure(fixture, "second pass, caches warm", plantedFiles);
+		SkippedItemLedger warmLedger = Measure(fixture, "second pass, caches warm", seededFiles);
 
 		Assert.Equal(1, warmLedger.TallyOf(SkippedItemCategory.UnreadableFile).Count);
 		Assert.Equal(1, warmLedger.TallyOf(SkippedItemCategory.UnlistableDirectory).Count);
 		Assert.Equal(1, warmLedger.TallyOf(SkippedItemCategory.LinkNotFollowed).Count);
 		Assert.Equal(1, warmLedger.TallyOf(SkippedItemCategory.Undecodable).Count);
 		Assert.Equal(1, warmLedger.TallyOf(SkippedItemCategory.OversizeFile).Count);
-		Assert.Equal(_PLANTED_OVER_LONG_LINES + 1, warmLedger.TallyOf(SkippedItemCategory.OverLongLine).Count);
+		Assert.Equal(_SEEDED_OVER_LONG_LINES + 1, warmLedger.TallyOf(SkippedItemCategory.OverLongLine).Count);
 		Assert.Equal(0, warmLedger.TallyOf(SkippedItemCategory.PathTooLong).Count);
 	}
 
-	private SkippedItemLedger Measure(RepositoryFixture fixture, string label, int plantedFiles)
+	private SkippedItemLedger Measure(RepositoryFixture fixture, string label, int seededFiles)
 	{
 		SkippedItemLedger ledger = new();
 		EmissionPoint emissionPoint = new([ledger]);
@@ -157,33 +156,33 @@ public sealed class WalkVolumeTests
 			ledger.SkippedFiles,
 			ledger.DirectoriesOfUnknownContents));
 
-		Assert.True(filesSeen >= plantedFiles);
+		Assert.True(filesSeen >= seededFiles);
 		Assert.True(filesPerMinute > _REQUIRED_FILES_PER_MINUTE);
 
 		return ledger;
 	}
 
-	private static int PlantLargeTree(RepositoryFixture fixture)
+	private static int SeedLargeTree(RepositoryFixture fixture)
 	{
-		int planted = 0;
+		int seeded = 0;
 
 		for (int folder = 0; folder < _FOLDER_COUNT; folder++)
 		{
 			for (int file = 0; file < _FILES_PER_FOLDER; file++)
 			{
-				PlantOneFile(fixture, folder, file);
-				planted++;
+				SeedOneFile(fixture, folder, file);
+				seeded++;
 			}
 		}
 
-		return planted;
+		return seeded;
 	}
 
 	/// <summary>
 	/// Most files are ordinary and every seven-hundredth is not, so the anomalies are spread
 	/// through the tree rather than gathered where a walk would meet them first.
 	/// </summary>
-	private static void PlantOneFile(RepositoryFixture fixture, int folder, int file)
+	private static void SeedOneFile(RepositoryFixture fixture, int folder, int file)
 	{
 		string relativePath = Path.Combine($"module-{folder:D3}", "source", $"file-{file:D3}.cs");
 		int ordinal = (folder * _FILES_PER_FOLDER) + file;

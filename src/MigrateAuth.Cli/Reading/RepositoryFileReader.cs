@@ -34,7 +34,7 @@ public sealed record FileReadResult
 ///    inspecting. Nothing is checked about the file before this line.
 /// 2. THE SIZE CEILING, immediately after the open and before a single byte is read. Checking it
 ///    on the OPEN STREAM rather than on a separate probe of the filesystem is deliberate twice
-///    over: it costs no extra call in a large walk, and it closes the race a check-then-open
+///    over: it costs no extra call in a walk of the largest supported size, and it closes the race a check-then-open
 ///    would leave - the length that is tested is the length of the file that is held.
 /// 3. THE DECODE, which is where a two-byte-encoded file is either read correctly or declared
 ///    undecodable, and never silently read as garbage that matches nothing.
@@ -45,7 +45,7 @@ public sealed record FileReadResult
 ///    alongside the size ceiling.
 ///
 /// WHAT IT DOES NOT DO: decide whether the file was worth reading. Preselection anchors, the
-/// per-language inventory and the candidate set belong to a later stage; this one
+/// per-language inventory and the candidate set belong to inventory selection and are a later stage's; this one
 /// hands back text and lets that stage decide.
 /// </summary>
 public sealed class RepositoryFileReader
@@ -97,15 +97,16 @@ public sealed class RepositoryFileReader
 	}
 
 	/// <summary>
-	/// THE MAPPING FROM AN OPEN FAILURE TO ONE OF THE SKIPPED-ITEM CATEGORIES, and the one line in it
-	/// worth explaining is the missing file.
+	/// THE MAPPING FROM AN OPEN FAILURE TO ONE OF THE ELEVEN, and the one line in it worth arguing
+	/// about is the missing file.
 	///
 	/// A file that vanished between the walk enumerating it and this method opening it is
 	/// recorded as UNREADABLE, which is literally what happened: it could not be opened for
 	/// reading. It is NOT recorded as MissingCandidate. That category exists for a path recorded
-	/// in Scan that Analysis later opens, and raising it here would mean this reader inventing an
-	/// occasion for a category it does not own. The open attempt reports the two cases apart, so
-	/// the later stage maps its own without changing anything here.
+	/// in Scan that Analysis later opens, a situation the persisted candidate set creates and
+	/// inventory selection owns, and raising it here would mean this reader inventing an occasion for a category
+	/// it does not own. The open attempt reports the two cases apart, so the later stage maps its
+	/// own without changing anything here.
 	/// </summary>
 	private static SkippedItemCategory CategorizeOpenFailure(FileOpenResult opened)
 	{

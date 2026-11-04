@@ -16,7 +16,7 @@ namespace MigrateAuth.Cli.Emission;
 /// primitive agree that it does.
 ///
 /// Separators are normalized to the portable form, which makes the emitted value identical on
-/// every platform.
+/// every platform - the same reason ordering normalizes first, applied to output.
 /// </summary>
 public readonly record struct RepositoryRelativePath
 {

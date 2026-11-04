@@ -22,7 +22,8 @@ internal enum SessionContinuation
 /// here that returns <see cref="ExitCode.SequentialGatingViolation"/> or
 /// <see cref="ExitCode.UnrecognizedCommand"/>, and that absence is deliberate: the enumeration
 /// keeps both values because it is a published contract, but a branch trying to return one
-/// would be unreachable.
+/// would be unreachable, and unreachable code that looks deliberate sends the next reader
+/// hunting for the bug that prevents it.
 ///
 /// The session ends by returning a code and never by an unhandled exception.
 /// </summary>
@@ -51,9 +52,10 @@ public sealed class SessionShell
 		"{0}: did not finish. The session is intact and the stage is not marked completed.";
 
 	/// <summary>
-	/// A destination that cannot be written, mid-session: it reports and returns to the prompt rather
-	/// than terminating with exit code 4, because the completed stages are still valid and discarding
-	/// them over a permission the user can restore in seconds costs more than it saves.
+	/// The mid-session half of the split on a destination that cannot be written: it
+	/// reports and returns to the prompt rather than terminating with exit code 4, because the
+	/// completed stages are still valid and discarding them over a permission the user can
+	/// restore in seconds costs more than it saves.
 	/// </summary>
 	public const string STATE_NOT_PERSISTED_MESSAGE =
 		"The session state could not be written to the documentation destination folder. The completed stages hold for this session but will not survive it.";

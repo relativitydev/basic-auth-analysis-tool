@@ -6,7 +6,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
-/// The base's own extension and shebang table, exercised directly and without a catalog -
+/// The shared engine's own extension and shebang table, exercised directly and without a catalog -
 /// this table has no registered analyzer behind it by construction, so a test that went through
 /// <see cref="LanguageAttribution"/> would only ever prove the table is reachable, not what it
 /// answers.

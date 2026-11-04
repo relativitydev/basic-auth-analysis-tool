@@ -9,7 +9,7 @@ namespace MigrateAuth.Cli.Catalog;
 ///
 /// 1. <see cref="LexicalProfile"/>
 /// 2. <see cref="LanguageIdentification"/>
-/// 3. <see cref="DetectionRulesByPatternClass"/>, whose rule element carries seven fields
+/// 3. <see cref="DetectionRulesByPatternClass"/>, whose rule element carries eight fields
 /// 4. <see cref="DemotionSignals"/>
 /// 5. <see cref="CandidateSelectionAndRecommendation"/>
 /// 6. <see cref="SubsumptionRelation"/>
@@ -43,7 +43,8 @@ public interface ILanguageAnalyzer
 	LanguageShapedDemotionSignals DemotionSignals { get; }
 
 	/// <summary>
-	/// Element 5. Preselection anchors, the template provider indexed by class, and this language's optional generic-fallback text for the third recommendation route.
+	/// Element 5. Preselection anchors, the template provider indexed by class, and
+	/// this language's optional generic-fallback text for the generic recommendation route.
 	/// </summary>
 	CandidateSelectionAndRecommendation CandidateSelectionAndRecommendation { get; }
 

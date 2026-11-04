@@ -7,31 +7,34 @@ using MigrateAuth.Cli.Recognition;
 namespace MigrateAuth.Cli.Findings;
 
 /// <summary>
-/// STEP 6 OF THE ANALYSIS PIPELINE: recognized constructs become findings, ordered and numbered.
+/// STEP 6 OF THE ANALYSIS PIPELINE: recognized constructs become findings, ordered by a total key and
+/// then numbered.
 ///
-/// THE THREE STEPS RUN IN THIS ORDER. Place, then order, then number: before any number is
-/// assigned, findings are sorted on a total key, because an identifier assigned before the sort
-/// is an identifier that depends on the order the walk returned directories in.
+/// THE THREE STEPS RUN IN THIS ORDER AND THE ORDER IS THE POINT. Place, then order, then
+/// number, because an identifier assigned before the sort is an identifier that depends on
+/// the order the walk returned directories in.
 ///
-/// THE CONFIDENCE THRESHOLD DOES NOT FILTER HERE, AND THE FINDINGS CAP DOES. The threshold filter
-/// runs AFTER numbering, over the numbered set, removing rows from the output; the visible cost is
-/// that a filtered artifact is not gapless, which is the lesser cost. The alternative makes a
-/// finding's identifier a function of a configuration file, which breaks stable identity
-/// and moves the key that recall is graded against - so this component does not
-/// read the configuration at all. The findings cap is not configuration: it is a resource bound
-/// applied once, here, at analysis time, over what the session state persists - so
-/// <see cref="ComposeWithCapOutcome"/> admits constructs per file BEFORE numbering, and survivors are
-/// numbered gaplessly.
+/// THE THRESHOLD DOES NOT FILTER HERE, AND THE FINDINGS CAP DOES - the two are different
+/// rules and this component draws the line between them. The threshold filter runs AFTER
+/// numbering, over the numbered set, removing rows from the output; the visible cost is that a
+/// filtered artifact is not gapless, which is the lesser cost. The alternative makes a
+/// finding's identifier a function of a configuration file, which breaks the stable identity
+/// findings need - so this component does not
+/// read the configuration at all, which is stronger than reading it and choosing not to act. The
+/// findings cap is not configuration: it is a resource bound decided once, here, at analysis time, over what
+/// is persisted - so <see cref="ComposeWithCapOutcome"/> admits constructs per file BEFORE
+/// numbering, and survivors are numbered gaplessly rather than carrying the gaps a later, reversible
+/// filter would leave.
 ///
-/// THE ORDINAL IS COUNTED IN THE SAME PASS THAT PLACES. The fingerprint's ordinal is "of that
-/// class's occurrence WITHIN THE FILE", so it is countable only while the file
+/// THE ORDINAL IS COUNTED IN THE SAME PASS THAT PLACES, and that is not an optimization. The
+/// ordinal is "of that class's occurrence WITHIN THE FILE", so it is countable only while the file
 /// is the unit being walked - once the findings are in the global order, the occurrences of one
 /// class in one file are no longer adjacent and no longer in their original sequence.
 ///
-/// THE SORT IS STABLE. The total key is total in practice:
+/// THE SORT IS STABLE, WHICH SETTLES WHAT THE TOTAL KEY LEAVES OPEN. The total key is total in practice:
 /// two constructs of one class cannot share an anchor, because one rule's matches are disjoint.
 /// Should that ever cease to hold, a stable sort resolves the tie by the input order - which is
-/// the walk's order for files and the key's own order within one - rather than by whatever an
+/// the order the files were offered in and the key's own order within one - rather than by whatever an
 /// unstable sort's partitioning happened to do, which is the only outcome that would make two runs
 /// of one input differ.
 /// </summary>
@@ -41,7 +44,7 @@ public static class FindingComposition
 	/// The ordered, numbered finding set for a whole repository, reduced by the findings cap.
 	///
 	/// EVERY RECOGNIZED CONSTRUCT BECOMES A FINDING UNLESS THE CAP REMOVED IT. Nothing is
-	/// deduplicated or thresholded here - the confidence threshold is a later, reversible filter.
+	/// deduplicated or thresholded here - that is what the later, reversible threshold filter describes.
 	/// A caller that needs to know whether the cap removed anything calls
 	/// <see cref="ComposeWithCapOutcome"/> instead.
 	/// </summary>
@@ -54,20 +57,20 @@ public static class FindingComposition
 	/// <see cref="Compose"/>, with the truncation counter alongside the set it describes.
 	///
 	/// THE CAP IS APPLIED WHILE OFFERING, NOT AFTER. The alternative - compose the full, uncapped set
-	/// and remove the excess afterward - is exactly the unbounded accumulation the cap exists to
+	/// and remove the excess afterward - is exactly the unbounded accumulation the findings cap exists to
 	/// forbid: the one term that grows without bound would still be allocated in full before anything
 	/// bounded it. Instead each file offers <see cref="RecognizedFile.Constructs"/>, already in
-	/// local key order, to <see cref="FindingsCapAdmission.Offer"/>, which keeps at most the
+	/// the key's local order, to <see cref="FindingsCapAdmission.Offer"/>, which keeps at most the
 	/// global cap's worth of constructs and lets go of the rest, so a construct the caps reject is
 	/// never given a position or a fingerprint at all and its file's text is not held.
 	///
-	/// ADMISSION FOLLOWS THE ORDERING KEY AND NOT THE ARRIVAL ORDER. The constructs that
+	/// ADMISSION FOLLOWS THE TOTAL ORDERING KEY AND NOT THE ARRIVAL ORDER. The constructs that
 	/// survive the global cap are the leading prefix of the files ordered by <see cref="NormalizedPathKey"/>
 	/// and then by raw path compared ordinally, whatever order the files were offered in, so the set
 	/// that is admitted and the order it is emitted in are decided by one key. File I/O is not
 	/// touched: a file is read by its raw path before it reaches this method. Within one file,
 	/// <see cref="RecognizedFile.Constructs"/> is already ordered by anchor offset and then pattern
-	/// class identifier, so the per-file cap's prefix is that file's own leading prefix under the
+	/// class identifier, so the per-file cap's prefix is that file's own leading prefix under the key's
 	/// local order. Neither cap's survivor set depends on recognition's internal rule order or on an
 	/// arrival accident.
 	/// </summary>
@@ -148,8 +151,8 @@ public static class FindingComposition
 	}
 
 	/// <summary>
-	/// The fingerprint's ordinal: which occurrence of THIS class within THIS file this construct is,
-	/// counted in the order recognition delivered them, which is the ordering key restricted to one file.
+	/// The ordinal: which occurrence of THIS class within THIS file this construct is, counted
+	/// in the order recognition delivered them, which is the total key restricted to one file.
 	/// </summary>
 	private static int NextOrdinalFor(string patternClassIdentifier, Dictionary<string, int> occurrencesByPatternClass)
 	{
@@ -228,9 +231,9 @@ public static class FindingComposition
 	}
 
 	/// <summary>
-	/// READ FROM THE RULE THE CATALOG DECLARED IT ON, NEVER DERIVED. It is a declaration each
-	/// catalog makes per class, and the value is a claim about where a
-	/// request goes - something this component is in no position to establish.
+	/// READ FROM THE RULE THE CATALOG DECLARED IT ON, NEVER DERIVED. Each catalog declares it per
+	/// class, and the value is a claim about where a request goes - something this component is in
+	/// no position to establish.
 	/// </summary>
 	private static DestinationCertainty DestinationCertaintyOf(PlacedConstruct placedConstruct)
 	{
@@ -339,7 +342,7 @@ public static class FindingComposition
 		}
 
 		/// <summary>
-		/// Takes one file's constructs, in local key order, and decides how many of them survive.
+		/// Takes one file's constructs, in the key's local order, and decides how many of them survive.
 		/// The per-file cap is applied first and depends on this file alone; the global cap is applied
 		/// by keeping the smallest constructs under the key, as the class comment describes.
 		/// </summary>

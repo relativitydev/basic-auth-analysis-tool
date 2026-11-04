@@ -18,8 +18,8 @@
 		The copyright holder is provisional until the licence is settled.
 	-->
 	<PropertyGroup>
-		<Version>0.1.1-alpha</Version>
-		<FileVersion>0.1.1.0</FileVersion>
+		<Version>0.2.0-alpha</Version>
+		<FileVersion>0.2.0.0</FileVersion>
 		<Company>NSerio</Company>
 		<Product>migrate-auth</Product>
 		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>
@@ -27,7 +27,7 @@
 	</PropertyGroup>
 
 	<!--
-		DR-04 - long path awareness.
+		Long path awareness.
 		The manifest is the only lever for it: no MSBuild property governs long paths, and
 		neither the SDK nor the native apphost supplies a manifest that declares them. The
 		compiler embeds this one in the assembly's Win32 resources, and the Native AOT
@@ -40,11 +40,11 @@
 	</PropertyGroup>
 
 	<!--
-		DR-01 - compilation model.
+		Compilation model.
 		PublishAot produces the single-file native binary; no shared framework is required
 		on the target machine. InvariantGlobalization is enabled for DETERMINISM, not for
 		size: it removes ICU as an input, so casing, comparison and ordering do not vary
-		with the host's installed locale data. DR-14's cross-platform ordering guarantee
+		with the host's installed locale data. The cross-platform ordering guarantee
 		depends on that.
 	-->
 	<PropertyGroup>
@@ -54,7 +54,7 @@
 	</PropertyGroup>
 
 	<!--
-		DR-01 - diagnosability of the published binary.
+		Diagnosability of the published binary.
 
 		StackTraceSupport=true keeps the ILC stacktracedata argument on and keeps
 		System.Private.StackTraceMetadata auto-initialized, so managed frames still carry
@@ -64,7 +64,7 @@
 
 		UseSystemResourceKeys=false keeps full framework exception messages instead of
 		substituting bare resource keys. Trimmed builds are the scenario where the key-only
-		form is normally chosen for size; DR-01 refuses that trade.
+		form is normally chosen for size; this project refuses that trade.
 
 		TrimmerRemoveSymbols=false keeps symbol information rather than stripping it, which
 		is what keeps a retained stack trace readable.
@@ -76,7 +76,7 @@
 	</PropertyGroup>
 
 	<!--
-		DR-01 - memory dump generation disabled, and no telemetry.
+		Memory dump generation disabled, and no telemetry.
 
 		There is no MSBuild property named after "memory dump" for Native AOT, and setting
 		one that looks right would be worse than none. What actually governs dumps here:
@@ -109,7 +109,7 @@
 	</PropertyGroup>
 
 	<!--
-		DR-03 - version 1 ships sequential.
+		Version 1 ships sequential.
 		Workstation, non-concurrent GC: no server GC heaps and no background collection
 		thread, so the process runs without runtime-introduced worker threads. This project
 		introduces no parallelism, no thread pool use and no concurrency primitives.

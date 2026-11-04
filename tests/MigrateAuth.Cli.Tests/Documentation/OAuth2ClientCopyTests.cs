@@ -13,7 +13,7 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 /// GENERATED BLOCK, AND THIS CHECK SHOWS THE BLOCK IS A COPY OF WHAT THE TOOL SAYS.
 ///
 /// The copy check has three legs: the committed row 5 equals a fresh composition through
-/// <see cref="RecommendationComposer"/> (byte for byte inside the markers); the block equals the base-owned
+/// <see cref="RecommendationComposer"/> (byte for byte inside the markers); the block equals the engine-owned
 /// <see cref="OAuth2ClientConfigurationBlocks"/> text for the flow; and every block of Part C carries the
 /// same text for its flow, so the guide, Part C and the report cannot say different things about a field.
 /// </summary>
@@ -55,7 +55,7 @@ public sealed class OAuth2ClientCopyTests
 		Assert.Equal(fresh, committed);
 	}
 
-	/// <summary>Each block is the base-owned block of its flow, field for field, and names every field of that flow.</summary>
+	/// <summary>Each block is the engine-owned block of its flow, field for field, and names every field of that flow.</summary>
 	[Fact]
 	public void EachRowFiveBlockIsTheToolsOwnBlockForItsFlow()
 	{

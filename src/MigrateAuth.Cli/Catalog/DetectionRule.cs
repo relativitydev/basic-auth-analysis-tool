@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Catalog;
 
 /// <summary>
-/// The confidence level a finding receives. The engine composes candidate levels by minimum, so a
+/// The confidence level a finding receives. Candidate levels compose by minimum, so a
 /// rule declares the level it proposes and never the level a finding ends up with.
 /// </summary>
 public enum ConfidenceLevel
@@ -48,7 +48,7 @@ public enum DestinationCertainty
 /// 5. <see cref="SymbolicVerdictInterpretation"/> - how it reads the verdicts affecting it
 /// 6. <see cref="CredentialPosition"/> - the credential position, optional, defaulting to none
 /// 7. <see cref="DestinationCertainty"/> - the destination certainty
-/// 8. <see cref="DisplayName"/> - the human-legible name the report renders
+/// 8. <see cref="DisplayName"/> - the human-legible name, per the report's rendering promise
 ///
 /// Fields six through eight ride inside this element rather than becoming top-level elements of
 /// the contract: the contract grows by fields within its elements, not by elements.
@@ -84,12 +84,11 @@ public sealed class DetectionRule
 
 	/// <summary>
 	/// Field 8. The pattern class's human name - never the matched text, and never
-	/// derived from anything in the analyzed file. The report renders the name, looked up from the
-	/// catalog by id; this is the field that lookup reads. Required and non-empty, per
-	/// <see cref="AnalyzerContractValidator"/>, and unique within the analyzer that declares it - two
-	/// pattern classes sharing one name would make the report's own cross-reference to the identifier
-	/// ambiguous. The catalog identifier remains what the artifact keys on; this field is read-only
-	/// prose for a human, never a key.
+	/// derived from anything in the analyzed file. The report renders this name, looked up from
+	/// the catalog by id. Required and non-empty, per <see cref="AnalyzerContractValidator"/>, and
+	/// unique within the analyzer that declares it - two pattern classes sharing one name would make
+	/// the report's cross-reference to the identifier ambiguous. The catalog identifier remains what
+	/// the artifact keys on; this field is read-only prose for a human, never a key.
 	/// </summary>
 	public required string DisplayName { get; init; }
 }

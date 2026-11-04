@@ -5,29 +5,29 @@ using MigrateAuth.Cli.Catalog;
 namespace MigrateAuth.Cli.Scanning;
 
 /// <summary>
-/// The extension and shebang table for all eight languages, owned by the base and never by a catalog.
+/// the EXTENSION AND SHEBANG TABLE FOR ALL EIGHT LANGUAGES, OWNED BY THE ENGINE AND
+/// NEVER BY A CATALOG.
 ///
-/// It lets the language inventory name a file in any of the eight languages under its canonical name,
-/// whether or not a registered analyzer exists for it; "unrecognized" is measured against the
-/// eight-language enumeration, not against the analyzers this build carries.
+/// A HIT HERE NEVER PRODUCES AN ANALYZER. `LanguageAttribution` hands a base-table hit back as a
+/// named language with a null <see cref="ILanguageAnalyzer"/>, so it is counted in the inventory
+/// under its canonical name and excluded from candidate selection on exactly the same path an
+/// unrecognized file already takes - <c>Attribute</c>'s own caller never learns whether a name came
+/// from a registered analyzer or from this table, because the two are indistinguishable in every
+/// way that matters to a stage downstream of Scan.
 ///
-/// A hit here never produces an analyzer. <see cref="LanguageAttribution"/> hands a base-table hit
-/// back as a named language with a null <see cref="ILanguageAnalyzer"/>, so it is counted in the
-/// inventory under its canonical name and excluded from candidate selection on exactly the same path
-/// an unrecognized file already takes.
+/// BOTH TABLES ARE DECLARED DATA, NEVER A BRANCH PER LANGUAGE, for the reason the analyzer contract
+/// already gives for a catalog's own contract: a table a maintainer edits by adding a row is auditable in a way a
+/// growing if/else chain is not, and it is the shape that lets a reviewer confirm all eight
+/// languages are named by counting entries rather than reading control flow.
 ///
-/// Both tables are declared data, never a branch per language, so all eight languages can be
-/// confirmed by counting entries rather than reading control flow.
-///
-/// The extension table is case-insensitive, matching <see cref="LanguageCatalog"/>'s own extension
+/// THE EXTENSION TABLE IS CASE-INSENSITIVE, matching <see cref="LanguageCatalog"/>'s own extension
 /// index exactly, so a repository written on a case-insensitive volume inventories the same way on a
 /// case-sensitive one.
 ///
-/// The shebang table applies only to a file with no extension, and only after every registered
-/// analyzer's own first-line rule has had first refusal - <see cref="LanguageAttribution"/> enforces
-/// the ordering, this type only supplies the base's own fallback answer. Interpreter names are matched
-/// case-sensitively and without locale data: an interpreter's name on a POSIX filesystem is itself
-/// case-sensitive.
+/// THE SHEBANG TABLE APPLIES ONLY WHERE the OWN FIRST-LINE RULE APPLIES: a file with no
+/// extension, and only after every registered analyzer's own first-line rule has had first refusal
+/// - <see cref="LanguageAttribution"/> enforces the ordering, this type only supplies the engine's own
+/// fallback answer. Interpreter names are matched case-sensitively and without locale data.
 /// </summary>
 public static class BaseLanguageDetection
 {
@@ -112,7 +112,7 @@ public static class BaseLanguageDetection
 		_shebangEntries.ToFrozenDictionary(entry => entry.Interpreter, entry => entry.Language, StringComparer.Ordinal);
 
 	/// <summary>
-	/// The base extension table's answer for one file extension, including its leading dot. Never
+	/// The built-in extension table's answer for one file extension, including its leading dot. Never
 	/// consulted where a registered analyzer already claims the extension - <see cref="LanguageAttribution"/>
 	/// owns that precedence.
 	/// </summary>
@@ -124,7 +124,7 @@ public static class BaseLanguageDetection
 	}
 
 	/// <summary>
-	/// The base shebang table's answer for an extensionless file's first line. Never consulted where
+	/// The built-in shebang table's answer for an extensionless file's first line. Never consulted where
 	/// a registered analyzer's own first-line rule already claimed the file - <see cref="LanguageAttribution"/>
 	/// owns that precedence, and this method only ever sees what every registered analyzer refused.
 	/// </summary>

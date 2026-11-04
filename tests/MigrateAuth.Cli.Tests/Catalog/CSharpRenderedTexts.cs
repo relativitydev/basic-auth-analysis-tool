@@ -7,7 +7,7 @@ using MigrateAuth.Cli.Reporting;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The recommendation texts the real embedded `CSharp` analyzer composes, read through the base's
+/// The recommendation texts the real embedded `CSharp` analyzer composes, read through the shared engine's
 /// <see cref="RecommendationComposer"/> exactly as the report does. Shared by the tests that assert
 /// on the composed wording of both flows.
 /// </summary>
@@ -18,7 +18,7 @@ internal static class CSharpRenderedTexts
 
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
-	/// <summary>The sixteen classes that have a template.</summary>
+	/// <summary>The sixteen classes that have a recommendation template.</summary>
 	public static readonly ImmutableArray<string> TemplatedPatternClasses =
 	[
 		"CS-001", "CS-002", "CS-003", "CS-004", "CS-005", "CS-006", "CS-007", "CS-008", "CS-009",

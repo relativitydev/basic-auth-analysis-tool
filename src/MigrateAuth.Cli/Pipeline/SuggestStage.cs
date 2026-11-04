@@ -11,7 +11,7 @@ namespace MigrateAuth.Cli.Pipeline;
 /// <summary>What the Suggest stage is built from. It reads two things and writes one.</summary>
 public sealed record SuggestStageContext
 {
-	/// <summary>The embedded catalog, whose analyzers carry the templates findings are routed to.</summary>
+	/// <summary>The embedded catalog, whose analyzers carry the templates the routing selects.</summary>
 	public required LanguageCatalog Catalog { get; init; }
 
 	/// <summary>
@@ -23,9 +23,8 @@ public sealed record SuggestStageContext
 	public required IGenericRecommendationProvider GenericRecommendations { get; init; }
 
 	/// <summary>
-	/// The session's effective configuration, which supplies the minimum confidence level. Every
-	/// count this stage prints is taken over the reported set, the findings that remain
-	/// after that filter, as the report already does.
+	/// The session's effective configuration, which supplies the minimum confidence level. Every count this stage prints is taken over the reported set,
+	/// the findings that remain after that filter, as the report already does.
 	/// </summary>
 	public required EffectiveConfiguration Configuration { get; init; }
 
@@ -36,21 +35,27 @@ public sealed record SuggestStageContext
 /// <summary>
 /// THE STAGE THAT DECIDES WHICH RECOMMENDATION EACH FINDING WILL GET, AND PRODUCES NONE OF THEM.
 ///
-/// ATTACHING IS RESOLVING, NOT RENDERING. A rendered recommendation is produced at the moment of
-/// writing and held by nobody, and <see cref="Finding"/> carries no recommendation field, because
-/// the pattern class IS the template reference. This stage runs the recommendation routing over
-/// every finding the analysis recorded - a Low finding to manual review, a High or Medium one to its
-/// catalog template or to the generic fallback where the catalog has no entry - and reports how many
-/// took each route. It writes nothing to the session state, holds no text between runs, and does not
-/// call <see cref="RecommendationRenderer.Render"/> at all. Report re-derives the same route at write
+/// A rendered recommendation is produced at the moment of writing and held by nobody, and
+/// <see cref="Finding"/> carries no recommendation field at all, because the pattern class IS the
+/// template reference that the template catalog indexes by. Attaching a recommendation therefore
+/// cannot mean storing one.
+///
+/// SO ATTACHING IS RESOLVING, NOT RENDERING. This stage runs the routing over every finding the
+/// analysis recorded - a Low finding to manual review, a High or Medium one to its catalog template
+/// or to the generic fallback where the catalog has no entry - and reports how many took each
+/// route. It writes nothing to the session state, holds no text between runs, and does not call
+/// <see cref="RecommendationRenderer.Render"/> at all. Report re-derives the same route at write
 /// time, which cannot disagree with what was printed here because both go through the one
 /// <see cref="RecommendationRenderer.Route(Finding)"/>.
 ///
-/// A catalog whose templates do not cover what was found produces a large generic count HERE,
-/// one command before the report is written, rather than being discovered by reading the finished
-/// document.
+/// WHAT THE USER GETS FOR IT IS THE THING A REPORT WOULD NOT SHOW THEM IN TIME. A catalog whose
+/// templates do not cover what was found produces a large generic count HERE, one command before
+/// the report is written, rather than being discovered by reading the finished document - which is
+/// the failure the fallback exists to make survivable and this line makes visible.
 ///
-/// It gates <c>report</c> because the chain puts it there, and the counts are what it has to say.
+/// AND IT IS HONEST ABOUT BEING A THIN STAGE. It gates <c>report</c> because the chain
+/// puts it there, and the counts are what it has to say. An empty stage that claimed more would be
+/// worse than a thin one that says exactly what it did.
 /// </summary>
 public sealed class SuggestStage
 {
@@ -74,7 +79,7 @@ public sealed class SuggestStage
 
 	/// <summary>
 	/// Said only when the generic route fired, because it is the one that means the catalog did not
-	/// cover something: it is what a client reads for every pattern the catalog did not anticipate.
+	/// cover something. It is what a client reads for every pattern the catalog did not anticipate.
 	/// </summary>
 	public const string GENERIC_COVERAGE_NOTICE =
 		"Some findings have no catalog template for their pattern class and flow and will carry the generic migration recommendation.";
@@ -300,9 +305,7 @@ public sealed class SuggestStage
 		private readonly int[,] _rowedByDecisionAndFlow =
 			new int[Enum.GetValues<FlowDecision>().Length, Enum.GetValues<CredentialFlow>().Length];
 
-		private int _clientCredentials;
-		private int _authorizationCode;
-		private int _defaulted;
+		private FlowCounts _flowCounts;
 
 		internal int FromTemplate { get; private set; }
 
@@ -314,7 +317,7 @@ public sealed class SuggestStage
 
 		internal int UnrowedCount { get; private set; }
 
-		internal FlowCounts FlowCounts => new(_clientCredentials, _authorizationCode, _defaulted);
+		internal FlowCounts FlowCounts => _flowCounts;
 
 		internal void Record(Finding finding, RecommendationKind kind)
 		{
@@ -367,9 +370,7 @@ public sealed class SuggestStage
 
 		private void RecordFlow(Finding finding, CredentialFlow flow, FlowDecision decision)
 		{
-			_clientCredentials += flow is CredentialFlow.ClientCredentials ? 1 : 0;
-			_authorizationCode += flow is CredentialFlow.AuthorizationCode ? 1 : 0;
-			_defaulted += decision is FlowDecision.Default ? 1 : 0;
+			_flowCounts = _flowCounts.Including(finding);
 			_reportedByDecisionAndFlow[(int)decision, (int)flow]++;
 
 			if (Rows.Count < SUGGEST_CONSOLE_FINDING_ROW_LIMIT)

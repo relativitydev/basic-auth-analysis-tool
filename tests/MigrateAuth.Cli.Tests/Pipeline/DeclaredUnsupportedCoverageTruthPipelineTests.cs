@@ -27,7 +27,7 @@ public sealed class DeclaredUnsupportedCoverageTruthPipelineTests
 	private const string _PER_END_USER_GAP_CONSTRUCT = "authenticates as each individual end user";
 	private const string _PER_END_USER_GAP_REASON = "authenticates as each of its end users";
 	private const string _INBOUND_DIRECTION_GAP_CONSTRUCT = "checks incoming Basic Authentication from its own callers";
-	private const string _LEGACY_ENCODING_GAP_CONSTRUCT = "older single-byte text encoding, such as Latin-1 or Windows-1252";
+	private const string _LEGACY_ENCODING_GAP_CONSTRUCT = "single-byte text encoding other than Windows-1252";
 	private const string _LEGACY_ENCODING_GAP_REASON = "could not be read as text";
 	private const string _OWN_ENCODING_HELPER_GAP_CONSTRUCT = "converted to Base64 by the project's own helper method";
 
@@ -118,8 +118,8 @@ public sealed class DeclaredUnsupportedCoverageTruthPipelineTests
 	}
 
 	/// <summary>
-	/// A C# file in a legacy single-byte encoding is skipped as undecodable, and the report says so in
-	/// the coverage statement rather than leaving the reader to infer it from a count.
+	/// A C# file in a single-byte code page Windows-1252 cannot read is skipped as undecodable, and the
+	/// report says so in the coverage statement rather than leaving the reader to infer it from a count.
 	/// </summary>
 	[Fact]
 	public void TheMarkdownReportDeclaresTheLegacyEncodingGapAndTheOwnEncodingHelperGap()

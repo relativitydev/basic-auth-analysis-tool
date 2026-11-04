@@ -15,6 +15,18 @@ public enum CaseSensitivity
 }
 
 /// <summary>
+/// How the file-scoped symbol table compares identifier names: ordinally, or without
+/// regard to case. Separate from <see cref="CaseSensitivity"/> because the question is a different
+/// one (names in declarations and lookups, not keywords or delimiters). Only the comparer is selected;
+/// any scope-prefix or brace normalisation is the catalog's and the analyzer's to decide.
+/// </summary>
+public enum IdentifierCaseSensitivityMode
+{
+	Sensitive = 0,
+	Insensitive = 1
+}
+
+/// <summary>
 /// Positional anchoring. An opening or a closing that only counts as one where it
 /// stands at the start or at the end of a line.
 /// </summary>
@@ -22,7 +34,16 @@ public enum PositionalAnchoring
 {
 	Anywhere = 0,
 	StartOfLine = 1,
-	EndOfLine = 2
+	EndOfLine = 2,
+
+	/// <summary>
+	/// Only spaces and tabs may stand between the end of the delimiter and the
+	/// line feed (or the end of the file), which is how a here-string opener is accepted by the
+	/// language: trailing blanks after it are legal, any other trailing text makes it an ordinary
+	/// quote. Meant for an opening; a closing that must stand alone on its line is
+	/// <see cref="StartOfLine"/>.
+	/// </summary>
+	EndOfLineAfterOptionalBlanks = 3
 }
 
 /// <summary>
@@ -193,7 +214,22 @@ public sealed record QuoteRule
 	public string? InterpolationClosing { get; init; }
 
 	/// <summary>
-	/// The SECOND hole kind, an identifier extent: an expression handed over already constructed.
+	/// A token that opens a NESTED level inside a bracketed hole, legal only
+	/// beside <see cref="InterpolationClosing"/>. While the scanner reads the hole's code region it
+	/// counts this token and accepts the closing only at depth zero, so a closing token that belongs
+	/// to a nested pair does not end the hole. A token inside a nested literal or comment is skipped,
+	/// because those are scanned by the literal and comment halves and never reach the count. Null
+	/// keeps the first-closing behaviour, which is what every profile that does not nest declares.
+	///
+	/// RECOVERY. If the depth has not returned to zero by the end of the hole, the hole falls back to
+	/// the first closing and the file records one lexical anomaly (<see cref="Lexical.LexicalAnomalyReason.UnbalancedInterpolationNesting"/>)
+	/// instead of abandoning the rest of the file.
+	/// </summary>
+	public string? InterpolationNestingOpening { get; init; }
+
+	/// <summary>
+	/// The SECOND hole kind, an identifier-extent kind whose end is a declared identifier
+	/// expression, handed over already constructed.
 	///
 	/// A sigil followed by an identifier, with NO CLOSING TOKEN AT ALL. The hole runs from the
 	/// end of <see cref="InterpolationOpening"/> to the end of whatever this expression matches

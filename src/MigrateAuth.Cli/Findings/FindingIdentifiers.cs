@@ -5,16 +5,16 @@ namespace MigrateAuth.Cli.Findings;
 /// <summary>
 /// THE SEQUENTIAL IDENTIFIER.
 ///
-/// The identifier is a zero-padded three-digit string, sequential per scan
-/// session. At a thousand findings THE FORMAT WIDENS rather than wraps, truncates or fails,
-/// because a large repository exceeds 999 findings easily.
+/// The identifier is a zero-padded three-digit string, sequential per scan session. At a
+/// thousand findings THE FORMAT WIDENS rather than wraps, truncates or fails, because a
+/// repository with more than 50,000 files exceeds 999 findings easily.
 ///
-/// Widening is implemented by padding rather than by a fixed-width format so that the property is
-/// structural: padding to a minimum width cannot shorten a number, whereas a width specifier is one
-/// revision away from becoming one that can.
+/// Widening is implemented by padding rather than by a fixed-width format so that the property
+/// is structural: padding to a minimum width cannot shorten a number, whereas a width specifier
+/// is one revision away from becoming one that can.
 ///
-/// AND THE STRING IS NOT THE ONLY IDENTITY A FINDING CARRIES. The data artifact carries a PARALLEL
-/// NUMERIC INDEX for a reason this class is the demonstration of: sorting on the
+/// AND THE STRING IS NOT THE ONLY IDENTITY A FINDING CARRIES. The data artifact requires a PARALLEL NUMERIC
+/// INDEX for a reason this class is the demonstration of: sorting on the
 /// string is lexicographic, and lexicographically "1000" precedes "999". A consumer that sorted
 /// the artifact on the identifier would see finding 1000 before finding 999 and conclude the tool
 /// emits them out of order. <see cref="Finding.SequentialIndex"/> is the number the string is

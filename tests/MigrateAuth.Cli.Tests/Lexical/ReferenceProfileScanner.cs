@@ -7,8 +7,8 @@ using MigrateAuth.Cli.Tests.Fixtures;
 namespace MigrateAuth.Cli.Tests.Lexical;
 
 /// <summary>
-/// The scanner under the reference profile, which exercises every field of the lexical-profile
-/// vocabulary at once. Reaching it through the registry rather than by naming the analyzer
+/// The scanner under the reference profile, which was written to exercise every field of the
+/// profile vocabulary at once. Reaching it through the registry rather than by naming the analyzer
 /// type is deliberate and is the same route the golden test takes: the analyzer class is file-
 /// local, so a test that could name it would be evidence the engine can too.
 /// </summary>

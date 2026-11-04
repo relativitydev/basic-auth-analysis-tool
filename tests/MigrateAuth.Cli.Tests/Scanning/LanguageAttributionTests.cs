@@ -144,7 +144,7 @@ public sealed class LanguageAttributionTests
 
 	/// <summary>
 	/// A language the detection rule claims by extension alone, with no analyzer to have registered
-	/// it: the base's own table names it in the inventory, and it still carries no analyzer, so it
+	/// it: the shared engine's own table names it in the inventory, and it still carries no analyzer, so it
 	/// is excluded from candidate selection exactly like an unrecognized file.
 	/// </summary>
 	[Fact]
@@ -160,7 +160,7 @@ public sealed class LanguageAttributionTests
 		Assert.Null(attributed.Analyzer);
 	}
 
-	/// <summary>An extensionless file's shebang, read through the base's own table.</summary>
+	/// <summary>An extensionless file's shebang, read through the shared engine's own table.</summary>
 	[Fact]
 	public void ABaseTableShebangNamesAnExtensionlessFile()
 	{
@@ -194,7 +194,7 @@ public sealed class LanguageAttributionTests
 	}
 
 	/// <summary>
-	/// The base table is consulted only once no registered analyzer claims the extension -
+	/// The shared engine's table is consulted only once no registered analyzer claims the extension -
 	/// C# is a real analyzer in the embedded catalog, so a `.cs` file is attributed through it and
 	/// never reaches <see cref="Scanning.BaseLanguageDetection"/>'s own `.cs` entry.
 	/// </summary>
@@ -211,7 +211,7 @@ public sealed class LanguageAttributionTests
 		Assert.NotNull(attributed.Analyzer);
 	}
 
-	/// <summary>An extension the base table does not declare either stays unrecognized.</summary>
+	/// <summary>An extension the shared engine's table does not declare either stays unrecognized.</summary>
 	[Fact]
 	public void AnExtensionOutsideBothTablesStaysUnrecognized()
 	{

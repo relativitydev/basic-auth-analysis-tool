@@ -56,8 +56,8 @@ public sealed class WriteBoundaryTests
 	}
 
 	/// <summary>
-	/// An ordinary case: the default destination is the working directory, and the obvious way to run
-	/// this tool is from inside the repository.
+	/// The ordinary case: the default destination is the working
+	/// directory, and the obvious way to run this tool is from inside the repository.
 	/// </summary>
 	[Fact]
 	public void ADestinationThatCoincidesWithTheRepositoryIsRefused()
@@ -184,8 +184,8 @@ public sealed class WriteBoundaryTests
 	}
 
 	/// <summary>
-	/// Every refusal names both locations by label and never by path, because no absolute path
-	/// appears in anything the product emits - a refusal message included - and says what
+	/// Every refusal names both locations by label and never by path, because no
+	/// absolute path may appear in anything the product emits - a refusal message included. It also says what
 	/// to do, because the collision is what happens on the most natural invocation there is.
 	/// </summary>
 	[Theory]

@@ -15,10 +15,10 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// <summary>
 /// THE ZERO-CANDIDATE ACCEPTANCE CONDITION, THROUGH THE PROCESS, WITH THE PROCESS'S OWN EXIT CODE.
 ///
-/// WHAT THIS ADDS TO THE PIPELINE TESTS, WHICH ALREADY GRADE THAT CONDITION IN PROCESS. Those tests compose the
-/// four stages directly and assert what each returned. They cannot assert an exit code, because an exit code
+/// WHAT THIS ADDS TO THE PIPELINE SET, WHICH ALREADY GRADES THAT CONDITION IN PROCESS. That set composes the
+/// four stages directly and asserts what each returned. It cannot assert an exit code, because the exit code
 /// is a property of a session and the exit-code contract makes it last-condition-wins over that whole
-/// session - a value that exists only when a process ends. They also cannot establish that
+/// session - a value that exists only when a process ends. It also cannot establish that
 /// <c>Program</c> composes the stages the way the harness does, that the command-line parser accepts
 /// the two options, that Pre-flight permits the session, that the shell's gating chain admits the
 /// four commands in order, or that the state reached the destination. Every one of those sits
@@ -79,8 +79,9 @@ public sealed class ProcessAcceptanceTests : IClassFixture<ZeroCandidateProcessS
 	}
 
 	/// <summary>
-	/// Two artifacts, and the Markdown one carries the five report sections. A report missing a section
-	/// over an empty run is not a valid report stating zero findings.
+	/// Two artifacts, and the Markdown one carries the report's five sections. "A valid report stating
+	/// zero findings" is what the condition asks for and a report missing a section over an empty run is the
+	/// documented way that requirement fails.
 	/// </summary>
 	[Fact]
 	public void BothArtifactsWereWrittenAndTheReportCarriesAllFiveSections()
@@ -122,7 +123,7 @@ public sealed class ProcessAcceptanceTests : IClassFixture<ZeroCandidateProcessS
 	}
 
 	/// <summary>
-	/// The persisted session state, read back from the destination as a resuming process would find it -
+	/// The state the tool persists, read back from the destination as a resuming process would find it -
 	/// by the keyed hash of the repository path rather than by a name this test knows. Four completed
 	/// stages in a file is the durable half of the condition's "completes all four stages"; the transcript
 	/// above is the visible half, and a session that printed one without writing the other would be

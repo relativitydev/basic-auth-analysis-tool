@@ -15,14 +15,15 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 /// <summary>
 /// WHAT THE SAFE ALGORITHM COSTS, MEASURED AGAINST THE UNSAFE ONE.
 ///
-/// The comparison is between two ways of looking for the same anchor: over the decoded string, or
-/// over the byte buffer transliterated one byte per character. The DECODE ITSELF IS NOT PART OF THE
-/// DELTA, because the inventory pass has to decode anyway - the line count the inventory requires is
-/// derived from normalized text. What differs is only the search.
+/// The comparison is between two ways of looking for the same anchor: over
+/// the decoded string, or over the byte buffer transliterated one byte per character. The DECODE
+/// ITSELF IS NOT PART OF THE DELTA, because the inventory pass has to decode anyway - the line
+/// count the inventory requires is derived from normalized text. What differs is only the search.
 ///
-/// So this measures the search, both ways, over the same content, and reports alongside it how many
-/// candidates each way actually finds. A saving that comes with silent zero recall in an encoding
-/// is not a saving.
+/// So this measures the search, both ways, over the same content. It is the delta itself rather
+/// than a throughput proxy for it, and it is reported alongside the second half of the same
+/// comparison: how many candidates each way actually finds. A saving that comes with silent zero
+/// recall in an encoding is not a saving.
 ///
 /// NOTHING HERE ASSERTS A TIMING. The numbers are this machine's; what is asserted is the recall
 /// difference, which is a property of the algorithms and not of the machine.
@@ -55,7 +56,7 @@ public sealed class PreselectionCostTests
 
 		Assert.True(
 			overDecodedText > overTheByteBuffer,
-			"The byte-buffer search must miss the two-byte-encoded files, which is the failure DR-06 rejects it for.");
+			"The byte-buffer search must miss the two-byte-encoded files, which is the failure the design rejects it for.");
 
 		Assert.Equal(_UTF8_FILE_COUNT / _ANCHOR_INTERVAL + _TWO_BYTE_FILE_COUNT, overDecodedText);
 	}

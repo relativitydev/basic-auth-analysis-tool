@@ -31,15 +31,20 @@ internal readonly record struct ClassifiedMatch
 }
 
 /// <summary>
-/// Subsumption, evaluated by the engine from a relation the analyzer declared.
+/// SUBSUMPTION, EVALUATED BY THE ENGINE FROM A RELATION THE ANALYZER DECLARED.
 ///
 /// Two rules can match the same construct - a legacy client constructed with a credential object
-/// matches both the client class and the credential class - and emitting both would count one
-/// construct twice. The catalog declares when one class subsumes another; this decides what is
-/// emitted. Absent a declared relation, both are emitted.
+/// matches both the client class and the credential class. The catalog declares WHEN one class
+/// subsumes another; this decides what is emitted.
 ///
-/// The output is ordered by anchor offset and then by pattern class identifier, which within one file
-/// is the total finding order (path, line, column, pattern class identifier).
+/// ABSENT A DECLARED RELATION, BOTH ARE EMITTED.
+///
+/// THE ORDER OUT IS THE TOTAL KEY RESTRICTED TO ONE FILE. The total key is path, then line, then
+/// column, then pattern class identifier; within a single file the first term is constant and line
+/// followed by column is strictly monotone in the anchor offset, so ordering here by anchor offset
+/// and then by class identifier IS that key and not an approximation of it. Sorting here rather
+/// than leaving it to the stage that assigns identifiers costs nothing and means no consumer ever
+/// sees this component's output in an order that depends on how a rule set enumerated.
 /// </summary>
 internal static class SubsumptionReduction
 {
@@ -47,8 +52,8 @@ internal static class SubsumptionReduction
 	/// The surviving constructs, ordered. Subsumption is evaluated over the whole file's matches at
 	/// once, after classification: a subsumed construct is one that was recognized and classified
 	/// and is then not emitted, which is a different statement from one that was never recognized.
-	/// A file's matches are grouped by pattern-class identifier once, and each rule then walks only the
-	/// two groups it names.
+	/// A file's matches are grouped by pattern-class identifier once, and each rule then walks only
+	/// the two groups it names.
 	/// </summary>
 	internal static ImmutableArray<RecognizedConstruct> Reduce(
 		FrozenSet<SubsumptionRule> subsumptionRelation,

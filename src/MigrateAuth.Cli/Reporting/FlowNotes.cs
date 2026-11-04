@@ -3,15 +3,15 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The note a High or Medium finding carries beside its flow, one named constant per
-/// (decision, flow) pair.
+/// THE NOTE A HIGH OR MEDIUM FINDING CARRIES BESIDE ITS FLOW, ONE NAMED CONSTANT PER
+/// (DECISION, FLOW) PAIR.
 ///
-/// Every finding without an interactive signal carries the default note - both a finding defaulted
+/// Every finding without an interactive signal carries the DEFAULT note - both a finding defaulted
 /// for lack of any signal and one assigned Client Credentials by a fixed-credential signal. A
-/// finding an interactive signal decided carries the shorter confirm note instead, which asks the
+/// finding an interactive signal decided carries the shorter CONFIRM note instead, which asks the
 /// reader to check the Authorization Code assignment.
 ///
-/// The note is derived at render time and never persisted. A saved session stores the decision and
+/// THE NOTE IS DERIVED AT RENDER TIME AND NEVER PERSISTED. A saved session stores the decision and
 /// the flow; the text comes from this class, which ships in the binary, so a resumed session renders
 /// what the analysis decided without the note being a second copy that could drift from these tables.
 /// It lives beside the finding in its own field and is never appended into a recommendation.
@@ -28,7 +28,7 @@ public static class FlowNotes
 
 	/// <summary>Assigned Client Credentials by a fixed-credential signal, which carries the default note's reach.</summary>
 	public const string FIXED_SIGNAL_CLIENT_CREDENTIALS_NOTE =
-		"A fixed-credential signal in this file points to Client Credentials, but that signal has not yet been checked against real code. Use Authorization Code instead if the integration acts on behalf of a signed-in user, or if your RelativityOne instance already has a Code-flow OAuth2 Client for this integration.";
+		"A fixed-credential signal in this file points to Client Credentials, but how often that kind of signal is right has not been measured. Use Authorization Code instead if the integration acts on behalf of a signed-in user, or if your RelativityOne instance already has a Code-flow OAuth2 Client for this integration.";
 
 	/// <summary>Assigned Authorization Code by an interactive-user signal: the shorter note asking the reader to confirm.</summary>
 	public const string INTERACTIVE_SIGNAL_AUTHORIZATION_CODE_NOTE =

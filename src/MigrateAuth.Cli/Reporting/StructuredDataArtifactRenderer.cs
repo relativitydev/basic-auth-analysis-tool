@@ -13,24 +13,29 @@ using MigrateAuth.Cli.Writing;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The data artifact: the report's five sections, as structured fields, written streaming.
+/// THE DATA ARTIFACT: THE REPORT'S SAME FIVE SECTIONS, AS STRUCTURED FIELDS, WRITTEN
+/// STREAMING.
 ///
-/// The coverage statement is a field rather than prose, so a consumer can read the catalog's declared
-/// scope. The pattern class is carried as its identifier rather than its display name, so the key
-/// stays stable across versions.
+/// The coverage statement is a field rather than prose, so a consumer can read the catalog's
+/// declared scope. The pattern class is carried as its identifier rather than its name, because a
+/// consumer keys on that field and a name is prose that gets improved.
 ///
-/// The findings array is opened and closed by hand. Serializing the whole document in one call would
-/// build the entire object graph - every finding record, each with a rendered recommendation - before
-/// a single byte reached the file. Writing the array element by element means one finding document
-/// exists at a time and is collectable the moment the next iteration begins.
+/// THE FINDINGS ARRAY IS OPENED AND CLOSED BY HAND, ON PURPOSE. Serializing the whole document in
+/// one call would build the entire object graph - a hundred thousand finding records, each with a
+/// rendered recommendation - before a single byte reached the file. Writing the array
+/// element by element means one finding document exists at a time and is collectable the moment
+/// the next iteration begins.
 ///
-/// The other four sections are serialized whole. Every one of them is bounded by the binary rather
-/// than by the repository: eight coverage rows, one inventory row per distinct language, eleven
-/// skipped-item categories at a hundred paths each, one provenance record.
+/// THE OTHER FOUR SECTIONS ARE SERIALIZED WHOLE, AND THAT IS NOT AN INCONSISTENCY. Every one of
+/// them is bounded by the binary rather than by the repository: eight coverage rows, one inventory
+/// row per distinct language, eleven skipped-item categories at a hundred paths each, one provenance
+/// record. None of them grows with the size of the assessed repository, which is the property that
+/// made the findings array the one that had to stream.
 ///
-/// The handling notice is a field and never a prefix. The Markdown report takes it as a blockquote
-/// first line and this one takes it as <see cref="ArtifactHandlingNotice.STRUCTURED_DATA_FIELD_NAME"/>,
-/// because text prepended to the bytes would make the document invalid JSON.
+/// THE HANDLING NOTICE IS A FIELD AND NEVER A PREFIX. Both artifacts must carry it;
+/// the Markdown report takes it as a blockquote first line and this one takes it as
+/// <see cref="ArtifactHandlingNotice.STRUCTURED_DATA_FIELD_NAME"/>, because text prepended to the
+/// bytes would make the document invalid for the consumers it exists to serve.
 /// </summary>
 public static class StructuredDataArtifactRenderer
 {
@@ -62,8 +67,8 @@ public static class StructuredDataArtifactRenderer
 	private const string _NOT_ASSESSED_REASON_DISABLED_BY_CONFIGURATION = "disabledByConfiguration";
 
 	/// <summary>
-	/// Written without indentation. The document is read by a program rather than by a person, and at
-	/// the volume this renderer is built for the whitespace is not free.
+	/// Written without indentation. The document is read by programs rather than
+	/// by a person, and at the volume this renderer is built for the whitespace is not free.
 	/// </summary>
 	private static readonly JsonWriterOptions _writerOptions = new() { Indented = false };
 
@@ -128,8 +133,9 @@ public static class StructuredDataArtifactRenderer
 
 	/// <summary>
 	/// The one array that grows with the repository, and therefore the one written element by
-	/// element. The confidence threshold decides which findings appear and never which were assigned a
-	/// level; identifiers were assigned over the full set before it, so the sequence here may show gaps.
+	/// element. The threshold decides which findings appear and never which were assigned a
+	/// level; the identifiers were assigned over the full set before it, so the sequence here
+	/// may show gaps.
 	/// </summary>
 	private static void WriteFindings(Utf8JsonWriter writer, ReportContent content, RecommendationRenderer recommendations)
 	{
@@ -151,7 +157,7 @@ public static class StructuredDataArtifactRenderer
 
 	private static ArtifactCoverageDocument BuildCoverage(ReportContent content)
 	{
-		ImmutableArray<LanguageCoverageRow> rows = CoverageStatement.Compose(content.Catalog, content.Configuration);
+		ImmutableArray<LanguageCoverageRow> rows = content.CoverageRows;
 
 		return new ArtifactCoverageDocument
 		{
@@ -227,6 +233,17 @@ public static class StructuredDataArtifactRenderer
 					.. summary.ExcludedFolders.Paths.Select(path =>
 						EmittedPathText.ForDestination(path, EmissionDestination.StructuredData))
 				]
+			},
+			LegacyEncodedFiles = new ArtifactLegacyEncodedFilesDocument
+			{
+				Encoding = ReportVocabulary.WINDOWS_1252_ENCODING_NAME,
+				Count = summary.LegacyEncodedFiles.OccurrenceCount,
+				OmittedPathCount = summary.LegacyEncodedFiles.OmittedPathCount,
+				Paths =
+				[
+					.. summary.LegacyEncodedFiles.Paths.Select(path =>
+						EmittedPathText.ForDestination(path, EmissionDestination.StructuredData))
+				]
 			}
 		};
 	}
@@ -283,8 +300,8 @@ public static class StructuredDataArtifactRenderer
 	}
 
 	/// <summary>
-	/// A tally's paths are handed to the encoder unescaped: the data artifact's own encoder escapes them,
-	/// and escaping before it would double-escape.
+	/// A tally's paths are handed to the encoder unescaped: the data artifact has its own
+	/// encoder, and escaping before it would double-escape.
 	/// </summary>
 	private static ArtifactSkippedItemDocument BuildSkippedItem(SkippedItemTally tally)
 	{

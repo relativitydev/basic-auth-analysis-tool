@@ -3,15 +3,13 @@ using MigrateAuth.Cli.Tests.AcceptanceHarness;
 namespace MigrateAuth.Cli.Tests.Documentation;
 
 /// <summary>
-/// Where the public Migration Documentation for C# lives and how the tests read it. The repository
+/// Where the public documentation lives and how the tests read it. The repository
 /// root is found by searching upward from the test assembly for the solution file, the same marker
 /// the acceptance harness uses, so the lookup is identical on Windows, Linux and macOS.
 /// </summary>
 internal static class PublicDocuments
 {
 	public const string GITATTRIBUTES_FILE_NAME = ".gitattributes";
-	public const string PART_A_FILE_NAME = "part-a-csharp.md";
-	public const string PART_C_FILE_NAME = "part-c-csharp.md";
 	public const string README_FILE_NAME = "README.md";
 	public const string USER_GUIDE_INDEX_FILE_NAME = "index.md";
 	public const string MARKDOWN_SEARCH_PATTERN = "*.md";
@@ -48,7 +46,7 @@ internal static class PublicDocuments
 		DirectoryInfo? candidate = new(AppContext.BaseDirectory);
 
 		while (candidate is not null
-			&& !File.Exists(Path.Combine(candidate.FullName, StageBenchmarkTable.REPOSITORY_ROOT_MARKER_FILE_NAME)))
+			&& !File.Exists(Path.Combine(candidate.FullName, StageTimingTable.REPOSITORY_ROOT_MARKER_FILE_NAME)))
 		{
 			candidate = candidate.Parent;
 		}
@@ -107,12 +105,12 @@ internal static class PublicDocuments
 
 	public static string PartAPath()
 	{
-		return Path.Combine(MigrationFolder(), PART_A_FILE_NAME);
+		return DocumentedLanguage.CSharp.PartAPath();
 	}
 
 	public static string PartCPath()
 	{
-		return Path.Combine(MigrationFolder(), PART_C_FILE_NAME);
+		return DocumentedLanguage.CSharp.PartCPath();
 	}
 
 	public static string GitAttributesPath()

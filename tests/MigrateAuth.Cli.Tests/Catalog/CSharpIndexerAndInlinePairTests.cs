@@ -3,7 +3,7 @@ using System.Linq;
 
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Recognition;
-using MigrateAuth.Cli.Tests.Calibration;
+using MigrateAuth.Cli.Tests.MatchBoundStress;
 using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;

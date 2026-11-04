@@ -8,7 +8,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
-/// The scan's two passes: what each one does, what neither does twice, and what the second one sees
+/// The two passes: what each one does, what neither does twice, and what the second one sees
 /// that a second walk would not.
 /// </summary>
 public sealed class RepositoryInventoryScanTests
@@ -49,8 +49,8 @@ public sealed class RepositoryInventoryScanTests
 	/// THE TREE IS WALKED ONCE AND BOTH PASSES RUN OVER THE LIST, proved by the one observable
 	/// difference between a list and a second walk: a file deleted between the passes. Over a list,
 	/// the inventory pass tries to open it and records an unreadable file. Over a second walk, it
-	/// would simply not be there, and the count would silently be one lower - a disagreement about a
-	/// repository being edited during a scan.
+	/// would simply not be there, and the count would silently be one lower - which is the
+	/// disagreement the design refuses to allow about a repository being edited during a scan.
 	/// </summary>
 	[Fact]
 	public void TheSecondPassRunsOverTheListRatherThanOverTheTreeAgain()
@@ -146,7 +146,7 @@ public sealed class RepositoryInventoryScanTests
 	}
 
 	/// <summary>
-	/// The reader's ceilings are consumed rather than re-checked: the file comes back skipped, the
+	/// The resource ceilings are consumed rather than re-checked: the file comes back skipped, the
 	/// category is already counted by the machinery that owns it, and the inventory records a file
 	/// with no lines instead of pretending it was never there.
 	/// </summary>
@@ -226,7 +226,8 @@ public sealed class RepositoryInventoryScanTests
 		IReadOnlyCollection<string> enumeratedPaths =
 			[.. enumeration.FilePaths.Select(path => path.Value)];
 
-		Assert.Equal(2, inventory.CandidateRelativePaths.Count);
+		Assert.Equal(3, inventory.CandidateRelativePaths.Count);
+		Assert.Contains(Reading.RepositoryFixture.TWO_BYTE_FILE_NAME, inventory.CandidateRelativePaths);
 		Assert.All(inventory.CandidateRelativePaths, candidate => Assert.Contains(candidate, enumeratedPaths));
 	}
 

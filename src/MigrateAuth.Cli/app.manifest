@@ -2,9 +2,9 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
 
 	<!--
-		DR-04 - LONG PATH AWARENESS, DECLARED RATHER THAN ASSUMED.
+		LONG PATH AWARENESS, DECLARED RATHER THAN ASSUMED.
 
-		DR-04 requires the binary to declare long-path awareness, because without it a deep file
+		The binary must declare long-path awareness, because without it a deep file
 		is skipped on one platform and analyzed on another, which breaks determinism of the SET
 		of findings and not merely of their order. Only Windows imposes the limit this answers,
 		and only Windows reads this file.
@@ -26,7 +26,7 @@
 
 		requestedExecutionLevel is asInvoker and is here for a second reason of its own: this
 		tool must never be silently elevated, because what it can read is what it reports, and
-		DR-21 reads the requirement's "equivalent repository and file layout" as including an
+		the requirement for an equivalent repository and file layout is read as including an
 		equivalent running identity.
 
 		XML forbids two consecutive hyphens anywhere inside a comment. The line

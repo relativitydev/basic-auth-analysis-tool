@@ -14,8 +14,8 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 ///
 /// A loop over the catalog registry passes every other test in this file and fails this one
 /// silently - the unsupported language contributes no entry, so the report says nothing about it
-/// and a clean result reads as "you are clean" when it means "we did not look". So it is asserted
-/// by counting the rows against the enumeration rather than against the catalog.
+/// and a clean result reads as "you are clean" when it means "we did not look". So the rows are
+/// counted against the enumeration rather than against the catalog.
 /// </summary>
 public sealed class CoverageStatementTests
 {

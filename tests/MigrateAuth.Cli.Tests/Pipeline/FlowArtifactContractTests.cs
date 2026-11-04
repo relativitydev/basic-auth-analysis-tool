@@ -41,7 +41,7 @@ public sealed class FlowArtifactContractTests
 	private const string _BUILT_IN_ORIGIN = "BuiltInDefault";
 	private const string _PROFILE_ORIGIN = "Profile";
 	private const string _CLIENT_CREDENTIALS_TEXT = "Client Credentials";
-	private const int _PLANTED_FINDING_COUNT = 5;
+	private const int _SEEDED_FINDING_COUNT = 5;
 
 	private static readonly string[] _sectionThreeOneFields =
 		["id", "filePath", "line", "language", "patternClass", "confidence", "recommendation"];
@@ -74,7 +74,7 @@ public sealed class FlowArtifactContractTests
 		using JsonDocument artifact = JsonDocument.Parse(harness.ReadWrittenArtifact(OutputArtifactKind.StructuredDataArtifact));
 		JsonElement[] findings = [.. artifact.RootElement.GetProperty(_FINDINGS_FIELD).EnumerateArray()];
 
-		Assert.Equal(_PLANTED_FINDING_COUNT, findings.Length);
+		Assert.Equal(_SEEDED_FINDING_COUNT, findings.Length);
 
 		foreach (JsonElement finding in findings)
 		{
@@ -186,7 +186,7 @@ public sealed class FlowArtifactContractTests
 
 	/// <summary>The provenance states the effective default flow and its origin.</summary>
 	[Fact]
-	public void TheProvenanceStatesTheBuiltInDefaultFlowWithTheOriginTheGraderKeysOn()
+	public void TheProvenanceStatesTheBuiltInDefaultFlowWithTheOriginAConsumerKeysOn()
 	{
 		using PipelineHarness harness = PipelineHarness.CreateWithFlowSignals(_bothKindsOfSignal);
 

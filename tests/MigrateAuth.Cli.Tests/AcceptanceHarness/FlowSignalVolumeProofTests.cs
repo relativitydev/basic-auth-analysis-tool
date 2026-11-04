@@ -15,7 +15,7 @@ using Xunit.Abstractions;
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
-/// FLOW-SIGNAL EVALUATION AT VOLUME, THROUGH THE REAL ANALYSIS PATH, PAST THE GLOBAL
+/// FLOW-SIGNAL EVALUATION AT THE LARGEST SUPPORTED SIZE, THROUGH THE REAL ANALYSIS PATH, PAST THE GLOBAL
 /// FINDINGS CAP.
 ///
 /// Forty files each hold more constructs than the per-file cap, so the first twenty-five exhaust the
@@ -26,7 +26,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// be evaluated. The fixture analyzer declares one signal of each kind.
 ///
 /// Each file carries a signal token chosen by its index (an interactive one, a fixed one, or none),
-/// so the evidence copied onto the retained findings can be checked against what was planted.
+/// so the evidence copied onto the retained findings can be checked against what was generated.
 /// </summary>
 public sealed class FlowSignalVolumeProofTests
 {
@@ -74,7 +74,7 @@ public sealed class FlowSignalVolumeProofTests
 		Assert.Equal(_FILE_COUNT, figures.FilesEvaluated);
 		Assert.True(figures.FilesEvaluated > figures.FilesWithAnAdmittedFinding);
 		Assert.Equal(0, figures.SignalTripCount);
-		AssertTheRetainedFindingsCarryWhatWasPlanted(harness.State.Findings);
+		AssertTheRetainedFindingsCarryWhatWasGenerated(harness.State.Findings);
 	}
 
 	private static FlowEvaluationFigures ReadTheFigures(PipelineHarness harness)
@@ -89,7 +89,7 @@ public sealed class FlowSignalVolumeProofTests
 		};
 	}
 
-	private static void AssertTheRetainedFindingsCarryWhatWasPlanted(ImmutableArray<Finding> findings)
+	private static void AssertTheRetainedFindingsCarryWhatWasGenerated(ImmutableArray<Finding> findings)
 	{
 		Assert.All(findings, finding => Assert.Equal(ExpectedEvidenceOf(finding), finding.FlowEvidence));
 		Assert.Contains(findings, finding => finding.FlowEvidence == FlowEvidence.Interactive);
@@ -114,7 +114,7 @@ public sealed class FlowSignalVolumeProofTests
 
 	private void ReportFigures(FlowEvaluationFigures figures, TimeSpan duration, long peakWorkingSet)
 	{
-		_output.WriteLine("Flow-signal evaluation volume proof (band V2)");
+		_output.WriteLine("Flow-signal evaluation volume proof (largest supported size)");
 		_output.WriteLine(FormattedLine("Files analyzed", _FILE_COUNT + _LOW_ONLY_FILE_COUNT));
 		_output.WriteLine(FormattedLine("Files holding a High or Medium construct", _FILE_COUNT));
 		_output.WriteLine(FormattedLine("Files evaluated (counter)", figures.FilesEvaluated));

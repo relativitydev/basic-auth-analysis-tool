@@ -18,7 +18,7 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// content column rather than escaping to column 0.
 ///
 /// THE SYNTHETIC TEMPLATE BELOW IS DELIBERATELY NOT ANY SHIPPED CATALOG TEXT: it exists only
-/// to put every shape the report renderer has to handle - a fence-opening first line with a
+/// to put every shape the recommendation format and the report renderer have to handle - a fence-opening first line with a
 /// tab-indented body line, a mid-field fence between two ordinary paragraphs, and a nested bullet
 /// list - inside one rendering pass, which no single real `CSharp` template happens to combine.
 /// </summary>

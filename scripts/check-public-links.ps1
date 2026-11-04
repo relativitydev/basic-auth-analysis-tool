@@ -50,7 +50,7 @@ function Invoke-LinkCheck {
 		Write-Host "guide file not found: $GuideFile"
 		return $ExitFailed
 	}
-	$links = Get-GuideLinks -Path $GuideFile
+	$links = @(Get-GuideLinks -Path $GuideFile)
 	Write-Host "$($links.Count) link(s) in $GuideFile"
 	$failed = 0
 	foreach ($link in $links) {

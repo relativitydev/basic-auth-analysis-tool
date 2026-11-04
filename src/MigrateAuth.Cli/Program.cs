@@ -41,7 +41,7 @@ internal static class Program
 		"{0} <path>{1}The folder to assess. Required.";
 
 	private const string _DESTINATION_OPTION_DESCRIPTION_FORMAT =
-		"{0} <path>{1}The folder the report and the data artifact are written to. Defaults to the outputPath in the user profile's configuration file, then to the working directory.";
+		"{0} <path>{1}The folder the report and the JSON findings file are written to. Defaults to the outputPath in the user profile's configuration file, then to the working directory.";
 
 	private const string _INTERACTIVE_SESSION_NOTICE_FORMAT =
 		"The session this starts is interactive: commands are typed at the '{0}' prompt.";
@@ -61,7 +61,8 @@ internal static class Program
 	/// request to assess a repository, so each is answered here and only here - before the
 	/// repository is resolved, before configuration is read, before Pre-flight runs, before any
 	/// session state is read or written, and before a prompt opens. <c>--help</c> is checked
-	/// first, so it wins when both are supplied on the same launch: the more complete
+	/// first, so it wins when both are supplied on the same launch: the two named
+	/// options have no positional meaning, and the same reasoning applies here - the more complete
 	/// answer subsumes the narrower one rather than either silently overriding the other.
 	/// </summary>
 	private static ExitCode RunSessionOrAnswerInformationalLaunch(string[] arguments)
@@ -223,6 +224,7 @@ internal static class Program
 		SessionStateLoad sessionStateLoad = sessionStateStore.Load(repositoryFolder, catalog);
 
 		SessionStartup.ReportSessionStart(sessionStateLoad, repositoryFolder, Console.Out);
+		SessionStartup.ReportScanConfigurationChange(sessionStateLoad.State, configuration, Console.Out);
 
 		SessionConsole console = new(BuildSessionInputReader(), Console.Out);
 
@@ -278,20 +280,20 @@ internal static class Program
 	}
 
 	/// <summary>
-	/// THE STAGE RUNNER, WITH FOUR STAGES WIRED AND ONE STILL EMPTY.
+	/// THE STAGE RUNNER, WITH FOUR STAGES WIRED AND ONE EMPTY.
 	///
 	/// The chain is built inside out: the empty runner at the bottom, then <c>scan</c>, then
 	/// <c>analyze</c>, <c>suggest</c> and <c>report</c>. Each decorator handles its own command and
-	/// delegates the rest, so <c>ai-assist</c>, <c>help</c>, <c>clear</c> and <c>exit</c>
-	/// reach the classes at the bottom of the chain.
+	/// delegates the rest, so <c>ai-assist</c>, <c>help</c>, <c>clear</c> and <c>exit</c> pass
+	/// through to the classes that handle them.
 	///
 	/// ONE OBJECT IS BUILT HERE BECAUSE IT BELONGS TO THE SESSION RATHER THAN TO ANY STAGE: the
 	/// skipped-item ledger, shared by <c>scan</c> and <c>analyze</c> through the one emission point
 	/// both route through. Each of the two clears it at the start of its own run and snapshots what
 	/// it accumulated onto <see cref="Session.SessionState"/> at completion - which is also
-	/// where Section 2's numbers and the truncation counter live, so <c>report</c> reads
-	/// every one of the report's sections from the state <see cref="SessionShell"/> already threads
-	/// through every stage, and none of it is lost when a session RESUMES IN A NEW PROCESS.
+	/// where Section 2's numbers and the findings-cap truncation counter live, so <c>report</c> reads
+	/// every section of the report from the state <see cref="SessionShell"/> already threads
+	/// through every stage, and none of it is lost when a session resumes in a new process.
 	/// </summary>
 	private static IWorkflowStageRunner BuildStageRunner(SessionComposition composition)
 	{
@@ -399,9 +401,9 @@ internal static class Program
 	}
 
 	/// <summary>
-	/// The catalog is numbered independently of the product and that number appears in all
-	/// output, so the identification line carries it, beside the product's own number, on the
-	/// same terms <c>--version</c> reports both: <see cref="ToolVersion.CURRENT"/> is
+	/// The catalog is numbered independently of the product, so the identification line carries
+	/// the catalog's number. The product's own number sits beside
+	/// it, on the same terms <c>--version</c> reports both: <see cref="ToolVersion.CURRENT"/> is
 	/// the one constant either output reads, so the two can never disagree.
 	/// </summary>
 	private static void WriteIdentification(LanguageCatalog catalog)

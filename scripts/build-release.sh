@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the release artifact for one runtime identifier: a Native AOT publish of the command-line tool from the current commit.
 #
-# It refuses a working tree with modified tracked files, publishes with the same command the release-evidence script uses,
+# It refuses a working tree with modified tracked files, publishes the Release configuration for the requested runtime identifier,
 # fails when the publish reports any warning, copies the artifact to the output folder as migrate-auth-<version>-<rid> (with .exe on Windows), and writes beside it the hash line
 # (sha256sum format) and a small build record. It signs nothing, notarizes nothing, creates no release and no tag,
 # and contacts no service other than what dotnet publish itself needs.

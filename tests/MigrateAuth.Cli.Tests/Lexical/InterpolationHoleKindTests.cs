@@ -10,12 +10,17 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Lexical;
 
 /// <summary>
-/// THE TWO INTERPOLATION HOLE KINDS, AND THE PROOF THAT THEY COMPOSE WITH ONE DESCENT RATHER THAN TWO.
+/// THE TWO HOLE KINDS, AND THE PROOF THAT THEY COMPOSE WITH ONE DESCENT RATHER THAN TWO.
 ///
-/// The reference profile carries both: the bracketed kind, and the identifier-extent kind (a sigil
-/// and an identifier, with no closing token). Its here-document is the identifier-extent case, and it
-/// is the same rule that carries the captured terminator, which decides per occurrence whether the
-/// body interpolates.
+/// The bracketed kind is the one the scanner reasons about at length. The identifier-extent kind
+/// is the one that looks rarer and costs more when it is wrong: two of the eight languages
+/// interpolate that way and BOTH do it in the most common writing of a credential header, so a
+/// scanner that reads the sigil as body text loses the single construct this tool exists to find.
+///
+/// The reference profile carries both. Its here-document is the identifier-extent case, and it is
+/// the same rule that carries the captured terminator - which is not a coincidence: the captured
+/// terminator already decides per occurrence whether the body interpolates, and this is what that
+/// decision is ABOUT.
 /// </summary>
 public sealed class InterpolationHoleKindTests
 {
@@ -30,7 +35,7 @@ public sealed class InterpolationHoleKindTests
 	private const string _INNERMOST_HOLE_INTERIOR = "x";
 
 	/// <summary>
-	/// Eight is the recursion bound and it is the engine's, not a profile's. Nine is one past it, and
+	/// Eight is the nesting bound and it is the engine's, not a profile's. Nine is one past it, and
 	/// the anomaly arrives from the explicit counter rather than from the stack - nine frames of
 	/// recursive descent is nothing, which is exactly the point: a test that proved the bound by
 	/// actually overflowing would prove the opposite of what it claims.
@@ -94,7 +99,7 @@ public sealed class InterpolationHoleKindTests
 		ZoneAssertions.SpansZone(mask, normalized, "\ntail", LexicalZone.Code);
 	}
 
-	/// <summary>Positional anchoring, on a captured terminator's closing.</summary>
+	/// <summary>The positional anchoring, on a captured terminator's closing.</summary>
 	[Fact]
 	public void ACapturedTerminatorThatIsNotAtTheStartOfALineDoesNotCloseTheLiteral()
 	{
@@ -108,7 +113,7 @@ public sealed class InterpolationHoleKindTests
 	}
 
 	/// <summary>
-	/// Positional anchoring, on the opening. Without it the here-string of an
+	/// The positional anchoring, on the opening. Without it the here-string of an
 	/// administration shell closes early, and here the mirror case: an opening that does not end
 	/// its line opens nothing, so the whole line stays code.
 	/// </summary>

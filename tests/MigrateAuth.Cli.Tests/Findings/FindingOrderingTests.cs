@@ -9,7 +9,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Findings;
 
 /// <summary>
-/// THE TOTAL ORDER KEY, TERM BY TERM: path, then line, then column, then pattern class identifier.
+/// THE TOTAL KEY, TERM BY TERM: path, then line, then column, then pattern class identifier.
 ///
 /// Each test below ties on every term before the one it is about, which is the only way to
 /// demonstrate a key's PRECEDENCE rather than merely its contents - a comparison that consulted
@@ -67,7 +67,7 @@ public sealed class FindingOrderingTests
 	/// <summary>
 	/// The pattern class identifier breaks a tie on path, line AND column - which is only reachable
 	/// where two classes anchor at the same position, the case the subsumption relation exists
-	/// for and does not always resolve: absent a declared relation both are emitted.
+	/// for and deliberately does not always resolve: absent a declared relation both are emitted.
 	/// </summary>
 	[Fact]
 	public void ThePatternClassIdentifierBreaksATieOnPathLineAndColumn()
@@ -92,6 +92,7 @@ public sealed class FindingOrderingTests
 	}
 
 	/// <summary>
+	/// TWO UNICODE FORMS OF ONE NAME, AND THE DECLARED LIMIT.
 	/// The same visible name in composed and in decomposed form is two paths and two keys: the key
 	/// is separator normalization only, so the test host - which has the platform's normalization
 	/// tables - keys exactly as the shipped binary, where the tables are absent, does.

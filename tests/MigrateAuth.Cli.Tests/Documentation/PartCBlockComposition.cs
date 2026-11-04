@@ -23,7 +23,7 @@ internal sealed record PartCBlockKey(string? PatternClassIdentifier, CredentialF
 /// <see cref="RecommendationComposer.Compose(LanguageCatalog, AssessedLanguage, string, CredentialFlow)"/>
 /// for the class and the flow. The generic block is composed the same way for
 /// <see cref="CSharpRenderedTexts.UNDECLARED_PATTERN_CLASS"/>, an identifier the analyzer declares no
-/// template for: the composer then routes to the language's own text for the flow and to the base's text
+/// template for: the composer then routes to the language's own text for the flow and to the shared engine's text
 /// only where the language declares none, exactly as it does for a High or Medium finding of an
 /// unrecognized construct. The block is the composed artifact text of that recommendation, preceded by
 /// one generated line that says where to confirm the flow and carries the tool's own flow note for the
@@ -116,24 +116,24 @@ internal static class PartCBlockComposition
 		return keys.ToImmutable();
 	}
 
-	/// <summary>The composed recommendation behind a block, before the confirmation line is added.</summary>
-	public static RenderedRecommendation Composed(PartCBlockKey key)
+	/// <summary>The composed recommendation behind a block of <paramref name="language"/>, before the confirmation line is added.</summary>
+	public static RenderedRecommendation Composed(DocumentedLanguage language, PartCBlockKey key)
 	{
-		string patternClassIdentifier = key.PatternClassIdentifier ?? CSharpRenderedTexts.UNDECLARED_PATTERN_CLASS;
+		string patternClassIdentifier = key.PatternClassIdentifier ?? language.UndeclaredPatternClass;
 
-		return RecommendationComposer.Compose(CSharpRenderedTexts.Catalog(), AssessedLanguage.CSharp, patternClassIdentifier, key.Flow);
+		return RecommendationComposer.Compose(CSharpRenderedTexts.Catalog(), language.Language, patternClassIdentifier, key.Flow);
 	}
 
-	/// <summary>The whole content of one generated block.</summary>
-	public static string ContentFor(string keyText)
+	/// <summary>The whole content of one generated block of <paramref name="language"/>.</summary>
+	public static string ContentFor(DocumentedLanguage language, string keyText)
 	{
 		PartCBlockKey key = ParseKey(keyText);
-		string composedText = RecommendationComposer.ComposeArtifactText(Composed(key))!;
+		string composedText = RecommendationComposer.ComposeArtifactText(Composed(language, key))!;
 
-		return string.Join(_PARAGRAPH_SEPARATOR, ConfirmationLine(key), composedText);
+		return string.Join(_PARAGRAPH_SEPARATOR, ConfirmationLine(language, key), composedText);
 	}
 
-	private static string ConfirmationLine(PartCBlockKey key)
+	private static string ConfirmationLine(DocumentedLanguage language, PartCBlockKey key)
 	{
 		string classClause = key.IsGeneric
 			? string.Empty
@@ -141,7 +141,7 @@ internal static class PartCBlockComposition
 				CultureInfo.InvariantCulture,
 				_CLASS_CLAUSE_FORMAT,
 				key.PatternClassIdentifier,
-				PublicDocuments.PART_A_FILE_NAME,
+				language.PartAFileName,
 				CLASS_ANCHOR_PREFIX + key.PatternClassIdentifier!.ToLowerInvariant());
 
 		return string.Format(

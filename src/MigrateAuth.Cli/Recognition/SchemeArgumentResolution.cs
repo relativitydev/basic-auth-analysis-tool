@@ -6,20 +6,22 @@ using MigrateAuth.Cli.Lexical;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// Symbolic resolution of a scheme argument, from the captured argument to the verdict and from the
-/// verdict to the rule's own reading of it.
+/// SYMBOLIC RESOLUTION, FROM THE CAPTURED ARGUMENT TO THE VERDICT AND FROM THE VERDICT TO
+/// THE RULE'S OWN READING OF IT.
 ///
-/// A literal is told from an identifier using the mask, not quote characters: an argument whose
-/// captured extent carries any <see cref="LexicalZone.StringBody"/> position is a literal and the
-/// string-body run is its value, with the <see cref="LexicalZone.Delimiter"/> positions excluded by
-/// the mask.
+/// THE ENGINE TELLS A LITERAL FROM AN IDENTIFIER USING THE MASK, NOT USING QUOTE CHARACTERS. The
+/// scanner marked the body of every literal <see cref="LexicalZone.StringBody"/> and its delimiters
+/// <see cref="LexicalZone.Delimiter"/>, so an argument whose captured extent carries any
+/// string-body position IS a literal and the string-body run IS its value, with the delimiters
+/// excluded by the mask rather than trimmed.
 ///
-/// An argument the mask does not vouch for (above <see cref="ZoneMask.ValidThroughPosition"/>)
-/// resolves to <see cref="SymbolicVerdict.Indeterminate"/>, so an untrustworthy region can never
-/// suppress a finding.
+/// AN ARGUMENT THE MASK DOES NOT VOUCH FOR IS INDETERMINATE. Above
+/// <see cref="ZoneMask.ValidThroughPosition"/> the undefined region is filled `StringBody`; read
+/// literally it would turn an identifier into a literal, so the untrustworthy region resolves to
+/// <see cref="SymbolicVerdict.Indeterminate"/> instead.
 ///
-/// The comparison is case-insensitive, tolerant of surrounding whitespace, and uses ordinal case
-/// folding so that the answer does not vary with the host's installed locale data.
+/// THE COMPARISON IS CASE-INSENSITIVE AND TOLERANT OF SURROUNDING WHITESPACE, everywhere, with
+/// ordinal case folding so that the answer does not vary with the host's installed locale data.
 /// </summary>
 internal static class SchemeArgumentResolution
 {
@@ -28,7 +30,8 @@ internal static class SchemeArgumentResolution
 
 	/// <summary>
 	/// The verdict for one match of one rule. A rule that declares no scheme argument never reaches
-	/// here; a rule that does gets one of the three values and never a fourth.
+	/// here; a rule that does gets one of the four values: a group that did not participate is
+	/// told apart from one that did and cannot be resolved.
 	/// </summary>
 	internal static SymbolicVerdict Resolve(
 		SymbolicVerdictInterpretation interpretation,
@@ -40,7 +43,12 @@ internal static class SchemeArgumentResolution
 		SymbolicVerdict verdict = SymbolicVerdict.Indeterminate;
 		Group argument = ArgumentOf(interpretation, match);
 
-		if (argument.Success && argument.Length > 0 && IsWhollyTrustworthy(argument, mask))
+		if (!argument.Success)
+		{
+			// The group took no part in this match, which is not the same as taking part and being unreadable.
+			verdict = SymbolicVerdict.ArgumentDidNotParticipate;
+		}
+		else if (argument.Length > 0 && IsWhollyTrustworthy(argument, mask))
 		{
 			verdict = ResolveTrustworthyArgument(interpretation, argument, normalizedText, mask, symbols);
 		}
@@ -61,6 +69,7 @@ internal static class SchemeArgumentResolution
 		{
 			SymbolicVerdict.ResolvedMatching => interpretation.WhenResolvedMatching,
 			SymbolicVerdict.ResolvedNotMatching => interpretation.WhenResolvedNotMatching,
+			SymbolicVerdict.ArgumentDidNotParticipate => interpretation.WhenSchemeArgumentDidNotParticipate ?? interpretation.WhenIndeterminate,
 			_ => interpretation.WhenIndeterminate
 		};
 

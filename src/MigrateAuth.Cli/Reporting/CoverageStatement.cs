@@ -48,29 +48,31 @@ public sealed record LanguageCoverageRow
 }
 
 /// <summary>
-/// The coverage statement, which leads the report.
+/// THE COVERAGE STATEMENT, WHICH LEADS THE REPORT BECAUSE OF WHAT IT SAYS WHEN IT IS EMPTY.
 ///
-/// A zero-findings result reads as "this repository is clean" unless something says otherwise, and
-/// the true reading may be "this language was not assessed". This section says so, and it is
-/// present even when every other section is empty.
+/// A zero-findings result reads as "this repository is clean" unless something says otherwise,
+/// and the true reading is often "we did not look at your language". This section is the thing
+/// that says otherwise, which is why the report puts it first and why it is present even -
+/// especially - when every other section is empty.
 ///
-/// It iterates the eight-value enumeration and never the catalog registry. A language with no
-/// analyzer is absent from <see cref="LanguageCatalog.AnalyzersByLanguageName"/>, so a loop over the
-/// registry would say nothing about it; driving the loop from
-/// <see cref="AssessedLanguages.AllInDeclaredOrder"/> makes an unsupported language a row rather than
-/// a silence.
+/// IT ITERATES THE EIGHT-VALUE ENUMERATION AND NEVER THE CATALOG REGISTRY. A language with no
+/// analyzer is simply ABSENT from <see cref="LanguageCatalog.AnalyzersByLanguageName"/>, so a loop
+/// over the registry would emit nothing for it and the report would say nothing about it. Driving
+/// the loop from <see cref="AssessedLanguages.AllInDeclaredOrder"/> makes an unsupported language
+/// a ROW rather than a silence.
 ///
-/// The three states are tested in priority order. A language that is both disabled and unsupported
-/// reports as disabled: that is what the session was asked to do, and it is the state the reader can
-/// act on.
+/// THE THREE STATES ARE TESTED IN PRIORITY ORDER, and the order matters. A language that is both
+/// disabled and unsupported reports as disabled: that is what the session was asked to do, and it
+/// is the state the reader can act on. Reporting it as unsupported would attribute a
+/// configuration choice to the product's coverage.
 ///
-/// The section also states that the assessment is not a guarantee of absence: the catalog's own
-/// declared scope bounds what was searched for.
+/// THE STATEMENT THAT THE ASSESSMENT IS NOT A GUARANTEE OF ABSENCE IS PART OF THE SECTION, not a
+/// footnote to it.
 /// </summary>
 public static class CoverageStatement
 {
 	/// <summary>
-	/// The explicit statement that the assessment is not a guarantee of absence. It says
+	/// The statement the report must make in explicit language, and the reason for it. It says
 	/// what the coverage rows mean rather than repeating them: the rows list what was searched
 	/// for, and this says that what was not searched for is not thereby absent.
 	/// </summary>
@@ -87,18 +89,33 @@ public static class CoverageStatement
 	public const string SUPPORTED_FORMAT = "supported, {0} classes searched";
 
 	/// <summary>
-	/// One row per language, in the enumeration's declared order, always eight of them.
+	/// One row per language, in the enumeration's declared order, always eight of them, for the
+	/// languages the configuration enables.
 	/// </summary>
 	public static ImmutableArray<LanguageCoverageRow> Compose(
 		LanguageCatalog catalog,
 		EffectiveConfiguration configuration)
 	{
-		ArgumentNullException.ThrowIfNull(catalog);
 		ArgumentNullException.ThrowIfNull(configuration);
+
+		return Compose(catalog, configuration.EnabledLanguageSet);
+	}
+
+	/// <summary>
+	/// One row per language, in the enumeration's declared order, always eight of them, for the given
+	/// set of assessed languages. The report passes the set the scan actually used, so that the
+	/// statement describes what was looked at even when the configuration has changed since.
+	/// </summary>
+	public static ImmutableArray<LanguageCoverageRow> Compose(
+		LanguageCatalog catalog,
+		IReadOnlySet<AssessedLanguage> assessedLanguages)
+	{
+		ArgumentNullException.ThrowIfNull(catalog);
+		ArgumentNullException.ThrowIfNull(assessedLanguages);
 
 		return
 		[
-			.. AssessedLanguages.AllInDeclaredOrder.Select(language => RowFor(language, catalog, configuration))
+			.. AssessedLanguages.AllInDeclaredOrder.Select(language => RowFor(language, catalog, assessedLanguages))
 		];
 	}
 
@@ -124,14 +141,14 @@ public static class CoverageStatement
 	private static LanguageCoverageRow RowFor(
 		AssessedLanguage language,
 		LanguageCatalog catalog,
-		EffectiveConfiguration configuration)
+		IReadOnlySet<AssessedLanguage> assessedLanguages)
 	{
 		string languageName = AssessedLanguages.CanonicalName(language);
 		LanguageCoverageState state = LanguageCoverageState.DisabledByConfiguration;
 		int patternClassesSearched = 0;
 		ImmutableArray<DeclaredUnsupportedCoverage> declaredUnsupportedConstructs = [];
 
-		if (configuration.IsEnabled(language))
+		if (assessedLanguages.Contains(language))
 		{
 			state = LanguageCoverageState.DeclaredUnsupported;
 
@@ -154,9 +171,10 @@ public static class CoverageStatement
 	}
 
 	/// <summary>
-	/// The ordinal comparison, applied to the one field the analyzer itself does not order. Two languages
-	/// sharing one analyzer read the same declared set, since the coverage belongs to the analyzer's
-	/// catalog and not to which of its declared names a file happened to resolve to.
+	/// Ordinal comparison, applied to the one field of this contract the analyzer itself is
+	/// forbidden to order. Two languages sharing one analyzer (the relation between
+	/// languages and analyzers is not one-to-one) read the same declared set, since the coverage belongs to the
+	/// analyzer's catalog and not to which of its declared names a file happened to resolve to.
 	/// </summary>
 	private static ImmutableArray<DeclaredUnsupportedCoverage> SortedDeclaredUnsupportedConstructs(
 		ILanguageAnalyzer analyzer)

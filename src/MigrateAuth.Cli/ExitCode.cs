@@ -42,12 +42,6 @@ public enum ExitCode
 	/// <summary>
 	/// Pre-flight Validation refused to start a session because the effective configuration
 	/// enables none of the eight languages.
-	///
-	/// None of the five other codes can carry it honestly: the repository is usable,
-	/// the destination is writable, no stage was invoked and nothing was unexpected, and
-	/// reporting zero would tell a script the session ran. Reusing one of them would assign a
-	/// new meaning to a published number, which the enumeration promises never to do, so it is
-	/// its own number, carried in ONE constant.
 	/// </summary>
 	NoLanguageEnabled = 6
 }

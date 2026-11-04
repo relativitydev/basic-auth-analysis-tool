@@ -9,9 +9,9 @@ using MigrateAuth.Cli.Lexical;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// THE FILE DEMOTION SIGNALS, EVALUATED - THREE SHAPES, ONE ANSWER.
+/// FILE DEMOTION SIGNALS, EVALUATED - THREE SHAPES, ONE ANSWER.
 ///
-/// The base's path-shaped set and the analyzer's language-shaped name/folder/generation-marker
+/// The engine's path-shaped set and the analyzer's language-shaped name/folder/generation-marker
 /// set are read here and nowhere else, and either of them firing proposes Low. They are evaluated
 /// identically because they are the same KIND of statement about a file; what differs is who is
 /// entitled to declare one, and that is settled by which type it lives on rather than by anything
@@ -27,15 +27,17 @@ namespace MigrateAuth.Cli.Recognition;
 /// repository root would make a finding's level depend on where the repository happens to be
 /// checked out, which breaks the guarantee that identical content produces identical output.
 ///
-/// CONTENT MARKERS ARE THE ONE SIGNAL THIS TYPE EVALUATES AGAINST TEXT. An analyzer hands over only
-/// an already-constructed expression and a declared <see cref="ContentMarkerZone"/> - never a
+/// CONTENT MARKERS ARE THE ONE SIGNAL THIS TYPE EVALUATES AGAINST TEXT. An analyzer still hands over only an
+/// already-constructed expression and a declared <see cref="ContentMarkerZone"/> - never a
 /// function, never the file - and this is the only place that expression is ever called against
-/// <see cref="FileRecognitionContext.NormalizedText"/>. EVERY content marker is
+/// <see cref="FileRecognitionContext.NormalizedText"/>, exactly as the engine evaluates analyzer-declared expressions over content for every detection rule (<see cref="RecognitionEngine"/>). EVERY content marker is
 /// evaluated, WITH NO SHORT CIRCUIT AMONG THEM - see <see cref="AnyContentMarkerFires"/>.
 ///
-/// THE ANSWER IS PER FILE AND IS COMPUTED ONCE. A positional signal - evaluated at the finding's
-/// own position rather than the file's - is not modelled here; a file-scoped predicate that
-/// quietly accepted a position would be the place it got built by accident.
+/// THE ANSWER IS PER FILE AND IS COMPUTED ONCE. The positional exception - the conditional
+/// compilation signal, evaluated at the finding's own position rather than the file's - is
+/// explicitly out of scope here and is deliberately not modelled here; a file-scoped
+/// predicate that quietly accepted a position would be the place it got built by accident. It
+/// remains UNAVAILABLE in this version: nothing here or in the catalog declares it.
 ///
 /// THIS TYPE NEVER CATCHES ANYTHING. A content marker's <c>Regex</c> may carry its own match
 /// timeout, and a timeout it trips is a <see cref="System.Text.RegularExpressions.RegexMatchTimeoutException"/>
@@ -43,13 +45,10 @@ namespace MigrateAuth.Cli.Recognition;
 /// method already runs inside - and be discarded there under the data invariant. Catching it
 /// here would be catching it a second time, at a site with less context about why.
 ///
-/// Every regular expression this type evaluates - a generation marker over a file name or folder
-/// segment, a content marker over the whole file - runs through <see cref="TimedRegexEvaluation"/>
-/// and charges the same per-file <see cref="MatchBoundWatch"/> a detection rule charges.
-/// <see cref="TryEvaluate"/> returns whether evaluation completed within budget, on the same terms
-/// <see cref="RecognitionEngine.RecognizeOneRule"/> reports for a rule: a trip here discards the
-/// file exactly as a rule's own trip would, through the same
-/// <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> category.
+/// THE MATCH BOUND. Every regular expression this type evaluates - a generation marker over a file name or folder segment,
+/// a content marker over the whole file - runs through <see cref="TimedRegexEvaluation"/> and
+/// charges the same per-file <see cref="MatchBoundWatch"/> a detection rule charges. <see cref="TryEvaluate"/> returns whether evaluation completed within budget, on the same terms <see cref="RecognitionEngine.RecognizeOneRule"/> reports for a rule: a trip here discards the file exactly as a rule's own trip would,
+/// through the same <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> category.
 /// </summary>
 internal static class FileDemotionSignals
 {
@@ -227,7 +226,7 @@ internal static class FileDemotionSignals
 	/// <see cref="FolderNameMatch.Suffix"/> reaches the .NET project-folder
 	/// convention a segment such as <c>Product.Core.Tests</c> is: the WHOLE segment ending in the
 	/// signal's text, never a match on the file name and never a match above the repository root,
-	/// since this is called only over <see cref="FileNameAndFolders.FolderSegments"/>.
+	/// since this is still called only over <see cref="FileNameAndFolders.FolderSegments"/>.
 	/// </summary>
 	private static bool FolderSegmentMatches(FolderNameSignal signal, string segment, StringComparison comparison)
 	{
@@ -241,16 +240,13 @@ internal static class FileDemotionSignals
 	}
 
 	/// <summary>
-	/// The generation markers, over the file name and each folder segment - name-based. They are
-	/// evaluated over the same decomposed path as the other two name-based signals rather than over
-	/// the file's text; a marker that needs content is what <see cref="AnyContentMarkerFires"/> is for.
+	/// The generation markers, over the file name and each folder segment. They are evaluated over the
+	/// same decomposed path as the other two name-based signals rather than over the file's text; a
+	/// marker that needs content is a <see cref="ContentMarker"/>, evaluated by <see cref="AnyContentMarkerFires"/>.
 	///
-	/// Every expression's evaluation runs through
-	/// <see cref="TimedRegexEvaluation"/> and is polled against <paramref name="matchBoundWatch"/>
-	/// before it starts, on the same terms <see cref="RecognitionEngine.RecognizeOneRule"/>
-	/// polls before a rule's own attempt - a small string (a file name, one folder segment) makes a
-	/// runaway expression unlikely, not impossible, and the bound covers every
-	/// analyzer-declared expression.
+	/// Every expression's evaluation runs through <see cref="TimedRegexEvaluation"/> and is polled against
+	/// <paramref name="matchBoundWatch"/> before it starts, on the same terms <see cref="RecognitionEngine.RecognizeOneRule"/>
+	/// polls before a rule's own attempt.
 	/// </summary>
 	private static SignalEvaluation AnyGenerationMarkerFires(
 		ImmutableArray<Regex> generationMarkerExpressions,
@@ -325,20 +321,16 @@ internal static class FileDemotionSignals
 	}
 
 	/// <summary>
-	/// The content markers, evaluated over the file's decoded text -
-	/// the engine's own job, never the analyzer's: an analyzer hands over an expression and a
-	/// declared <see cref="ContentMarkerZone"/>; only this method ever calls that expression
-	/// against <paramref name="normalizedText"/>.
+	/// The content markers, evaluated over the file's decoded text - the engine's own job, never the
+	/// analyzer's: an analyzer hands over an expression and a declared <see cref="ContentMarkerZone"/>;
+	/// only this method ever calls that expression against <paramref name="normalizedText"/>.
 	///
 	/// EVERY MARKER IS EVALUATED, WITH NO SHORT CIRCUIT AMONG THEM - UNLESS THE BOUND HAS
-	/// ALREADY TRIPPED. Stopping at the first marker that fires would let an analyzer's declared
-	/// order decide whether a LATER marker ever runs - and therefore whether that later marker's own
-	/// match-bound timeout ever trips. Once <paramref name="matchBoundWatch"/> reports the file's
-	/// budget spent, the file is going to be discarded regardless of what a later marker would have
-	/// said, so evaluating it would only spend more of a budget that has already decided the
-	/// outcome. A <see cref="RegexMatchTimeoutException"/> raised by any one marker is not caught
-	/// here: it propagates to the caller's own match-bound <c>try</c>, exactly like a detection
-	/// rule's.
+	/// ALREADY TRIPPED. An analyzer's declared order never decides whether a later marker runs; once
+	/// <paramref name="matchBoundWatch"/> reports the file's budget spent, the file is discarded
+	/// regardless of what a later marker would say, so evaluation stops. A
+	/// <see cref="RegexMatchTimeoutException"/> raised by any one marker is not caught here: it propagates
+	/// to the caller's own match-bound <c>try</c>, exactly like a detection rule's.
 	/// </summary>
 	private static SignalEvaluation AnyContentMarkerFires(
 		ImmutableArray<ContentMarker> markers,
@@ -390,15 +382,11 @@ internal static class FileDemotionSignals
 	/// until one lands on a trustworthy <see cref="LexicalZone.Code"/> position - never on the
 	/// first match regardless of its zone.
 	///
-	/// AN UNGUARDED ENUMERATION, LIKE <see cref="FileSymbolTable.TryCollect"/>'S. Every
-	/// <c>Match</c> and <c>NextMatch</c> call here runs through <see cref="TimedRegexEvaluation"/> and
-	/// so is STILL TIMED against the file's own <see cref="MatchBoundWatch"/> budget exactly like a
-	/// detection rule's. What is absent is the malformed-match guard: nothing here compares a match's
-	/// own position against where the previous one ended, so a corrupted, non-advancing match is
-	/// never detected as such and never resumed past - it is simply enumerated until either a
-	/// trustworthy code-zone match is found or the wall-clock bound trips and the file is stopped and
-	/// counted under <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> instead of
-	/// <see cref="Reading.SkippedItemCategory.MalformedMatch"/>.
+	/// Every <c>Match</c> and <c>NextMatch</c> call here runs through <see cref="TimedRegexEvaluation"/> and
+	/// is timed against the file's own <see cref="MatchBoundWatch"/> budget. There is no malformed-match
+	/// guard here: a non-advancing match is enumerated until a code-zone match is found or the bound trips,
+	/// and the file is then counted under <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/>
+	/// rather than <see cref="Reading.SkippedItemCategory.MalformedMatch"/>.
 	/// </summary>
 	private static bool CodeOnlyContentMarkerFires(
 		Regex expression,
@@ -457,10 +445,8 @@ internal static class FileDemotionSignals
 	}
 
 	/// <summary>
-	/// Ordinal either way: the binary is built with
-	/// invariant globalization precisely so that casing does not vary with the host's installed
-	/// locale data, and a culture-aware comparison would put a language-dependent answer into a
-	/// level that must be identical on every platform.
+	/// Ordinal either way, so that casing never depends on the host's locale data and the level is
+	/// identical on every platform.
 	/// </summary>
 	private static StringComparison ComparisonFor(CaseSensitivity sensitivity)
 	{

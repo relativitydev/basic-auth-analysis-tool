@@ -12,8 +12,8 @@ namespace MigrateAuth.Cli.Tests.Lexical;
 ///
 /// The two are deliberately not the same shape and this file is where that distinction is pinned.
 /// An unterminated construct leaves the mask CORRECT UP TO the opening position and undefined
-/// after it, so the file is partially covered and is counted under the ninth skipped-item category.
-/// A raw newline inside a literal that does not admit one is also an anomaly, but the
+/// after it, so the file is partially covered and is counted under the ninth skipped-item category. A raw
+/// newline inside a literal that does not admit one is also an anomaly in the profile vocabulary's words, but the
 /// scanner recovers at a line boundary it knows the position of, the file is covered end to end,
 /// and counting it as a skipped item would put a fully analyzed file into the number a reader
 /// uses to size the holes in the coverage.
@@ -21,9 +21,9 @@ namespace MigrateAuth.Cli.Tests.Lexical;
 public sealed class LexicalAnomalyTests
 {
 	/// <summary>
-	/// The mask below the boundary is not thrown away. The findings established up to the opening
-	/// are emitted, which is only possible if the zones below it survive - so this asserts the
-	/// surviving zones as well as the boundary.
+	/// The mask below the boundary is not thrown away. the scanner policy is explicit that the findings
+	/// established up to the opening are emitted, which is only possible if the zones below it
+	/// survive - so this asserts the surviving zones as well as the boundary.
 	/// </summary>
 	[Fact]
 	public void AnUnterminatedLiteralBoundsTheMaskAtItsOwnOpeningAndKeepsWhatCameBefore()
@@ -86,7 +86,7 @@ public sealed class LexicalAnomalyTests
 	}
 
 	/// <summary>
-	/// The three-valued newline policy, in its <c>Forbidden</c> value. The literal ends at
+	/// The profile's three-valued newline policy, in its <c>Forbidden</c> value. The literal ends at
 	/// the newline, the anomaly is counted, and the file is still covered end to end.
 	/// </summary>
 	[Fact]
@@ -104,7 +104,7 @@ public sealed class LexicalAnomalyTests
 	}
 
 	/// <summary>
-	/// The <c>EscapedContinues</c> newline value, which is the one a boolean cannot express. Read
+	/// The profile's <c>EscapedContinues</c> value, which is the one a boolean cannot express. Read
 	/// wrongly, the literal's CLOSING quote becomes an OPENING one and the whole rest
 	/// of the line turns into string body - so the assertion that carries this case is the one
 	/// about the trailing call.
@@ -142,8 +142,8 @@ public sealed class LexicalAnomalyTests
 
 	/// <summary>
 	/// THE SCANNER NEVER FILTERS. A file that is nothing but a comment is masked end to end
-	/// rather than declined, because what is found in a comment is demoted, and what was never
-	/// scanned cannot be.
+	/// rather than declined, because demotion lowers what is found in a comment and cannot demote
+	/// what was never scanned.
 	/// </summary>
 	[Fact]
 	public void AFileThatIsEntirelyACommentIsStillMaskedRatherThanDeclined()
@@ -172,9 +172,9 @@ public sealed class LexicalAnomalyTests
 	}
 
 	/// <summary>
-	/// THE SKIP GOES THROUGH THE SAME DOOR AS EVERY OTHER SKIP. The scanner raises the ninth
-	/// skipped-item category, and raising it anywhere but the emission point would be a second
-	/// reporting path for a hole in the coverage.
+	/// THE SKIP GOES THROUGH THE SAME DOOR AS EVERY OTHER SKIP. The skipped-item catalogue declares the ninth category
+	/// and leaves it for the scanner to raise, and raising it anywhere but the emission point would be
+	/// a second reporting path for a hole in the coverage.
 	/// </summary>
 	[Fact]
 	public void AnAbandonedScanIsReportedAsTheNinthSkippedItemCategory()

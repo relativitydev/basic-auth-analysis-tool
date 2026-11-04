@@ -15,15 +15,16 @@ namespace MigrateAuth.Cli.Tests.Agent;
 /// <summary>
 /// THE AGENT BOUNDARY'S TWO PROHIBITIONS, ASSERTED OVER THE SIGNATURES RATHER THAN BY READING THEM.
 ///
-/// They close different doors. The LAUNCH boundary must not let a repository-derived type reach the
-/// external tool at all; the PACK's content must be the finding record plus static template text and
-/// nothing else. Both are properties of a signature, so both are checkable here without running a
-/// launcher.
+/// The contract states them separately because they close different doors. The LAUNCH boundary must
+/// not let a repository-derived type reach the external tool at all; the PACK's content must be the
+/// finding record plus static template text and nothing else. Both are properties of a signature, so
+/// both are checkable here without running a launcher.
 ///
 /// EACH TEST BELOW ENUMERATES WHAT IS PERMITTED AND FAILS ON ANYTHING ELSE, in the manner
 /// <see cref="MigrateAuth.Cli.Tests.Emission.EmissionPointSignatureTests"/> already uses for the
-/// emission point. Widening a permitted list is a visible line in a diff, whereas a test that only
-/// banned <c>string</c> would pass the day someone wrapped a matched line in a type.
+/// emission point. A permitted list is the assertion a reviewer is meant to be asked about: widening
+/// it is a visible line in a diff, whereas a test that only banned <c>string</c> would pass the day
+/// someone wrapped a matched line in a type.
 /// </summary>
 public sealed class AgentBoundarySignatureTests
 {
@@ -92,7 +93,7 @@ public sealed class AgentBoundarySignatureTests
 	];
 
 	[Fact]
-	public void TheContractCarriesExactlyTheOperationsDR20Names()
+	public void TheContractCarriesExactlyTheOperationsTheAgentBoundaryNames()
 	{
 		Assert.Equal(_CONTRACT_OPERATION_COUNT, ContractOperations.Length);
 		Assert.Equal(
@@ -120,7 +121,7 @@ public sealed class AgentBoundarySignatureTests
 	}
 
 	/// <summary>
-	/// The launch takes the pack path and nothing else. Waiting for the agent is part of this call
+	/// The launch takes the pack path and nothing else. The third operation is this one's answer
 	/// rather than a separate member, because the child inherits the terminal and the call blocks
 	/// until it is gone.
 	/// </summary>
@@ -218,9 +219,9 @@ public sealed class AgentBoundarySignatureTests
 	}
 
 	/// <summary>
-	/// The single exemption is the relative path, and it is the same exemption the emission point
-	/// has - obtainable only through the write boundary's containment primitive, and never from
-	/// arbitrary text.
+	/// The single exemption is the relative path, and it is the same exemption the write boundary already grants
+	/// the emission point - obtainable only through the write boundary's containment primitive, and
+	/// never from arbitrary text.
 	/// </summary>
 	[Fact]
 	public void ThePackEntrysOnlyTextBearingFieldIsAPathThatCannotBeBuiltFromText()

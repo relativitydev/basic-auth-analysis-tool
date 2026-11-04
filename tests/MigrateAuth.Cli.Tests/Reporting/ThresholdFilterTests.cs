@@ -9,13 +9,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The confidence filter: it decides what appears and never what was assigned, and it does not
-/// renumber what survives it.
+/// The threshold filter: it decides what appears and never what was assigned, and it does not renumber
+/// what survives it.
 ///
-/// The renumbering assertion is the one worth having. Numbering after the filter would make a
-/// finding's identifier a function of the reader's configuration file, which breaks the stable
-/// identity and moves the key the recall measure grades against; a gapped sequence is the lesser
-/// cost.
+/// The renumbering assertion is the one worth having. A gapped sequence is accepted as the
+/// lesser cost precisely because the alternative - numbering after the filter - makes a finding's
+/// identifier a function of the reader's configuration file, which breaks the stable identity
+/// the threshold filter requires and moves the key the recall measure is scored against.
 /// </summary>
 public sealed class ThresholdFilterTests
 {

@@ -11,9 +11,10 @@ namespace MigrateAuth.Cli.Tests.Recognition;
 /// SUBSUMPTION, IN BOTH DIRECTIONS: WHAT A DECLARED RELATION SUPPRESSES AND WHAT THE
 /// ABSENCE OF ONE LETS THROUGH.
 ///
-/// The construct is a legacy client constructed with a credential object, which matches both the
-/// client class and the credential class. Emitting both double-counts one planted pattern, which
-/// corrupts both the recall and the false-positive figures.
+/// The construct is the standard example - a legacy client constructed with a credential object,
+/// which matches both the client class and the credential class. Emitting both double-counts one
+/// placed pattern, and the measurement uses both a recall numerator and a false-positive
+/// denominator, which the double-count corrupts in undeclared ways.
 ///
 /// The second half matters as much as the first. Absent a declared relation both classes are
 /// emitted, deliberately, so that a catalog's omission shows up as a doubled finding somebody
@@ -101,7 +102,7 @@ public sealed class SubsumptionTests
 	}
 
 	/// <summary>
-	/// The order key restricted to one file: anchor offset, then pattern class identifier. Nothing
+	/// The total-order key restricted to one file: anchor offset, then pattern class identifier. Nothing
 	/// downstream should have to re-sort what this component returns, and nothing should ever see
 	/// it in an order that depends on how a frozen dictionary enumerated.
 	/// </summary>

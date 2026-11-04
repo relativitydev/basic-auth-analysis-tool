@@ -18,7 +18,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// <see cref="ArtifactContractPipelineTests"/> proves for the synthetic analyzer's three routes.
 ///
 /// One High finding (CS-001) exercises the template route; one Low finding (CS-019) exercises
-/// the manual-review route. Both fixtures are synthetic, written from the catalog's own prose with
+/// its manual-review route. Both fixtures are synthetic, written from the catalog's own prose with
 /// generic names.
 /// </summary>
 public sealed class CSharpRecommendationRoutePipelineTests
@@ -40,7 +40,7 @@ public sealed class CSharpRecommendationRoutePipelineTests
 	/// well-formed list item - every continuation line indented to the content column, verified
 	/// structurally and by exact reconstruction rather than by a raw substring search, which a
 	/// continuation line's own added indentation would break (no `{path}` or `{line}` token
-	/// appears in any of the four fields, so substitution leaves them unchanged and the
+	/// appears in any of the four fields, so the template substitution leaves them unchanged and the
 	/// reconstructed value is compared to the template's own text with nothing else in play). The
 	/// JSON artifact's `recommendation` carries the same four pieces joined the way
 	/// <see cref="RecommendationRenderer.ComposeArtifactText"/> declares - a blank line between
@@ -76,7 +76,7 @@ public sealed class CSharpRecommendationRoutePipelineTests
 	/// <summary>
 	/// THE MANUAL-REVIEW ROUTE: CS-019 is base Low, so `recommendation` is null in the artifact
 	/// (the one expression of the manual-review signal) and the Markdown report carries
-	/// <see cref="RecommendationRenderer.MANUAL_REVIEW_TEXT"/> rather than any catalog
+	/// <see cref="RecommendationRenderer.MANUAL_REVIEW_LEAD_TEXT"/> rather than any catalog
 	/// template's text - CS-019 has none, by design.
 	/// </summary>
 	[Fact]
@@ -90,7 +90,13 @@ public sealed class CSharpRecommendationRoutePipelineTests
 		string reportText = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport);
 		string artifactText = harness.ReadWrittenArtifact(OutputArtifactKind.StructuredDataArtifact);
 
-		Assert.Contains(RecommendationRenderer.MANUAL_REVIEW_TEXT, reportText, StringComparison.Ordinal);
+		Assert.Contains(RecommendationRenderer.MANUAL_REVIEW_LEAD_TEXT, reportText, StringComparison.Ordinal);
+		Assert.Contains(
+			"\"CS-019 \u00b7 NonHttpCredentialSink\" under \"Judging a Low-confidence match\" in Part C for C# of the Migration Documentation.",
+			reportText,
+			StringComparison.Ordinal);
+		Assert.Contains("this pattern class is Low by definition: the credential goes to a sink that is not an HTTP client", reportText, StringComparison.Ordinal);
+		Assert.DoesNotContain("rarely live authenticating code", reportText, StringComparison.Ordinal);
 
 		ArtifactFindingDocument finding = FindByPatternClass(artifactText, _LOW_PATTERN_CLASS);
 

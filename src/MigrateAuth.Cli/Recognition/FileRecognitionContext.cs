@@ -14,8 +14,7 @@ namespace MigrateAuth.Cli.Recognition;
 /// recognition component that scanned the file again would either report the same file twice or
 /// have to know not to, and both are worse than taking the mask as an input.
 ///
-/// A MASK THAT WAS ABANDONED MID-FILE IS STILL USABLE AND IS DELIBERATELY NOT REFUSED. Findings
-/// established in the sound region are kept rather than thrown away with the
+/// A MASK THAT WAS ABANDONED MID-FILE IS STILL USABLE AND IS DELIBERATELY NOT REFUSED. Findings established in the sound region are kept rather than thrown away with the
 /// rest, and the undefined region above <see cref="ZoneMask.ValidThroughPosition"/> is filled in
 /// the DEMOTING direction - so a classification that ignores the boundary errs towards demoting a
 /// finding it should have kept, never towards promoting one it should not have had.

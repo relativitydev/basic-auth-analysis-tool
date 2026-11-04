@@ -1,13 +1,14 @@
 namespace MigrateAuth.Cli.Writing;
 
 /// <summary>
-/// The handling header both shareable artifacts carry.
+/// The handling header required on both shareable artifacts.
 ///
 /// No credential value is ever emitted, and that is not the same as the artifact being safe to
-/// forward. With the literal-credential signal, the report and the data artifact are a precise index
-/// of where a repository's embedded credentials are, and they are the documents that get pasted into
-/// support tickets. The header says so, in the artifact, where whoever is about to forward it will
-/// see it.
+/// forward. The report and the data
+/// artifact are not a map of call sites: with the literal-credential signal they are
+/// a precise index of WHERE a repository's embedded credentials are, and these are the documents
+/// that get pasted into support tickets. The header says so, in
+/// the artifact, where whoever is about to forward it will see it.
 ///
 /// It is stated once here and rendered by each sink in its own form, because a Markdown
 /// blockquote is not a JSON field and neither may be produced by concatenating the other.

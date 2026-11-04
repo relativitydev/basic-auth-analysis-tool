@@ -16,13 +16,14 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// run against it produces zero findings by construction. The embedded catalog's classes and templates
 /// are not the controlled three these cases need to reach every route of <c>suggest</c> and <c>report</c>.
 ///
-/// So this analyzer declares <c>CSharp</c>. Nothing about its shape is invented: the contract is the
-/// real <see cref="ILanguageAnalyzer"/>, so a member added to it breaks this file rather than being
-/// silently skipped, and the three rules below are modelled on the reference profile's own.
+/// So this analyzer declares <c>CSharp</c>, exactly as the real C# analyzer does.
+/// Nothing about its shape is invented: the contract is the real <see cref="ILanguageAnalyzer"/>,
+/// so a member added to it breaks this file rather than being silently skipped, and the three rules
+/// below are modelled on the reference profile's own.
 ///
-/// ITS THREE CLASSES EXIST TO REACH THE THREE RECOMMENDATION ROUTES. One High class with a template,
-/// one High class without one, and one Low class - which route to <c>FromTemplate</c>, <c>Generic</c>
-/// and <c>ManualReview</c> respectively. A fixture with only the first would leave two thirds of the
+/// ITS THREE CLASSES EXIST TO REACH THE THREE RECOMMENDATION ROUTES. One High class with a template, one High
+/// class without one, and one Low class - which route to <c>FromTemplate</c>, <c>Generic</c> and
+/// <c>ManualReview</c> respectively. A fixture with only the first would leave two thirds of the
 /// Suggest stage unexercised.
 /// </summary>
 internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
@@ -56,6 +57,9 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 	/// <summary>The extension files of this language carry.</summary>
 	internal const string FILE_EXTENSION = ".cs";
 
+	/// <summary>The one folder this fixture analyzer demotes.</summary>
+	internal const string DEMOTED_FOLDER_NAME = "Deployment";
+
 	private const string _CONSTRUCT_CAPTURE_GROUP = "construct";
 	private const string _CREDENTIAL_CAPTURE_GROUP = "credential";
 	private const string _PROFILE_NAME = "PipelineCSharp";
@@ -69,8 +73,9 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 		BuildTemplates();
 
 	/// <summary>
-	/// Optional: this fixture's own declared generic-fallback text, defaulting to null, which keeps
-	/// the base's language-neutral fallback in play through <see cref="UNTEMPLATED_PATTERN_CLASS"/>.
+	/// Optional: this fixture's own declared generic-fallback text, defaulting to
+	/// null so a caller that supplies none exercises the shared engine's language-neutral fallback
+	/// through <see cref="UNTEMPLATED_PATTERN_CLASS"/>.
 	/// </summary>
 	internal PipelineLanguageAnalyzer(string? languageFallbackText = null, ImmutableArray<FlowSignal> flowSignals = default)
 	{
@@ -166,13 +171,15 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 
 	/// <summary>
 	/// Anchored on its type name and carrying its credential at argument two, so that a literal
-	/// credential in the source sets the literal-credential signal from the ZONE of that argument rather
-	/// than from its value.
+	/// credential in the source sets the literal-credential signal from the ZONE of that argument rather than from
+	/// its value.
 	///
-	/// THE CREDENTIAL GROUP CAPTURES INSIDE THE QUOTES RATHER THAN AROUND THEM. The reference
+	/// THE CREDENTIAL GROUP CAPTURES INSIDE THE QUOTES RATHER THAN AROUND THEM, and that is the
+	/// difference between a rule whose signal fires and one whose signal never does. The reference
 	/// profile's own group includes the opening quote, so the offset it resolves to is the literal's
-	/// DELIMITER rather than its body. A real analyzer wants the body, because that is the zone the
-	/// signal is read from.
+	/// DELIMITER rather than its body - which <c>LiteralCredentialSignalTests</c> pins as the
+	/// existing behaviour. A real analyzer wants the body, because that is the zone the signal is read
+	/// from.
 	/// </summary>
 	private static DetectionRule BuildTemplatedRule()
 	{
@@ -192,7 +199,7 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 
 	/// <summary>
 	/// Anchored on its construct name, with an OPTIONAL trailing credential argument - which adds
-	/// the capture group so a test can plant a Low finding that also carries the
+	/// the capture group so a test can place a Low finding that also carries the
 	/// literal-credential signal, which `securityNote` must still report even where
 	/// `recommendation` is null. The zero-argument form (<c>LegacyBasicHelper()</c>) also matches:
 	/// the whole credential alternation is optional and an empty group never sets the signal.
@@ -233,7 +240,12 @@ internal sealed class PipelineLanguageAnalyzer : ILanguageAnalyzer
 		return new LanguageShapedDemotionSignals
 		{
 			FileNameSignals = FrozenSet<FileNameSignal>.Empty,
-			FolderNameSignals = FrozenSet<FolderNameSignal>.Empty,
+			// The shared engine does not demote this folder, so this fixture analyzer declares it itself,
+			// which keeps the demoted-file reason reachable through the pipeline without the shared engine.
+			FolderNameSignals = new[]
+			{
+				new FolderNameSignal { FolderName = DEMOTED_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive }
+			}.ToFrozenSet(),
 			GenerationMarkerExpressions = [],
 			ContentMarkers = []
 		};

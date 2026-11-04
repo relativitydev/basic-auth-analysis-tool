@@ -16,7 +16,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// ANYTHING ELSE KEEPS THE GENERIC ONE - through the real pipeline over the embedded catalog, in the
 /// Markdown report and in the data artifact.
 ///
-/// The same construct is planted five times so the only thing that differs between the findings is the
+/// The same construct is placed five times so the only thing that differs between the findings is the
 /// folder it sits in, and one of them sits in a vendored folder that is also a test folder.
 /// </summary>
 public sealed class VendoredLowReasonPipelineTests
@@ -35,7 +35,7 @@ public sealed class VendoredLowReasonPipelineTests
 	[Fact]
 	public void AFindingInAVendoredFolderStatesVendoredCodeAndNothingElse()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		ImmutableArray<Finding> findings = harness.State.Findings;
 
@@ -48,7 +48,7 @@ public sealed class VendoredLowReasonPipelineTests
 	[Fact]
 	public void AVendoredFolderThatIsAlsoATestFolderStatesBothReasons()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		Finding finding = FindingIn(harness.State.Findings, _VENDORED_AND_TEST_FILE);
 
@@ -58,7 +58,7 @@ public sealed class VendoredLowReasonPipelineTests
 	[Fact]
 	public void TheMarkdownReportNamesVendoredCodeForAVendoredFindingAndTheGenericReasonForADemotedFile()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		string report = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport).ReplaceLineEndings("\n");
 		string vendoredLine = ReasonLine(LowConfidenceReasons.DemotedVendoredFile);
@@ -77,7 +77,7 @@ public sealed class VendoredLowReasonPipelineTests
 	[Fact]
 	public void TheDataArtifactCarriesTheVendoredValueApartFromTheGenericOne()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		ArtifactDocument artifact = ReadArtifact(harness);
 
@@ -91,7 +91,7 @@ public sealed class VendoredLowReasonPipelineTests
 	[Fact]
 	public void TheVendoredReasonSurvivesAResume()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		SessionStateLoad reloaded = harness.ReloadState();
 
@@ -101,7 +101,7 @@ public sealed class VendoredLowReasonPipelineTests
 			FindingIn(reloaded.State.Findings, _VENDORED_FILE).LowReasons);
 	}
 
-	private static PipelineHarness RunTheWorkflowOverThePlantedTree()
+	private static PipelineHarness RunTheWorkflowOverThePreparedTree()
 	{
 		PipelineHarness harness = PipelineHarness.CreateOverTheEmbeddedCatalog();
 

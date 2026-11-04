@@ -5,7 +5,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests;
 
 /// <summary>
-/// Proves the two obligations on the session boundary: every unforeseen failure
+/// Proves the two obligations placed on the boundary: every unforeseen failure
 /// becomes exit code 5, and the line it emits leaks neither an absolute path nor the
 /// framework's own message.
 /// </summary>

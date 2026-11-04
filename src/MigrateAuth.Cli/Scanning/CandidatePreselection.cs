@@ -3,18 +3,26 @@ using MigrateAuth.Cli.Catalog;
 namespace MigrateAuth.Cli.Scanning;
 
 /// <summary>
-/// The candidate test, run over decoded text.
+/// THE CANDIDATE TEST, AND IT RUNS OVER DECODED TEXT.
 ///
-/// A byte buffer transliterated one byte per character contains no anchor at all in a two-byte
-/// encoding, and the file would silently never become a candidate. The inventory pass therefore
-/// decodes once and hands the text here - which is why this method takes a string and has no overload
-/// that takes bytes.
+/// That is the decision, not the implementation: a byte buffer transliterated one byte per
+/// character contains no anchor at all in a two-byte encoding, and the failure is silent in a
+/// specific way. The file was read successfully, so no counter fires; it simply never becomes a
+/// candidate, and a whole encoding's worth of a repository is never analyzed while every number
+/// in the report looks healthy. The inventory pass therefore decodes once with the shared decode and
+/// hands the TEXT here - which is why this method takes a string and has no overload that takes
+/// bytes.
 ///
-/// Every anchor carries its own case rule, read off the anchor and never off the profile, so one
-/// analyzer can hold a case-sensitive type name and a case-insensitive header name at the same time.
+/// EVERY ANCHOR CARRIES ITS OWN CASE RULE, because the profile's case field is scoped to keywords and
+/// delimiters rather than to anchors, and two of the eight languages are case-insensitive. The
+/// rule is read off the anchor and never off the profile, so one analyzer can hold a
+/// case-sensitive type name and a case-insensitive header name at the same time - which the
+/// reference profile does, deliberately.
 ///
-/// A credential stored in a configuration file that belongs to none of the eight languages is
-/// excluded before any anchor is tested; widening the anchor set does not reach it.
+/// IF IN-CODE SECRET DETECTION EVER ENTERS THIS PRODUCT, IT CANNOT SHARE THIS PATH. A
+/// credential usually lives in a configuration file belonging to none of the eight languages, so
+/// the detection rule has already excluded it before any anchor is tested. Widening the anchor set does
+/// not reach it, and nothing here should be built as though it could.
 /// </summary>
 public static class CandidatePreselection
 {
@@ -43,9 +51,10 @@ public static class CandidatePreselection
 	}
 
 	/// <summary>
-	/// Ordinal either way. The binary is built with invariant globalization so that casing does not vary
-	/// with the host's installed locale data, and a culture-aware comparison here would put a
-	/// language-dependent answer into a candidate set that must be identical on every platform.
+	/// Ordinal either way. The binary is built with invariant globalization precisely so that
+	/// casing does not vary with the host's installed locale data, and a culture-aware comparison
+	/// here would put a language-dependent answer into a candidate set that must be
+	/// identical on every platform.
 	/// </summary>
 	private static StringComparison ComparisonFor(CaseSensitivity sensitivity)
 	{

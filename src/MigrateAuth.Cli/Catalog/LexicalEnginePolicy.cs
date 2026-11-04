@@ -28,11 +28,18 @@ public enum UnterminatedConstructPolicy
 public static class LexicalEnginePolicy
 {
 	/// <summary>
-	/// The interpolation recursion bound. Exceeding it is an anomaly, never a stack overflow, and it is
-	/// the engine's number rather than a profile's. Each nesting level costs one stack frame of
-	/// recursive descent.
+	/// The recursion bound. Exceeding it is an anomaly, never a stack overflow, and it is
+	/// the engine's number rather than a profile's.
 	/// </summary>
 	public const int MAXIMUM_INTERPOLATION_RECURSION_DEPTH = 8;
+
+	/// <summary>
+	/// How many times one file may fall back from nested-hole counting to the
+	/// first closing. Each fallback re-reads the hole, so an unbounded number of unbalanced openers
+	/// would make the scan quadratic; past this count the rest of the file reads every hole by its
+	/// first closing and no further anomaly is recorded.
+	/// </summary>
+	public const int MAXIMUM_NESTING_RECOVERIES_PER_FILE = 8;
 
 	/// <summary>
 	/// In milliseconds so the constant carries its unit in its name. The per-file, per-stage
@@ -41,14 +48,11 @@ public static class LexicalEnginePolicy
 	/// (charged in the lexical scan) and a first-line detection expression (charged in language
 	/// attribution). Each of the three also declares this figure as its own regex timeout, because
 	/// a cooperative watch cannot interrupt one stuck match.
-	///
-	/// It sits far below the recognition engine's own match bound, because every search charged
-	/// here is confined to one line's window rather than run over a whole file.
 	/// </summary>
 	public const int PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS = 250;
 
 	/// <summary>
-	/// The budget itself. Read as a <see cref="TimeSpan"/> everywhere, so that a change to it
+	/// The budget itself. Read as a <see cref="TimeSpan"/> everywhere, so that a retuning
 	/// changes exactly one number and no arithmetic at a call site changes with it.
 	/// </summary>
 	public static readonly TimeSpan LEXICAL_BUDGET = TimeSpan.FromMilliseconds(PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS);
@@ -59,7 +63,7 @@ public static class LexicalEnginePolicy
 
 	/// <summary>
 	/// Longest opening first. The tie-breakers are ordinal and culture-invariant so that the
-	/// resulting order is identical on every platform.
+	/// resulting order is identical on every platform, which the ordering guarantee needs.
 	/// </summary>
 	public static ImmutableArray<QuoteRule> OrderQuoteRules(IEnumerable<QuoteRule> quoteRules)
 	{

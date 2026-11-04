@@ -16,9 +16,9 @@ namespace MigrateAuth.Cli.Findings;
 /// either double that count or have to know not to.
 ///
 /// THE LANGUAGE IS A PROPERTY OF THE FILE AND NOT OF THE ANALYZER, which is why it is a field
-/// here rather than read off the catalog. Two languages may share one profile, and the name is
-/// derived per file from the extension and the first line, so an analyzer answers "which catalog"
-/// and never "which language".
+/// here rather than read off the catalog. The analyzer contract lets two languages share one profile
+/// and derives the name per file from the extension and the first line - the reference profile
+/// does exactly that - so an analyzer answers "which catalog" and never "which language".
 ///
 /// THE TEXT IS THE NORMALIZED TEXT AND NOTHING ELSE INDEXES INTO ANYTHING. Every anchor offset a
 /// construct carries is an offset into this exact string, so a caller handing over the raw decoded
@@ -41,7 +41,7 @@ public sealed record RecognizedFile
 
 	/// <summary>
 	/// What recognition produced: subsumption already applied, already ordered by anchor offset
-	/// and then by pattern class identifier. The fingerprint's ordinal follows that order, so a
+	/// and then by pattern class identifier. The ordinal the fingerprint counts follows that order, so a
 	/// caller reordering this array would be renaming findings.
 	/// </summary>
 	public required ImmutableArray<RecognizedConstruct> Constructs { get; init; }

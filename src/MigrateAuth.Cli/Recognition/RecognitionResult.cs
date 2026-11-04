@@ -5,8 +5,8 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// What recognition yields for one file: its constructs, classified, subsumption applied and in the
-/// total finding order, and one <see cref="Findings.FlowEvidence"/> for the whole file. It is a value,
+/// What recognition yields for one file: its constructs, classified, subsumption applied and
+/// in the total order, and ONE <see cref="Findings.FlowEvidence"/> for the whole file. It is a value,
 /// returned to the caller; the engine emits no finding.
 /// </summary>
 public sealed record RecognitionResult

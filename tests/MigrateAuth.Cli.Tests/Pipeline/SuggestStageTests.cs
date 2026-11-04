@@ -13,9 +13,9 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// <summary>
 /// THE STAGE WHOSE WHOLE CONTRACT IS WHAT IT DOES NOT KEEP.
 ///
-/// Suggest resolves the recommendation route and reports the counts; a rendered recommendation is
-/// produced at write time and held by nobody. These tests hold the stage to that - the counts on one
-/// side, and the absence of any retained text on the other.
+/// Suggest resolves each finding's recommendation route and reports the counts; a rendered recommendation is
+/// produced at write time and held by nobody. These tests hold it to that - the
+/// counts on one side, and the absence of any retained text on the other.
 /// </summary>
 public sealed class SuggestStageTests
 {
@@ -126,9 +126,9 @@ public sealed class SuggestStageTests
 	}
 
 	/// <summary>
-	/// The stage writes nothing to the session state. That state is bounded to three parts and a
+	/// The stage writes nothing to the session state. The data invariant bounds that state to three parts and a
 	/// recommendation is not one of them, so a Suggest that contributed to it would be widening the
-	/// persisted state.
+	/// persisted state past what the invariant admits.
 	/// </summary>
 	[Fact]
 	public void TheStageContributesNothingToTheSessionState()

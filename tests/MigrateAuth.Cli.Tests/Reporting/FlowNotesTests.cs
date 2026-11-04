@@ -9,9 +9,10 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// THE FOUR FLOW NOTES: ONE NAMED CONSTANT PER (DECISION, FLOW) PAIR AND A TOTAL FUNCTION
 /// OVER THEM.
 ///
-/// A note on a finding no interactive signal decided has to name the flow that was not assigned
-/// and both conditions under which the developer should switch to it; the shorter note on a finding
-/// an interactive signal decided has to name Client Credentials and the condition that applies.
+/// What a note has to say is fixed by the product requirement it exists for. A note on a finding no
+/// interactive signal decided has to name the flow that was not assigned and both conditions under
+/// which the developer should switch to it; the shorter note on a finding an interactive signal
+/// decided has to name Client Credentials and the condition that applies.
 /// </summary>
 public sealed class FlowNotesTests
 {

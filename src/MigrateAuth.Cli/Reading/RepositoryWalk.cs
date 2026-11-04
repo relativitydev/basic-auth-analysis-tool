@@ -7,9 +7,11 @@ namespace MigrateAuth.Cli.Reading;
 /// THE WALK WRITTEN BY HAND, DIRECTORY BY DIRECTORY, EACH WITH ITS OWN FAILURE HANDLING.
 ///
 /// RECURSIVE ENUMERATION IS NOT USED. The framework's recursive overload raises on the first
-/// unreadable directory and, because enumeration is lazy, that ABORTS THE ENTIRE WALK. The option
-/// that suppresses the exception instead skips inaccessible entries SILENTLY: no exception, no
-/// counter, no trace. Neither can produce a categorized count of skipped items.
+/// unreadable directory and, because enumeration is lazy, that ABORTS THE ENTIRE WALK. The
+/// option that suppresses the exception instead skips inaccessible entries SILENTLY: no
+/// exception, no counter, no trace. Neither can produce the categorized count the walk owes,
+/// the first because it never reaches the count and the second because it makes one
+/// impossible.
 ///
 /// So this class holds its own stack of directories still to visit, and takes one directory's
 /// entries at a time. A denial is then a local event: it is caught where it happened, recorded
@@ -20,7 +22,8 @@ namespace MigrateAuth.Cli.Reading;
 /// IT STREAMS. Files are yielded as they are found, and the only thing materialized at any
 /// moment is the entry list of the single directory being processed plus the stack of
 /// directories still pending - neither of which grows with the size of the repository in the way
-/// a list of every file would.
+/// a list of every file would. The walk has a worst case of half a million files,
+/// and the discipline is: do not accumulate what you do not need.
 ///
 /// WHAT IT DOES NOT DO: decide what a candidate is, count lines, open anything. It reaches
 /// files, and the reader opens them.
@@ -42,7 +45,7 @@ public sealed class RepositoryWalk
 
 	/// <summary>
 	/// Every file under the root, in an order fixed by the stack and by the platform's own
-	/// enumeration. Ordering of the OUTPUT is applied where output is
+	/// enumeration. Ordering of the OUTPUT belongs to the output stage and is applied where output is
 	/// produced, not here - a walk that sorted would have to hold the tree to do it.
 	/// </summary>
 	public IEnumerable<WalkedFile> Enumerate()
@@ -197,11 +200,13 @@ public sealed class RepositoryWalk
 	/// and any one of three reasons would be enough. A link pointing at an ancestor makes the
 	/// walk non-terminating. A link pointing outside the tree would make the tool read and report
 	/// material outside the audited scope. And a path outside the tree cannot be expressed as
-	/// repository-relative, so the report would have to emit a traversal or an absolute path.
+	/// repository-relative, so the report would have to emit a traversal or an absolute path,
+	/// against the rule that no absolute path or content leaves the process.
 	///
 	/// The test is the reparse-point attribute, read from the value the enumeration already
 	/// returned rather than from a fresh probe, and it is applied to FILE entries as well as
-	/// directory ones: the second and third reasons above apply verbatim to a
+	/// directory ones. The reasons above argue the directory case and the skipped-item category is named
+	/// "a directory link, junction or reparse point"; the second and third reasons above apply verbatim to a
 	/// file link, whose target is equally free to sit outside the tree. Not following it is the
 	/// safe direction, and it is counted rather than dropped.
 	/// </summary>

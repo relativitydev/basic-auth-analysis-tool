@@ -13,9 +13,9 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Findings;
 
 /// <summary>
-/// The admitted set follows the ordering key whatever order the files arrive in, and two raw
-/// paths that map to one key are told apart by a raw-ordinal tie-break and a fingerprint
-/// disambiguator.
+/// THE ADMITTED SET: it follows the ordering key whatever order
+/// the files arrive in, and two raw paths that map to one key are told apart by a raw-ordinal
+/// tie-break and a fingerprint disambiguator.
 ///
 /// NO PATH THE PRODUCT BUILDS CAN COLLIDE ON A KEY, because the key is the separator-normalized
 /// path and the path is already that. The collision cases therefore run on synthetic pairs and on

@@ -64,6 +64,24 @@ public sealed class ScanStageTests
 		Assert.Equal([_RECOGNIZED_FILE_NAME], harness.State.CandidateRelativePaths);
 	}
 
+	/// <summary>The count line agrees in number: one file is "1 file", and two are "2 files".</summary>
+	[Theory]
+	[InlineData(1, "scan: 1 file enumerated.")]
+	[InlineData(2, "scan: 2 files enumerated.")]
+	public void TheEnumeratedCountAgreesInNumber(int fileCount, string expectedLine)
+	{
+		using ScanHarness harness = ScanHarness.CreateEmpty();
+
+		for (int position = 0; position < fileCount; position++)
+		{
+			harness.Fixture.WriteText($"ordinary{position}.ex1", _ORDINARY_CONTENT);
+		}
+
+		harness.BuildStage().Run(harness.State, CancellationToken.None);
+
+		Assert.Contains(expectedLine, harness.Output.ToString(), StringComparison.Ordinal);
+	}
+
 	[Fact]
 	public void TheInventoryAndTheCandidateCountAreReported()
 	{
@@ -80,8 +98,8 @@ public sealed class ScanStageTests
 	}
 
 	/// <summary>
-	/// The skipped count, in the scan summary. The two numbers are reported apart,
-	/// because files are counted for eight categories and directories for the ninth, and a sum of
+	/// the skipped count, in the scan summary. The two numbers are reported apart,
+	/// because skipped items count files for eight categories and directories for the ninth and a sum of
 	/// the two would mean nothing.
 	/// </summary>
 	[Fact]

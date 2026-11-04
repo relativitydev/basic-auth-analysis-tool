@@ -15,9 +15,9 @@ public sealed class SkippedItemLedgerTests
 	private const int _CLOSED_LIST_LENGTH = 11;
 
 	/// <summary>
-	/// The skipped-item list is closed at eleven categories, including
-	/// <see cref="SkippedItemCategory.MatchBoundExceeded"/> and <see cref="SkippedItemCategory.MalformedMatch"/>,
-	/// which the engine raises for the same reason - a rule's own match that cannot be trusted.
+	/// The list is closed at eleven categories, <see cref="SkippedItemCategory.MatchBoundExceeded"/> and
+	/// <see cref="SkippedItemCategory.MalformedMatch"/> among them - the same engine raising both for the same
+	/// reason, a rule's own match that cannot be trusted.
 	/// </summary>
 	[Fact]
 	public void TheEnumerationIsExactlyElevenAndTheyAreTheElevenTheDesignNames()

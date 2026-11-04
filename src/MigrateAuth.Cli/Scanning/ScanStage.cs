@@ -52,13 +52,14 @@ public sealed record ScanStageContext
 }
 
 /// <summary>
-/// The Scan workflow stage.
+/// THE FIRST WORKFLOW STAGE THAT DOES REAL WORK.
 ///
-/// It runs the two passes in order - count, warn, then read - and hands the candidate set to the
-/// session state, where it is persisted as an output of Scan. The shell does the persisting, the
-/// cascade and the gating; this stage reports only how it ended.
+/// It runs the two passes in order - count, warn, then read - and
+/// hands the candidate set to the session state, which is where it has to live: an
+/// output of Scan that is persisted, not an internal calculation of the analysis. The shell does
+/// the persisting, the cascade and the gating; this stage reports only how it ended.
 ///
-/// Everything it prints is a count or a catalog name. No path, no line of any analyzed file, and
+/// EVERYTHING IT PRINTS IS A COUNT OR A CATALOG NAME. No path, no line of any analyzed file, and
 /// no framework message reaches this console surface.
 /// </summary>
 public sealed class ScanStage
@@ -68,6 +69,9 @@ public sealed class ScanStage
 
 	/// <summary>Said between the passes, naming the total the advance warning was decided from.</summary>
 	public const string ENUMERATION_COMPLETED_MESSAGE_FORMAT = $"{_STAGE_NAME}: {{0:N0}} files enumerated.";
+
+	/// <summary>The same line when exactly one file was enumerated.</summary>
+	public const string SINGLE_FILE_ENUMERATED_MESSAGE = $"{_STAGE_NAME}: 1 file enumerated.";
 
 	/// <summary>the table, whose header names the denominator of the share column.</summary>
 	public const string INVENTORY_HEADER_MESSAGE = "Inventory by language (share of files enumerated):";
@@ -113,9 +117,10 @@ public sealed class ScanStage
 	public const string CANDIDATE_COUNT_MESSAGE_FORMAT = "Candidate files: {0:N0} of {1:N0}.";
 
 	/// <summary>
-	/// The skipped count, in the scan summary. The two numbers are never added: ten categories count
-	/// files and the eleventh counts directories, and a directory whose contents could not be listed is
-	/// a hole of unknown size, so a sum of the two would be a number that means nothing.
+	/// the skipped count, in the scan summary. The two numbers are never added: the skipped-item enumeration
+	/// counts files for ten categories and directories for the eleventh, and a directory whose
+	/// contents could not be listed is a hole of UNKNOWN size, so a sum of the two would be a
+	/// number that means nothing.
 	/// </summary>
 	public const string SKIPPED_SUMMARY_MESSAGE_FORMAT =
 		"Skipped files: {0:N0}. Directories whose contents could not be listed: {1:N0}.";
@@ -142,6 +147,7 @@ public sealed class ScanStage
 	/// </summary>
 	private const string _STAGE_NAME = "scan";
 
+	private const int _SINGULAR_COUNT = 1;
 	private const string _ITEM_LABEL = "files";
 
 	private readonly ScanStageContext _context;
@@ -247,7 +253,11 @@ public sealed class ScanStage
 			state.RecordScanOutcome(
 				inventory.CandidateRelativePaths,
 				inventory.CandidateLanguageNames,
-				ScanSummary.From(inventory.Inventory) with { ExcludedFolders = enumeration.ExcludedFolders },
+				ScanSummary.From(inventory.Inventory) with
+				{
+					ExcludedFolders = enumeration.ExcludedFolders,
+					LegacyEncodedFiles = inventory.LegacyEncodedFiles
+				},
 				_context.SkippedItems.Tallies(),
 				_context.Configuration.EnabledLanguagesInDeclaredOrder);
 			outcome = StageRunOutcome.Completed;
@@ -264,7 +274,9 @@ public sealed class ScanStage
 		}
 		else
 		{
-			WriteFormatted(ENUMERATION_COMPLETED_MESSAGE_FORMAT, enumeration.FilePaths.Count);
+			WriteFormatted(
+				enumeration.FilePaths.Count == _SINGULAR_COUNT ? SINGLE_FILE_ENUMERATED_MESSAGE : ENUMERATION_COMPLETED_MESSAGE_FORMAT,
+				enumeration.FilePaths.Count);
 		}
 
 		progress.WarnWhenTheWorkIsLarge();
@@ -316,7 +328,8 @@ public sealed class ScanStage
 	/// summed once after the table, and separately every enumerated file whose language this session's
 	/// configuration disabled - see <see cref="LanguageAssessment"/> for what "assessed" means here.
 	/// Each sum counts only its own <see cref="LanguageAssessmentState"/>, never the unrecognized
-	/// bucket and never the other's state - disabled and unanalyzed are two distinct reasons.
+	/// bucket and never the other's state - disabled and unanalyzed are two distinct reasons, and the coverage
+	/// statement's precedent is what keeps a reader from having to guess which one a row's silence means.
 	/// </summary>
 	private void WriteUnassessedLanguagesSummary(
 		ImmutableArray<LanguageInventoryRow> rows,

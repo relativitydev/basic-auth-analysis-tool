@@ -57,6 +57,12 @@ public sealed class CSharpFlowSignalTests
 
 	private static readonly string _WPF_FILLER_BEYOND_THE_WINDOW = string.Join(_NEWLINE, Enumerable.Repeat("var total = first + second;", 20));
 
+	/// <summary>The longest identifier chain the cast operand accepts, 81 characters.</summary>
+	private static readonly string _WPF_LONGEST_IDENTIFIER_CHAIN = "a" + new string('b', 80);
+
+	/// <summary>The longest argument text a suffix accepts is 120 characters: a quoted literal of 118 characters and its two quotes.</summary>
+	private static readonly string _WPF_LONGEST_ARGUMENT_LITERAL_BODY = new string('c', 118);
+
 	private static readonly ImmutableArray<(string Name, FlowSignalKind Kind, FlowSignalZone Zone)> _declaredTable =
 	[
 		(_CONSOLE_PASSWORD_PROMPT_TEXT, FlowSignalKind.InteractiveUser, FlowSignalZone.CodeOrStringBody),
@@ -151,6 +157,46 @@ public sealed class CSharpFlowSignalTests
 		new(
 			"wpf-cast-call-stored-then-read",
 			Lines("var box = (PasswordBox)FindName(\"PasswordInput\");", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-operand-identifier-chain-of-the-longest-length-stored-as-then-read",
+			Lines($"var box = {_WPF_LONGEST_IDENTIFIER_CHAIN} as PasswordBox;", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-operand-with-the-most-suffixes-each-followed-by-a-member-chain-stored-as-then-read",
+			Lines("var box = Root.Find(\"a\").Child.Get(1).Item[2].Next(3).Control as PasswordBox;", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-operand-with-the-longest-argument-text-stored-as-then-read",
+			Lines($"var box = Find(\"{_WPF_LONGEST_ARGUMENT_LITERAL_BODY}\") as PasswordBox;", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-operand-with-the-most-suffixes-direct-cast-read",
+			"var entered = ((PasswordBox)Root.Find(\"a\").Child.Get(1).Item[2].Next(3).Control).Password;",
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-direct-as-accepts-an-operand-with-a-nested-call",
+			"var entered = (Find(Get(\"x\")) as PasswordBox).Password;",
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-direct-as-accepts-a-constructed-operand",
+			"var entered = (new Factory() as PasswordBox).Password;",
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-direct-as-accepts-a-parenthesized-operand",
+			"var entered = ((expression) as PasswordBox).SecurePassword;",
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-stored-cast-accepts-an-operand-with-a-nested-call",
+			Lines("var box = (PasswordBox)Find(Get(\"x\"));", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-stored-cast-accepts-a-constructed-operand",
+			Lines("var box = (PasswordBox)new Factory();", "var entered = box.Password;"),
+			[_WPF_PASSWORD_BOX]),
+		new(
+			"wpf-stored-cast-accepts-a-parenthesized-operand",
+			Lines("var box = (PasswordBox)(expression);", "var entered = box.SecurePassword;"),
 			[_WPF_PASSWORD_BOX]),
 		new("winforms-system-char", "field.UseSystemPasswordChar = true;", [_WIN_FORMS_MASKING]),
 		new("winforms-password-char", "field.PasswordChar = '*';", [_WIN_FORMS_MASKING]),
@@ -264,6 +310,50 @@ public sealed class CSharpFlowSignalTests
 			[]),
 		new("wpf-cast-call-without-a-password-read", "((PasswordBox)FindName(\"PasswordInput\")).Focus();", []),
 		new("wpf-cast-call-to-another-control-type", "var entered = ((TextBox)FindName(\"PasswordInput\")).Password;", []),
+		new(
+			"wpf-declared-operand-a-call-with-a-nested-call-stored-as-then-read",
+			Lines("var box = Find(Get(\"x\")) as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-declared-operand-a-call-with-a-nested-name-of-call-stored-as-then-read",
+			Lines("var box = FindName(nameof(entry)) as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-declared-operand-a-constructed-object-stored-as-then-read",
+			Lines("var box = new Factory() as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-declared-operand-a-parenthesized-expression-stored-as-then-read",
+			Lines("var box = (expression) as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-declared-operand-a-call-with-a-nested-call-in-a-direct-cast",
+			"var entered = ((PasswordBox)Find(Get(\"x\"))).Password;",
+			[]),
+		new(
+			"wpf-declared-operand-a-constructed-object-in-a-direct-cast",
+			"var entered = ((PasswordBox)new Factory()).Password;",
+			[]),
+		new(
+			"wpf-operand-identifier-chain-one-character-over-the-longest-length",
+			Lines($"var box = {_WPF_LONGEST_IDENTIFIER_CHAIN}x as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-operand-one-suffix-over-the-most-suffixes",
+			Lines("var box = Root.Find(\"a\").Child.Get(1).Item[2].Next(3).More(4).Control as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-operand-argument-text-one-character-over-the-longest-length",
+			Lines($"var box = Find(\"{_WPF_LONGEST_ARGUMENT_LITERAL_BODY}x\") as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-operand-argument-text-spread-over-two-lines",
+			Lines("var box = Find(\"first", "second\") as PasswordBox;", "var entered = box.Password;"),
+			[]),
+		new(
+			"wpf-operand-argument-text-holding-a-statement-end",
+			Lines("var box = Find(\"a;b\") as PasswordBox;", "var entered = box.Password;"),
+			[]),
 		new(
 			"wpf-as-on-a-later-statement-does-not-bind-the-earlier-variable",
 			Lines("var box = Build(); var other = source as PasswordBox;", "var entered = box.Password;"),

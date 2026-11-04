@@ -14,8 +14,9 @@ public sealed record EnumerationResult
 {
 	/// <summary>
 	/// The bounded path list both passes run over. It is exposed as a read-only list over the
-	/// list that was built rather than copied into an immutable one, because for a repository of half a
-	/// million files the copy is a second list of the same size held at the same moment.
+	/// list that was built rather than copied into an immutable one, because at the worst
+	/// case of half a million files the copy is a second list of the same size held at the same
+	/// moment - a peak this stage has no reason to pay for a guarantee no caller needs.
 	/// </summary>
 	public required IReadOnlyList<RepositoryRelativePath> FilePaths { get; init; }
 
@@ -33,14 +34,17 @@ public sealed record InventoryResult
 	public required LanguageInventory Inventory { get; init; }
 
 	/// <summary>
-	/// The candidate set, as repository-relative text ready for session-state persistence. It is the one
-	/// term that grows with the repository and it is not capped: capping it would mean silently declining
-	/// to analyze files. Paths only, never content.
+	/// the candidate set, as repository-relative text ready for persistence. It
+	/// is the one term that grows with the repository and it is deliberately not capped:
+	/// capping it means silently declining to analyze files, which is worse than the memory it
+	/// saves. Paths only, never content.
 	///
-	/// Ordered ordinally, which the walk itself is not - it holds a directory stack rather than the tree,
-	/// so its order is the platform's. Ordering it makes the state file two identical runs write
-	/// identical, and makes the order in which a later stage analyzes candidates - which decides which
-	/// findings a findings cap drops - a property of the repository rather than of the filesystem.
+	/// ORDERED ORDINALLY, which the walk itself is not and could not be - it holds a directory
+	/// stack rather than the tree, so its order is the platform's. The list is already held here,
+	/// so ordering it costs nothing structural and buys two things determinism asks for: the state file
+	/// two identical runs write is identical, and the order in which a later stage analyzes
+	/// candidates - which is what decides WHICH findings a findings cap drops - is a property of
+	/// the repository rather than of the filesystem that enumerated it.
 	/// </summary>
 	public required IReadOnlyList<string> CandidateRelativePaths { get; init; }
 
@@ -53,23 +57,30 @@ public sealed record InventoryResult
 
 	/// <summary>Whether the user interrupted the pass.</summary>
 	public required bool WasCancelled { get; init; }
+
+	/// <summary>The files this pass read as a legacy code page: a count and a bounded list.</summary>
+	public LegacyEncodedFileSummary LegacyEncodedFiles { get; init; } = LegacyEncodedFileSummary.None;
 }
 
 /// <summary>
-/// Two passes over one walk.
+/// TWO PASSES OVER ONE WALK.
 ///
-/// The tree is walked once. The advance warning must fire past 50,000 files before scanning begins,
-/// which needs the total before the work - and the total is only knowable by enumerating. Walking
-/// twice would double the traversal and could let the two passes disagree about which files exist in
-/// a repository being edited during the scan. So the walk runs once into a bounded path list and both
-/// passes run over that list.
+/// THE TREE IS WALKED ONCE. The advance warning must fire past 50,000 files BEFORE scanning
+/// begins, which needs the total before the work - and the total is only knowable by enumerating.
+/// Walking twice would double the traversal and, worse, would let the two passes disagree about
+/// which files exist in a repository being edited during the scan. So the walk runs once into a
+/// bounded path list and both passes run over that list.
 ///
-/// The list holds one <see cref="RepositoryRelativePath"/> per file, which is one string reference and
-/// nothing else. The absolute path is rebuilt per file in the second pass by combining the canonical
-/// root with the relative path. The typed relative path is carried rather than re-derived, so the
-/// containment guarantee the walk established cannot come out differently the second time.
+/// WHAT THE LIST HOLDS IS THE SMALLEST THING THAT WORKS: one <see cref="RepositoryRelativePath"/>
+/// per file, which is one string reference and nothing else. The walk's own
+/// <see cref="WalkedFile"/> carries the absolute path as well, and holding half a million of
+/// those would roughly double a term that is already the largest thing this stage allocates. The
+/// absolute path is rebuilt per file in the second pass by combining the canonical root with the
+/// relative path - a string operation against a value the walk itself derived from that same root.
+/// The typed relative path is CARRIED rather than re-derived, so the containment guarantee the
+/// walk established is not re-litigated and cannot come out differently the second time.
 ///
-/// Aggregation only. No per-file record survives a loop iteration in the second pass: the
+/// AGGREGATION ONLY. No per-file record survives a loop iteration in the second pass: the
 /// inventory takes three numbers, the candidate list takes a path, and the decoded text is
 /// released with the iteration that decoded it.
 /// </summary>
@@ -126,14 +137,14 @@ public sealed class RepositoryInventoryScan
 	}
 
 	/// <summary>
-	/// Pass 1. Produces the total file count, and opens nothing. Every category the reader can
+	/// PASS 1. Produces the total file count, and OPENS NOTHING. Every category the reader can
 	/// raise - unreadable, undecodable, oversize, over-long line - is therefore impossible during
 	/// this pass, which is how "the warning fired before a single file was opened" is demonstrable
 	/// rather than asserted.
 	///
-	/// It does not produce the per-language distribution: the inventory also needs lines of code and the
-	/// first-line detection, neither of which exists without opening the file, so the distribution is
-	/// computed once, in pass 2.
+	/// It does not produce the per-language distribution: that needs lines of code and the first-line
+	/// detection, neither of which exists without opening the file, so the inventory pass produces it.
+	/// The number the warning needs is the total, and the total is what this pass produces.
 	/// </summary>
 	public EnumerationResult Enumerate(StageProgressReporter progress, CancellationToken cancellationToken)
 	{
@@ -177,12 +188,12 @@ public sealed class RepositoryInventoryScan
 	}
 
 	/// <summary>
-	/// Pass 2. Opens each file once and, in the same pass, decodes it, counts its lines and
-	/// evaluates candidate preselection - all three over the same decoded text, which is what
+	/// PASS 2. Opens each file once and, in the same pass, decodes it, counts its lines and
+	/// evaluates candidate preselection - all three over the SAME decoded text, which is what
 	/// stops the inventory's line count and the analysis's line numbers deriving from different
 	/// rules.
 	///
-	/// The two size ceilings are consumed rather than re-implemented: an oversize file and a file
+	/// The two per-file ceilings are consumed rather than re-implemented: an oversize file and a file
 	/// with an over-long line come back from the reader as skip categories, already emitted and
 	/// already counted by the machinery that owns them.
 	/// </summary>
@@ -195,6 +206,7 @@ public sealed class RepositoryInventoryScan
 		ArgumentNullException.ThrowIfNull(progress);
 
 		LanguageInventory inventory = new();
+		LegacyEncodedFileTally legacyEncodedFiles = new();
 		List<ScannedCandidate> candidates = [];
 		bool wasCancelled = false;
 
@@ -206,7 +218,7 @@ public sealed class RepositoryInventoryScan
 				break;
 			}
 
-			InventoryOneFile(path, inventory, candidates);
+			InventoryOneFile(path, inventory, candidates, legacyEncodedFiles);
 			progress.ItemCompleted();
 		}
 
@@ -217,7 +229,8 @@ public sealed class RepositoryInventoryScan
 			Inventory = inventory,
 			CandidateRelativePaths = [.. candidates.Select(candidate => candidate.RelativePath)],
 			CandidateLanguageNames = [.. candidates.Select(candidate => candidate.LanguageName)],
-			WasCancelled = wasCancelled
+			WasCancelled = wasCancelled,
+			LegacyEncodedFiles = legacyEncodedFiles.ToSummary()
 		};
 	}
 
@@ -244,9 +257,16 @@ public sealed class RepositoryInventoryScan
 	private void InventoryOneFile(
 		RepositoryRelativePath path,
 		LanguageInventory inventory,
-		List<ScannedCandidate> candidates)
+		List<ScannedCandidate> candidates,
+		LegacyEncodedFileTally legacyEncodedFiles)
 	{
 		FileReadResult read = _reader.Read(new WalkedFile(path, RebuildAbsolutePath(path)));
+
+		if (read.Encoding == DetectedEncoding.Windows1252)
+		{
+			legacyEncodedFiles.Record(path);
+		}
+
 		string? firstLine = read.WasRead ? FirstLineOf(read.NormalizedText) : null;
 		AttributedLanguage attribution = _attribution.Attribute(path, firstLine);
 
