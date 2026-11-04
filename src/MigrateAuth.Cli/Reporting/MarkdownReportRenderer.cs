@@ -1063,7 +1063,7 @@ public static class MarkdownReportRenderer
 				writer,
 				_LOW_REASON_ROW_FORMAT,
 				LowReasonVocabulary.REASON_LABEL,
-				LowReasonVocabulary.SentenceOf(finding.LowReasons, finding.PatternClass.Value, finding.Language));
+				LowReasonVocabulary.SentenceOf(finding.LowReasons, finding.PatternClass.Value));
 		}
 	}
 

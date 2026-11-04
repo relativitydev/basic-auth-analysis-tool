@@ -51,7 +51,7 @@ public sealed class SessionStateVolumeProofCollection
 /// with the test output; record them from a run of these tests alone.
 /// </summary>
 [Collection(COLLECTION_NAME)]
-public sealed class SessionStateVolumeProofTests
+public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	internal const string COLLECTION_NAME = "SessionStateVolumeProof";
 

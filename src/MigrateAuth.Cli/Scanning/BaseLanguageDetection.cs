@@ -67,6 +67,8 @@ public static class BaseLanguageDetection
 	private const string _KSH_INTERPRETER = "ksh";
 	private const string _PWSH_INTERPRETER = "pwsh";
 	private const string _POWERSHELL_INTERPRETER = "powershell";
+	private const string _NODE_INTERPRETER = "node";
+	private const string _NODEJS_INTERPRETER = "nodejs";
 
 	private static readonly (string Extension, AssessedLanguage Language)[] _extensionEntries =
 	[
@@ -102,7 +104,9 @@ public static class BaseLanguageDetection
 		(_ZSH_INTERPRETER, AssessedLanguage.Shell),
 		(_KSH_INTERPRETER, AssessedLanguage.Shell),
 		(_PWSH_INTERPRETER, AssessedLanguage.PowerShell),
-		(_POWERSHELL_INTERPRETER, AssessedLanguage.PowerShell)
+		(_POWERSHELL_INTERPRETER, AssessedLanguage.PowerShell),
+		(_NODE_INTERPRETER, AssessedLanguage.JavaScript),
+		(_NODEJS_INTERPRETER, AssessedLanguage.JavaScript)
 	];
 
 	private static readonly FrozenDictionary<string, AssessedLanguage> _languagesByExtension =

@@ -84,7 +84,7 @@ internal static partial class ShellPatternExpressions
 
 	/// <summary>SH-024: A colon pair assigned to a variable, an encoder that consumes the variable, and a covered client that uses the encoded output.</summary>
 	private const string _ENCODED_PAIR_HELD_IN_VARIABLE =
-		@"=(?=[\x22\x27]?[A-Za-z_$%{][^\s:\x27\x22|;&]*:)(?<=^[ \t]*" + _DECLARATION_OPTIONAL + @"(?<pair>[A-Za-z_]\w*)=)" + _ASSIGNED_PAIR_VALUE + _DEFINITION_LINES + @"(?:[^\n]{0,400}?" + _CLIENT_COMMAND + _CHAR_UNIT + @"{0,600}?(?:\$\(|`)[ \t]*" + _ENCODER_STATEMENT_ON_PAIR + @"|[ \t]*" + _DECLARATION_OPTIONAL + @"(?<encoded>[A-Za-z_]\w*)=(?:\$\(|`)[ \t]*" + _ENCODER_STATEMENT_ON_PAIR + _USE_OF_ENCODED_BY_A_CLIENT + @")";
+		@"=(?=[\x22\x27]?[A-Za-z_$%{][^\s:\x27\x22|;&]*:)(?<=^[ \t]*" + _DECLARATION_OPTIONAL + @"(?<pair>[A-Za-z_]\w*)=)" + _ASSIGNED_PAIR_VALUE + _DEFINITION_LINES + @"(?:[^\n]{0,400}?" + _CLIENT_COMMAND + @"(?:" + _CHAR_UNIT + _BACKTRACK_POINT + @"){0,600}?(?:\$\(|`)[ \t]*" + _ENCODER_STATEMENT_ON_PAIR + @"|[ \t]*" + _DECLARATION_OPTIONAL + @"(?<encoded>[A-Za-z_]\w*)=(?:\$\(|`)[ \t]*" + _ENCODER_STATEMENT_ON_PAIR + _USE_OF_ENCODED_BY_A_CLIENT + @")";
 
 	[GeneratedRegex(_ENCODED_PAIR_HELD_IN_VARIABLE, _LINE_OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex EncodedPairHeldInVariable();

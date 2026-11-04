@@ -390,15 +390,24 @@ public sealed class DialectVariableUseAndWrapperContractTests
 	}
 
 	[Fact]
-	public void OnlyTheShellAnalyzerDeclaresAnyOfTheNewElements()
+	public void OnlyTheShellAnalyzerDeclaresAnyOfTheNewElementsAndTheJavaScriptAnalyzerDeclaresItsDialectsAlone()
 	{
 		ILanguageAnalyzer[] analyzers = [.. LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()];
 		ILanguageAnalyzer shell = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Shell"));
+		ILanguageAnalyzer javaScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("JavaScript"));
 
 		Assert.NotNull(shell.CandidateSelectionAndRecommendation.FileDialects);
 		Assert.NotNull(shell.CandidateSelectionAndRecommendation.WrapperTracking);
 		Assert.Contains(shell.DetectionRulesByPatternClass.Values, rule => rule.VariableUse is not null);
-		Assert.All(analyzers.Where(analyzer => analyzer != shell), analyzer =>
+		Assert.NotNull(javaScript.CandidateSelectionAndRecommendation.FileDialects);
+		Assert.Null(javaScript.CandidateSelectionAndRecommendation.WrapperTracking);
+		Assert.All(javaScript.CandidateSelectionAndRecommendation.FlowSignals, signal =>
+		{
+			Assert.True(signal.Dialects.IsDefaultOrEmpty);
+			Assert.Null(signal.VariableUse);
+		});
+		Assert.All(javaScript.DetectionRulesByPatternClass.Values, rule => Assert.Null(rule.VariableUse));
+		Assert.All(analyzers.Where(analyzer => analyzer != shell && analyzer != javaScript), analyzer =>
 		{
 			Assert.Null(analyzer.CandidateSelectionAndRecommendation.FileDialects);
 			Assert.Null(analyzer.CandidateSelectionAndRecommendation.WrapperTracking);

@@ -34,7 +34,7 @@ internal static partial class ShellPatternExpressions
 		@"(?!(?<![\w.$/-])stty(?![\w-]))";
 
 	private const string _WINDOW_DIALOG_TOOL =
-		@"(?:" + _STOP_AT_DIALOG_TOOL + _UNIT + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_DIALOG_TOOL + _UNIT + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	/// <summary>An input redirection later in the command, other than from the terminal: the read then reads something that was stored.</summary>
 	private const string _REST_HAS_INPUT_REDIRECT =
@@ -44,7 +44,7 @@ internal static partial class ShellPatternExpressions
 		@"(?>[^\n;&|<\x27\x22\\ \t(){}`!]+|[ \t]+|[(){}`!]|" + _SQ_STRING + @"|" + _DQ_STRING + @"|\\[\s\S]|<[ \t]*(?=/dev/tty))";
 
 	private const string _WINDOW_NO_INPUT_REDIRECT =
-		@"(?:" + _STOP_AT_READ + _UNIT_NO_INPUT_REDIRECT + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_READ + _UNIT_NO_INPUT_REDIRECT + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _EXCLUSION_TOKEN =
 		@"(?:sudo[ \t]+(?:-\w*S|--stdin)(?![\w-])|sshpass(?![\w-])|ssh(?![\w-])|openssl[ \t][^\n]{0,200}?(?:-pass(?:in|out)|pass:))";
@@ -83,7 +83,7 @@ internal static partial class ShellPatternExpressions
 		@"(?>(?=[^\x27\x22\n]{0,200}[\x27\x22]" + _READ_OPTIONS + _READ_NAME_TAIL + @")|)";
 
 	private const string _LOOP_DONE_FROM_FILE =
-		@"(?:[^\n]{0,400}\n){0,20}?[^\n]{0,400}?(?<![\w-])done[ \t]*<(?![ \t]*/dev/tty)";
+		@"(?:(?:[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,20}?[^\n]{0,400}?(?<![\w-])done[ \t]*<(?![ \t]*/dev/tty)";
 
 	private const string _WHILE_OR_UNTIL_ON_THE_LINE =
 		@"(?<=(?<![\w.$/-])(?:while|until)(?![\w-])[^\n]{0,300})";
@@ -116,7 +116,7 @@ internal static partial class ShellPatternExpressions
 
 	/// <summary>The terminal echo turned off and a <c>read</c> within the next five lines.</summary>
 	private const string _STTY_ECHO =
-		@"(?<![\w.$/-])(?<anchor>stty)(?![\w-])[ \t](?:" + _STOP_AT_STTY + @"[^\n;&|]){0,300}?(?<=[ \t])-echo(?![\w-])(?:[^\n]*\n){0,5}?[^\n]{0,300}?(?<![\w.$/-])read(?![\w-])";
+		@"(?<![\w.$/-])(?<anchor>stty)(?![\w-])[ \t](?:(?:" + _STOP_AT_STTY + @"[^\n;&|])" + _BACKTRACK_POINT + @"){0,300}?(?<=[ \t])-echo(?![\w-])(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]{0,300}?(?<![\w.$/-])read(?![\w-])";
 
 	[GeneratedRegex(_STTY_ECHO, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex SttyEchoSignal();
@@ -140,7 +140,7 @@ internal static partial class ShellPatternExpressions
 
 	/// <summary>The desktop dialog with a hidden answer: the evidence is the phrase inside the script string given to the dialog command.</summary>
 	private const string _HIDDEN_ANSWER_DIALOG =
-		@"(?<![\w.$/-])osascript(?![\w-])(?:" + _STOP_AT_OSASCRIPT + @"[^\n]){0,600}?(?<anchor>(?i:with[ \t]+hidden[ \t]+answer))";
+		@"(?<![\w.$/-])osascript(?![\w-])(?:(?:" + _STOP_AT_OSASCRIPT + @"[^\n])" + _BACKTRACK_POINT + @"){0,600}?(?<anchor>(?i:with[ \t]+hidden[ \t]+answer))";
 
 	[GeneratedRegex(_HIDDEN_ANSWER_DIALOG, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex HiddenAnswerDialogSignal();
@@ -171,7 +171,7 @@ internal static partial class ShellPatternExpressions
 	/// <c>echo</c> on the line before a <c>read</c>, which is how a script that cannot use the option prompts.
 	/// </summary>
 	private const string _PROMPT_WORDING =
-		@"(?<![\w.$/-])(?:read(?![\w-])[ \t]+(?:-[A-Za-z]+[ \t]+)*[\x27\x22](?<name>[A-Za-z_]\w*)\?[^\x27\x22\n]{0,200}?(?<anchor>" + _PROMPT_WORDS + @")|(?:printf|echo)(?![\w-])(?>(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n]){0,300}?(?<anchor>" + _PROMPT_WORDS + @"))(?>[^\n]*)\n(?:[ \t]*\n){0,2}[ \t]*(?:read(?![\w-])|[^\n;&|]{0,300}?[;&|][ \t]*read(?![\w-]))" + _READ_NAME_AHEAD + @")" + _PROMPT_EXCLUSION_AFTER;
+		@"(?<![\w.$/-])(?:read(?![\w-])[ \t]+(?:-[A-Za-z]+[ \t]+)*[\x27\x22](?<name>[A-Za-z_]\w*)\?[^\x27\x22\n]{0,200}?(?<anchor>" + _PROMPT_WORDS + @")|(?:printf|echo)(?![\w-])(?>(?:(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n])" + _BACKTRACK_POINT + @"){0,300}?(?<anchor>" + _PROMPT_WORDS + @"))(?>[^\n]*)\n(?:[ \t]*\n){0,2}[ \t]*(?:read(?![\w-])|[^\n;&|]{0,300}?[;&|][ \t]*read(?![\w-]))" + _READ_NAME_AHEAD + @")" + _PROMPT_EXCLUSION_AFTER;
 
 	[GeneratedRegex(_PROMPT_WORDING, _OPTIONS, matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex PromptWordingSignal();

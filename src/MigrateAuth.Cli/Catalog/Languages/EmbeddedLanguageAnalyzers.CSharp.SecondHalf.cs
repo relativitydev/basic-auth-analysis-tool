@@ -216,7 +216,7 @@ internal static partial class CSharpPatternExpressions
 	/// <c>using</c> alias, and the target-typed <c>NetworkCredential credential = new() { UserName = user }</c>.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?(?<construct>UserName)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")[^{}]*?\}(?:[^\n]*\n){0,5}?[^\n]*?\.Password\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
+		@"\bnew\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?(?<construct>UserName)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")[^{}]*?\}(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\.Password\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex CredentialAssembledAcrossStatementsConstruction();
@@ -227,7 +227,7 @@ internal static partial class CSharpPatternExpressions
 	/// <c>RelativityPassword</c> both appear, within the same bounded five-line proximity window CS-009, CS-013, CS-016 and CS-019 use for a pair split across statements.
 	/// </summary>
 	[GeneratedRegex(
-		@"\.Settings\.(?<construct>RelativityUsername)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*;(?:[^\n]*\n){0,5}?[^\n]*?\.Settings\.RelativityPassword\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
+		@"\.Settings\.(?<construct>RelativityUsername)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\.Settings\.RelativityPassword\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex SdkSettingsCredentialPropertiesConstruction();
@@ -295,7 +295,7 @@ internal static partial class CSharpPatternExpressions
 		+ @"|" + _CS_018_RIGHT_EMPTY_OPERAND_START + @"(?>(?<credential>" + _ARGUMENT_EXPRESSION + @"))\s*\+\s*"":""\s*(?:\+\s*""""|;)"
 		+ @"|\$""\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}\s*:\s*"""
 		+ @"|\$""\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}\s*:\s*\{\s*""""\s*\}"""
-		+ @")(?:[^\n]*\n){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
+		+ @")(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
 		+ @"|" + _CS_018_PAIR_INSIDE_THE_ENCODER_CALL,
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]

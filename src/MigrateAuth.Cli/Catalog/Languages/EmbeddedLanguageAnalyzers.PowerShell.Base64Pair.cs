@@ -247,11 +247,11 @@ internal static partial class PowerShellPatternExpressions
 	/// statement end. A unit is a run of characters that cannot open a pair, or one character that can, so the pair is tried at every place it could start and nowhere else.
 	/// </summary>
 	private const string _IN_CALL_PAIR_WINDOW =
-		@"(?:(?>[^;()""'$\[@\u201C\u2018]+)|[""'$\[@\u201C\u2018]|(?<call>\()|(?<-call>\))){0,120}?";
+		@"(?:(?:(?>[^;()""'$\[@\u201C\u2018]+)|[""'$\[@\u201C\u2018]|(?<call>\()|(?<-call>\)))" + _BACKTRACK_POINT + @"){0,120}?";
 
 	/// <summary>The same window kept inside one statement, before the encoder: it does not cross a statement end and never reads an encoder as part of the statement.</summary>
 	private const string _STATEMENT_PAIR_WINDOW =
-		@"(?:(?>[^;\n""'$(\[@\u201C\u2018`]+)|[""'$(@\u201C\u2018]|\[(?!" + _ENCODER_TYPE_PREFIX + _ENCODER_METHOD_NAME + @")|`[\s\S]){0,80}?";
+		@"(?:(?:(?>[^;\n""'$(\[@\u201C\u2018`]+)|[""'$(@\u201C\u2018]|\[(?!" + _ENCODER_TYPE_PREFIX + _ENCODER_METHOD_NAME + @")|`[\s\S])" + _BACKTRACK_POINT + @"){0,80}?";
 
 	/// <summary>
 	/// A cheap required literal before the expensive alternation: every spelling of a pair holds a colon, so a call whose own window holds none is never tried
@@ -289,7 +289,7 @@ internal static partial class PowerShellPatternExpressions
 
 	/// <summary>The pair's variable is read, in the up to ten lines after the pair, before any encoder: the intermediate statement that turns the pair into bytes.</summary>
 	private const string _READ_BEFORE_THE_ENCODER =
-		@"(?=(?:(?:(?!" + _ENCODER_METHOD_NAME + @")[^\n])*\n){0,10}?(?:(?!" + _ENCODER_METHOD_NAME + @")[^\n])*?" + _READ_OF_THE_PAIR_VARIABLE + @")";
+		@"(?=(?:(?:(?:(?!" + _ENCODER_METHOD_NAME + @")[^\n])*\n)" + _BACKTRACK_POINT + @"){0,10}?(?:(?!" + _ENCODER_METHOD_NAME + @")[^\n])*?" + _READ_OF_THE_PAIR_VARIABLE + @")";
 
 	/// <summary>
 	/// What ties a pair in a statement before the encoder to the encoder: the encoder within ten lines of the pair, and the variable the pair was assigned to

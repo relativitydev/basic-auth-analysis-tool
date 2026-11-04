@@ -72,6 +72,10 @@ public sealed class BaseLanguageDetectionTests
 	[InlineData("#!/bin/ksh", AssessedLanguage.Shell)]
 	[InlineData("#!/usr/bin/env pwsh", AssessedLanguage.PowerShell)]
 	[InlineData("#!/usr/bin/powershell", AssessedLanguage.PowerShell)]
+	[InlineData("#!/usr/bin/env node", AssessedLanguage.JavaScript)]
+	[InlineData("#!/usr/bin/node", AssessedLanguage.JavaScript)]
+	[InlineData("#!/usr/bin/env nodejs", AssessedLanguage.JavaScript)]
+	[InlineData("#!/usr/bin/nodejs", AssessedLanguage.JavaScript)]
 	public void EveryDeclaredShebangResolvesToItsLanguage(string firstLine, AssessedLanguage expected)
 	{
 		bool found = BaseLanguageDetection.TryGetByShebangFirstLine(firstLine, out AssessedLanguage language);
@@ -93,6 +97,44 @@ public sealed class BaseLanguageDetectionTests
 
 		Assert.True(found);
 		Assert.Equal(AssessedLanguage.Python, language);
+	}
+
+	/// <summary>`env -S node --flag`: the `-S` flag is skipped and the interpreter is the next token, whatever follows it.</summary>
+	[Theory]
+	[InlineData("#!/usr/bin/env -S node --experimental-vm-modules")]
+	[InlineData("#!/usr/bin/env -S nodejs --harmony")]
+	public void AnEnvSplitStringFlagIsSkippedToReachNode(string firstLine)
+	{
+		bool found = BaseLanguageDetection.TryGetByShebangFirstLine(firstLine, out AssessedLanguage language);
+
+		Assert.True(found);
+		Assert.Equal(AssessedLanguage.JavaScript, language);
+	}
+
+	/// <summary>The interpreter comparison is ordinal: a differently cased or versioned node name is not `node`.</summary>
+	[Theory]
+	[InlineData("#!/usr/bin/env Node")]
+	[InlineData("#!/usr/bin/env NODE")]
+	[InlineData("#!/usr/bin/env node18")]
+	[InlineData("#!/usr/bin/env nodemon")]
+	public void ANodeLookalikeInterpreterIsNotFound(string firstLine)
+	{
+		bool found = BaseLanguageDetection.TryGetByShebangFirstLine(firstLine, out _);
+
+		Assert.False(found);
+	}
+
+	/// <summary>The `node` and `nodejs` entries change no other interpreter's attribution, read through the same `env -S` path the node forms take.</summary>
+	[Theory]
+	[InlineData("#!/usr/bin/env -S python3 -u", AssessedLanguage.Python)]
+	[InlineData("#!/usr/bin/env -S bash -e", AssessedLanguage.Shell)]
+	[InlineData("#!/usr/bin/env -S pwsh -NoProfile", AssessedLanguage.PowerShell)]
+	public void ANonNodeShebangIsUnaffectedByTheNodeEntries(string firstLine, AssessedLanguage expected)
+	{
+		bool found = BaseLanguageDetection.TryGetByShebangFirstLine(firstLine, out AssessedLanguage language);
+
+		Assert.True(found);
+		Assert.Equal(expected, language);
 	}
 
 	[Fact]

@@ -249,7 +249,7 @@ internal static partial class PowerShellPatternExpressions
 	/// within the first ten lines, in a line comment or in a block comment that opens the file.
 	/// </summary>
 	[GeneratedRegex(
-		@"\A(?:(?:[^\n]*\n){0,9}[ \t]*#[^\n]*?(?:auto[\- ]?generated|generated[ \t]+by)|[ \t\n]*<#(?:[^#]|#(?!>)){0,300}?(?:auto[\- ]?generated|generated[ \t]+by))",
+		@"\A(?:(?:[^\n]*\n){0,9}[ \t]*#[^\n]*?(?:auto[\- ]?generated|generated[ \t]+by)|[ \t\n]*<#(?:(?:[^#]|#(?!>))" + _BACKTRACK_POINT + @"){0,300}?(?:auto[\- ]?generated|generated[ \t]+by))",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex GeneratedHeaderContentMarker();
@@ -259,7 +259,7 @@ internal static partial class PowerShellPatternExpressions
 	/// quoted name and a <c>Should</c> assertion. The three words in a comment or a string are not a test.
 	/// </summary>
 	[GeneratedRegex(
-		_COMMAND_START + @"(?:Describe|Context)(?![\w\-])[ \t]+(?:-Name[ \t]+)?" + _QUOTE_OPENING + @"[^\n{]*\{" + @"(?:[^\n]*\n){0,100}?[^\n]*?" + _COMMAND_START + @"It(?![\w\-])[ \t]+" + _QUOTE_OPENING + @"[^\n{]*\{" + @"(?:[^\n]*\n){0,100}?[^\n]*?" + _COMMAND_START + @"Should(?![\w\-])",
+		_COMMAND_START + @"(?:Describe|Context)(?![\w\-])[ \t]+(?:-Name[ \t]+)?" + _QUOTE_OPENING + @"[^\n{]*\{" + @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,100}?[^\n]*?" + _COMMAND_START + @"It(?![\w\-])[ \t]+" + _QUOTE_OPENING + @"[^\n{]*\{" + @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,100}?[^\n]*?" + _COMMAND_START + @"Should(?![\w\-])",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex PesterTestContentMarker();

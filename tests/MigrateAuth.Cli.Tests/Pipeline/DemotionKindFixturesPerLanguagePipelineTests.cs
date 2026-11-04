@@ -23,6 +23,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 public sealed class DemotionKindFixturesPerLanguagePipelineTests
 {
 	private const string _RETIRED_GENERAL_REASON_VALUE = "demotedFile";
+	private const LowConfidenceReasons _RESERVED_GENERAL_REASON_BIT = (LowConfidenceReasons)4;
 
 	private const string _CSHARP_CONSTRUCT =
 		"class Fixture\n{\n\tvoid Build()\n\t{\n\t\tvar credentials = new UsernamePasswordCredentials(options.UserName, options.Password);\n\t}\n}\n";
@@ -139,7 +140,7 @@ public sealed class DemotionKindFixturesPerLanguagePipelineTests
 	// ------------------------------------------------------------------------------------------
 
 	[Fact]
-	public void NoFindingOfAnyLanguageCarriesTheGeneralDemotedFileReason()
+	public void NoFindingOfAnyLanguageCarriesTheReservedGeneralDemotedFileBit()
 	{
 		(string Path, string Content)[] files =
 		[
@@ -158,7 +159,7 @@ public sealed class DemotionKindFixturesPerLanguagePipelineTests
 		Assert.Equal(files.Length, harness.State.Findings.Length);
 		Assert.All(
 			harness.State.Findings,
-			finding => Assert.False(finding.LowReasons.HasFlag(LowConfidenceReasons.DemotedFile), finding.Path.Value));
+			finding => Assert.False(finding.LowReasons.HasFlag(_RESERVED_GENERAL_REASON_BIT), finding.Path.Value));
 		Assert.All(
 			ReadArtifact(harness).Findings,
 			finding => Assert.DoesNotContain(_RETIRED_GENERAL_REASON_VALUE, finding.LowReasons ?? [], StringComparer.Ordinal));

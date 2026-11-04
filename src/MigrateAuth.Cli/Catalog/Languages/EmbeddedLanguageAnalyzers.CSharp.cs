@@ -49,6 +49,14 @@ public static partial class EmbeddedLanguageAnalyzers
 internal static partial class CSharpPatternExpressions
 {
 	/// <summary>
+	/// A zero-width point that always matches and gives backtracking exactly one way to fail: one of a word boundary and a non-boundary holds at every position.
+	/// It is appended inside the body of a lazy bounded loop over a group, <c>(?:body POINT){m,n}?</c>, because the regular-expression source generator of .NET 10
+	/// (generator 10.0.14.15411) emits a defective cleanup of its backtracking stack for such a loop when the body has no backtracking construct of its own
+	/// (fixed upstream in dotnet/runtime PR 129628, not backported to release/10.0). It changes no match.
+	/// </summary>
+	private const string _BACKTRACK_POINT = @"(?:\b|\B)";
+
+	/// <summary>
 	/// The longest run of expression characters an indexer suffix may hold, as regular-expression text.
 	/// </summary>
 	private const string _INDEXER_CONTENT_MAXIMUM_LENGTH = "120";
@@ -165,7 +173,7 @@ internal static partial class CSharpPatternExpressions
 	/// file. The window is required, never inside an optional group.
 	/// </summary>
 	private const string _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS =
-		@"\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?UserName\s*=[^{}]*?\}\s*;(?:[^\n]*\n){0,5}?[^\n]*?\b(?<cv>" + _IDENTIFIER + @")\.Password\s*=\s*(?<credential>[^;\r\n]*?)\s*;";
+		@"\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?UserName\s*=[^{}]*?\}\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\b(?<cv>" + _IDENTIFIER + @")\.Password\s*=\s*(?<credential>[^;\r\n]*?)\s*;";
 
 	/// <summary>
 	/// The opening of a credential built from an object initializer, from the type name to the brace: the type
@@ -176,7 +184,7 @@ internal static partial class CSharpPatternExpressions
 	private const string _NETWORK_CREDENTIAL_INITIALIZER_OPENING = _TYPE_QUALIFIER + @"NetworkCredential(?:\s*\(\s*\))?\s*\{";
 
 	/// <summary>The bounded five-line window between two statements: required wherever it is used, never inside an optional group.</summary>
-	private const string _FIVE_LINE_WINDOW = @"(?:[^\n]*\n){0,5}?[^\n]*?";
+	private const string _FIVE_LINE_WINDOW = @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?";
 
 	/// <summary>
 	/// A mail client or a proxy written plain or qualified, the sink type captured as <c>construct</c> after
@@ -428,7 +436,7 @@ internal static partial class CSharpPatternExpressions
 	/// </summary>
 	[GeneratedRegex(
 		@"(?:\.(?:DefaultRequestHeaders\.)?" + _HEADER_WRITE_METHOD_NAMES + @"\s*\(\s*(?<header>""Authorization"")\s*,\s*|\[\s*(?<header>""Authorization"")\s*\]\s*=\s*)(?:\$""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}""|""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*""\s*\+\s*(?<credential>(?:" + _ARGUMENT_EXPRESSION + @"))|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @")""(?!\s*\+)|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @"""\s*\+\s*(?:" + _ARGUMENT_EXPRESSION + @"))|\$""\{\s*(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*\}[^{}""]*\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}""|(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*\+\s*""\s*""\s*\+\s*(?<credential>[A-Za-z_][A-Za-z0-9_]*)|" + _FORMAT_SCHEME_VALUE + @")"
-			+ @"|=(?<=\b(?<v>" + _IDENTIFIER + @")\s*=)\s*" + _VARIABLE_CARRIED_SCHEME_VALUE + @"\s*;(?:[^\n]*\n){0,5}?[^\n]*?\.(?:DefaultRequestHeaders\.)?" + _HEADER_WRITE_METHOD_NAMES + @"\s*\(\s*(?<header>""Authorization"")\s*,\s*\k<v>\s*\)",
+			+ @"|=(?<=\b(?<v>" + _IDENTIFIER + @")\s*=)\s*" + _VARIABLE_CARRIED_SCHEME_VALUE + @"\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\.(?:DefaultRequestHeaders\.)?" + _HEADER_WRITE_METHOD_NAMES + @"\s*\(\s*(?<header>""Authorization"")\s*,\s*\k<v>\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex AuthorizationHeaderStringLiteralConstruction();
@@ -465,7 +473,7 @@ internal static partial class CSharpPatternExpressions
 	/// </summary>
 	[GeneratedRegex(
 		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?|\b(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @"\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")\s*\{[^{}]*?(?<construct>Credentials)\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)[^{}]*?\}"
-		+ @"|(?:\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\s+" + _TYPE_QUALIFIER + @"(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")|\b(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")\s+(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\k<v>\.(?<construct>Credentials)\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		+ @"|(?:\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\s+" + _TYPE_QUALIFIER + @"(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")|\b(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")\s+(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s*\([^;]*\)\s*;(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?\k<v>\.(?<construct>Credentials)\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NetworkCredentialOnHttpHandlerConstruction();
@@ -554,7 +562,7 @@ internal static partial class CSharpPatternExpressions
 	/// parentheses, is not a half.
 	/// </summary>
 	[GeneratedRegex(
-		@"(?:" + _CS_009_LITERAL_OPENED_PAIR_SPELLINGS + @"|" + _CS_009_CONCATENATED_PAIR_AFTER_ITS_LEFT_HALF + @")(?:[^\n]*\n){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
+		@"(?:" + _CS_009_LITERAL_OPENED_PAIR_SPELLINGS + @"|" + _CS_009_CONCATENATED_PAIR_AFTER_ITS_LEFT_HALF + @")(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
 			+ @"|" + _CS_009_PAIR_INSIDE_THE_ENCODER_CALL,
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
