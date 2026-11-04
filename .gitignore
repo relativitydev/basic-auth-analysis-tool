@@ -1,0 +1,25 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+
+# Packages restored at build time
+packages/
+*.nupkg
+node_modules/
+
+# Native AOT / publish output
+publish/
+artifacts/
+*.pdb
+
+# Relativity application packages
+*.rap
+
+# Environment and secrets - never commit
+.env
+.env.*
+appsettings.Development.json
+appsettings.Local.json
