@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+
+	<!--
+		LONG PATH AWARENESS, DECLARED RATHER THAN ASSUMED.
+
+		The binary must declare long-path awareness, because without it a deep file
+		is skipped on one platform and analyzed on another, which breaks determinism of the SET
+		of findings and not merely of their order. Only Windows imposes the limit this answers,
+		and only Windows reads this file.
+
+		WHY A MANIFEST IS THE LEVER, AND WHY NO MSBUILD PROPERTY IS. There is no property named
+		after long paths. The switch is an operating-system one: a process declares itself
+		long-path aware in its application manifest, and Windows then honours paths past MAX_PATH
+		for that process where the registry policy is also enabled. Neither the .NET SDK nor the
+		native apphost supplies a manifest carrying it - checked, in this SDK, on this machine -
+		so a binary that does not name it does not have it.
+
+		HOW IT REACHES A NATIVE AOT BINARY, which is the part that is not obvious. The AOT link
+		step passes /MANIFEST:NO, so nothing is generated at link time; what carries it instead
+		is the compiler. ApplicationManifest hands this file to the C# compiler, which embeds it
+		in the managed assembly's Win32 resources, and the AOT compiler is invoked with its
+		win32resourcemodule option pointing at that assembly, which copies those resources into the
+		native image. The declaration therefore survives into the published single-file binary
+		by the same route its version information does.
+
+		requestedExecutionLevel is asInvoker and is here for a second reason of its own: this
+		tool must never be silently elevated, because what it can read is what it reports, and
+		the requirement for an equivalent repository and file layout is read as including an
+		equivalent running identity.
+
+		XML forbids two consecutive hyphens anywhere inside a comment. The line
+		above once named the compiler option with its two-hyphen prefix, which made this whole
+		file malformed XML. Windows refuses to create an activation context from a malformed
+		manifest, so neither the framework-dependent apphost nor the Native AOT binary could
+		start. Keep every comment in this file free of a double hyphen.
+	-->
+
+	<trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+		<security>
+			<requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+				<requestedExecutionLevel level="asInvoker" uiAccess="false" />
+			</requestedPrivileges>
+		</security>
+	</trustInfo>
+
+	<application xmlns="urn:schemas-microsoft-com:asm.v3">
+		<windowsSettings>
+			<longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+		</windowsSettings>
+	</application>
+
+</assembly>

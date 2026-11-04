@@ -1,0 +1,29 @@
+<Project>
+
+	<!--
+		Repository-wide build settings.
+
+		Scope note: this file carries only what every project in the repository shares.
+		Native AOT publish settings, runtime feature switches and the diagnosability
+		properties required for diagnosability live in src/MigrateAuth.Cli/MigrateAuth.Cli.csproj,
+		because they apply to the shipped binary and must not silently apply to the
+		test project, which runs on the shared framework.
+
+		The net472 target is rejected outright. This is a standalone cross-platform CLI, not a
+		Relativity-hosted application, so the net472 target that Relativity-hosted applications use
+		does not apply and any tooling warning to that effect is expected.
+	-->
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+		<GenerateDocumentationFile>false</GenerateDocumentationFile>
+		<NeutralLanguage>en</NeutralLanguage>
+		<Deterministic>true</Deterministic>
+	</PropertyGroup>
+
+</Project>
