@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>MigrateAuth.Cli.Tests</RootNamespace>
+		<AssemblyName>MigrateAuth.Cli.Tests</AssemblyName>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<!--
+			Program.cs is the entry point the volume proofs start as a child process, so the
+			test SDK does not generate its empty one.
+		-->
+		<GenerateProgramFile>false</GenerateProgramFile>
+		<!--
+			The test project is not the shipped binary: it runs on the shared framework and
+			is never AOT-published. The Native AOT and diagnosability properties therefore
+			stay in the CLI project, where they describe the artifact they govern.
+		-->
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+		<PackageReference Include="Moq" Version="4.20.72" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\MigrateAuth.Cli\MigrateAuth.Cli.csproj" />
+		<ProjectReference Include="..\WorstCaseGenerator\WorstCaseGenerator.csproj" />
+	</ItemGroup>
+
+</Project>

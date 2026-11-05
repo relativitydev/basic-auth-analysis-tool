@@ -1,0 +1,4 @@
+# The shell scripts are run on Linux and macOS as well: a shell script with CRLF endings does not parse there.
+scripts/*.sh text eol=lf
+# The public documentation holds generated blocks that a drift test compares byte for byte; LF on every platform keeps that comparison identical on a Windows checkout too.
+docs/public/** text eol=lf
