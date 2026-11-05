@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>MigrateAuth.WorstCase</RootNamespace>
+		<AssemblyName>worst-case-generator</AssemblyName>
+		<IsPackable>false</IsPackable>
+		<!--
+			A measurement tool, not the shipped binary: it runs on the shared framework, is never
+			AOT-published and references nothing from the product, so the figures it produces cannot
+			depend on the code they are used to measure.
+		-->
+	</PropertyGroup>
+
+</Project>
