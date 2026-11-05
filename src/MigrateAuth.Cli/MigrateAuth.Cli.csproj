@@ -1,0 +1,122 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>MigrateAuth.Cli</RootNamespace>
+		<!-- The executable is named migrate-auth; .NET type and namespace names keep normal conventions. -->
+		<AssemblyName>migrate-auth</AssemblyName>
+	</PropertyGroup>
+
+	<!--
+		The version resource of the binary. Version is the one place the release number is
+		declared for the build: the release scripts read it from here, and a test ties it to
+		ToolVersion.CURRENT, which stays a constant because the product code never reads the
+		assembly's attributes. The source revision is left out of the informational version so
+		that the product version the operating system shows reads exactly the release number.
+		FileVersion is numeric because the compiler rejects a pre-release string there; the
+		pre-release label is carried by the product version.
+		The copyright holder is provisional until the licence is settled.
+	-->
+	<PropertyGroup>
+		<Version>0.2.0-alpha</Version>
+		<FileVersion>0.2.0.0</FileVersion>
+		<Company>NSerio</Company>
+		<Product>migrate-auth</Product>
+		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+	</PropertyGroup>
+
+	<!--
+		Long path awareness.
+		The manifest is the only lever for it: no MSBuild property governs long paths, and
+		neither the SDK nor the native apphost supplies a manifest that declares them. The
+		compiler embeds this one in the assembly's Win32 resources, and the Native AOT
+		compiler copies those resources into the published binary - which is what carries
+		the declaration through a link step that is invoked with /MANIFEST:NO. The file
+		itself states the rest.
+	-->
+	<PropertyGroup>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+	</PropertyGroup>
+
+	<!--
+		Compilation model.
+		PublishAot produces the single-file native binary; no shared framework is required
+		on the target machine. InvariantGlobalization is enabled for DETERMINISM, not for
+		size: it removes ICU as an input, so casing, comparison and ordering do not vary
+		with the host's installed locale data. The cross-platform ordering guarantee
+		depends on that.
+	-->
+	<PropertyGroup>
+		<PublishAot>true</PublishAot>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+
+	<!--
+		Diagnosability of the published binary.
+
+		StackTraceSupport=true keeps the ILC stacktracedata argument on and keeps
+		System.Private.StackTraceMetadata auto-initialized, so managed frames still carry
+		method identity in the published binary. It is the ILC default today; it is stated
+		explicitly because a future default flip would silently remove the one artifact
+		same-sprint triage depends on, against client repositories NSerio cannot see.
+
+		UseSystemResourceKeys=false keeps full framework exception messages instead of
+		substituting bare resource keys. Trimmed builds are the scenario where the key-only
+		form is normally chosen for size; this project refuses that trade.
+
+		TrimmerRemoveSymbols=false keeps symbol information rather than stripping it, which
+		is what keeps a retained stack trace readable.
+	-->
+	<PropertyGroup>
+		<StackTraceSupport>true</StackTraceSupport>
+		<UseSystemResourceKeys>false</UseSystemResourceKeys>
+		<TrimmerRemoveSymbols>false</TrimmerRemoveSymbols>
+	</PropertyGroup>
+
+	<!--
+		Memory dump generation disabled, and no telemetry.
+
+		There is no MSBuild property named after "memory dump" for Native AOT, and setting
+		one that looks right would be worse than none. What actually governs dumps here:
+
+		1. The CoreCLR mini-dump facility (DOTNET_DbgEnableMiniDump, which shells out to
+		   createdump) is not part of a Native AOT binary at all. createdump ships in the
+		   shared framework and is absent from the Native AOT runtime pack, so there is no
+		   build-time switch to turn off - the mechanism is not linked in.
+		2. The remaining in-process route to a dump is the diagnostics/EventPipe IPC server,
+		   which is what an attaching dump tool talks to. ILC selects eventpipe-disabled.lib
+		   unless EventSourceSupport is true. Setting it false explicitly pins that choice
+		   and is also the telemetry lever.
+		3. MetricsSupport=false removes the metering surface for the same reason.
+		4. DebuggerSupport=false sets System.Diagnostics.Debugger.IsSupported=false, so the
+		   binary cannot be asked to break into or launch a debugger.
+
+		What is NOT covered by any build property: an operating-system crash reporter
+		(Windows Error Reporting and its Unix equivalents) writing a dump when a process
+		dies of an unhandled exception. The mechanism against that is behavioural and it is
+		SessionExceptionBoundary: the process always terminates by returning an exit code,
+		never by an unhandled exception, and never calls Environment.FailFast.
+	-->
+	<PropertyGroup>
+		<EventSourceSupport>false</EventSourceSupport>
+		<MetricsSupport>false</MetricsSupport>
+		<DebuggerSupport>false</DebuggerSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+		<BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+	</PropertyGroup>
+
+	<!--
+		Version 1 ships sequential.
+		Workstation, non-concurrent GC: no server GC heaps and no background collection
+		thread, so the process runs without runtime-introduced worker threads. This project
+		introduces no parallelism, no thread pool use and no concurrency primitives.
+	-->
+	<PropertyGroup>
+		<ServerGarbageCollection>false</ServerGarbageCollection>
+		<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+	</PropertyGroup>
+
+</Project>
