@@ -30,7 +30,7 @@ public sealed class SessionStateVolumeProofCollection
 /// THE SESSION STATE AT THE LARGEST SUPPORTED SIZE, WRITTEN AND READ BY THE REAL STORE.
 ///
 /// The document is the one term of the product that grows with the repository: a path per candidate
-/// and a finding per retained construct. The worst case is 500,000 persisted candidate paths
+/// and a finding per retained construct. The band's worst case is 500,000 persisted candidate paths
 /// beside 50,000 findings, and two proofs stand on it.
 ///
 /// The first proof puts 100,000 flow-bearing findings in a state and reloads it. The global findings cap is
@@ -45,10 +45,10 @@ public sealed class SessionStateVolumeProofCollection
 ///
 /// WHAT THE FIGURES ARE. The synthetic state carries every term a state carries, in the shape the
 /// engine produces it, so nothing is left out that would make the file smaller than a real one. The
-/// working set is sampled (see <see cref="PeakWorkingSetSampler"/>) in this process, with the save
-/// measured while the state it writes is live, as it is when a stage commits, and the load measured
-/// after that state has been released, as it is at the start of a session. The figures are printed
-/// with the test output; record them from a run of these tests alone.
+/// save is measured in a child process that has done nothing else (see <see cref="VolumeProofChildProcess"/>),
+/// while the state it writes is live, as it is when a stage commits; the load is measured in a fresh
+/// session process, as it is at the start of a session. The load in this process is reported as an
+/// upper bound and not asserted. The figures are printed with the test output.
 /// </summary>
 [Collection(COLLECTION_NAME)]
 public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
@@ -136,12 +136,12 @@ public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemo
 		string statePath = destination.Combine(SessionStateStore.BuildStateFileName(repository));
 		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
 
-		SessionState state = BuildSyntheticState(repository, _CANDIDATE_COUNT, _FINDING_COUNT);
-		OperationFigures save = Measure(() => store.Save(repository, state));
+		OperationFigures save = VolumeProofChildProcess.Run(
+			VolumeProofChildProcess.SESSION_STATE_SAVE_OPERATION,
+			repositoryFolder.Path,
+			destination.Path);
 		long fileLength = new FileInfo(statePath).Length;
-		string lastCandidate = state.CandidateRelativePaths[^1];
-
-		state = null!;
+		string lastCandidate = BuildCandidatePaths(_CANDIDATE_COUNT)[^1];
 
 		FreshSessionLoad freshSession = FreshSessionLoadMeter.Measure(repositoryFolder.Path, destination.Path);
 		SessionStateLoad reloaded = null!;
@@ -193,7 +193,7 @@ public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemo
 		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, "Serialized size (MiB): {0:F2}", fileLength / _BYTES_PER_MEBIBYTE));
 		_output.WriteLine(FormattedLine("Size rounded up to the next 16 MiB (bytes)", roundedUpLength));
 		_output.WriteLine(FormattedLine("Ceiling in the product (bytes)", SessionStateStore.MAXIMUM_STATE_FILE_LENGTH_IN_BYTES));
-		_output.WriteLine(FormattedFigures("Save (in this process, state live)", save));
+		_output.WriteLine(FormattedFigures("Save (child process, state live)", save));
 		_output.WriteLine(FormattedFigures("Load (in this process, upper bound: memory left resident by earlier phases counts)", load));
 		_output.WriteLine(string.Format(
 			CultureInfo.InvariantCulture,
@@ -219,6 +219,22 @@ public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemo
 	private static string FormattedLine(string label, long value)
 	{
 		return string.Format(CultureInfo.InvariantCulture, "{0}: {1:N0}", label, value);
+	}
+
+	/// <summary>
+	/// The save, as the child process runs it: the largest state is built, then written while it is live. The arguments are the
+	/// repository folder and the destination folder, in that order.
+	/// </summary>
+	internal static OperationFigures SaveTheLargestState(string[] arguments)
+	{
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(arguments[0]);
+		SessionStateStore store = new(DocumentationDestinationFolderPath.FromSuppliedText(arguments[1]));
+		SessionState state = BuildSyntheticState(repository, _CANDIDATE_COUNT, _FINDING_COUNT);
+		OperationFigures save = Measure(() => store.Save(repository, state));
+
+		GC.KeepAlive(state);
+
+		return save;
 	}
 
 	private static OperationFigures Measure(Action operation)
@@ -352,6 +368,4 @@ public sealed class SessionStateVolumeProofTests : IClassFixture<VolumeProofMemo
 			GlobalOmittedCount = 0
 		};
 	}
-
-	private readonly record struct OperationFigures(TimeSpan Duration, long PeakWorkingSetInBytes, long WorkingSetBeforeInBytes);
 }

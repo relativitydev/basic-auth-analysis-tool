@@ -50,6 +50,13 @@ public sealed class ShellMatchBoundTimingTests
 
 	internal const int MEASURED_ITERATIONS = 3;
 
+	/// <summary>
+	/// The shapes of the shared stress set that exercise the shipped <c>SH-009</c>, whose form differs from the draft's; they are timed against the
+	/// shipped expression by the shipped cost gate, not here.
+	/// </summary>
+	internal static readonly ImmutableHashSet<string> SHAPES_OF_THE_SHIPPED_SH_009 =
+		["sh-unfinished-array-lines-to-the-size-ceiling", "sh-one-line-arrays-of-four-hundred-pairs"];
+
 	private readonly ITestOutputHelper _output;
 
 	public ShellMatchBoundTimingTests(ITestOutputHelper output)
@@ -61,7 +68,8 @@ public sealed class ShellMatchBoundTimingTests
 	public void TheDraftExpressionsTerminateOnEveryBenignShapeAndTheWorstFileStaysUnderTheTarget()
 	{
 		ImmutableArray<MatchBoundStressShape> shapes = ShellMatchBoundStressSet.Build();
-		ImmutableArray<ShellShapeTiming> timings = [.. SelectTheShapesToTime(shapes).Select(Measure)];
+		ImmutableArray<MatchBoundStressShape> draftShapes = [.. shapes.Where(shape => !SHAPES_OF_THE_SHIPPED_SH_009.Contains(shape.Name))];
+		ImmutableArray<ShellShapeTiming> timings = [.. SelectTheShapesToTime(draftShapes).Select(Measure)];
 		string report = Describe(timings);
 
 		_output.WriteLine(report);

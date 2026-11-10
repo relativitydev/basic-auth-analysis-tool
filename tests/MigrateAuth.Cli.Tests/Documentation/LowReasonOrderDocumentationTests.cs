@@ -29,7 +29,9 @@ public sealed class LowReasonOrderDocumentationTests
 		"demotedSampleFile",
 		"demotedVendoredFile",
 		"demotedGeneratedFile",
-		"demotedDeploymentFolder"
+		"demotedDeploymentFolder",
+		"neutralOperandPair",
+		"inactivePreprocessorRegion"
 	];
 
 	/// <summary>The code declares the values in the order the guide is held to, whatever order the flags are combined in.</summary>

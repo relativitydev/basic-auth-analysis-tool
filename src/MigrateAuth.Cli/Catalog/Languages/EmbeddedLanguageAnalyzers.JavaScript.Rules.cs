@@ -6,18 +6,19 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
-/// The detection rules of the `JavaScript` analyzer: the seventeen pattern classes JS-001 to JS-017, each with its level, its self-sufficiency, its credential
+/// The detection rules of the `JavaScript` analyzer: the nineteen pattern classes JS-001 to JS-019, each with its level, its self-sufficiency, its credential
 /// position and its display name, and the declarations that go with them: the subsumption relation and the preselection anchors.
 ///
-/// LEVELS COMPOSE BY MINIMUM, so the level a rule declares is a ceiling and not a prediction. Twelve classes can reach High or Medium; five are Low by definition and
+/// LEVELS COMPOSE BY MINIMUM, so the level a rule declares is a ceiling and not a prediction. Twelve classes can reach High or Medium; seven are Low by definition and
 /// carry no recommendation: the three whose call sends Basic only after the server challenges for it (an XHR open, a jQuery request and a request client with the preemptive
-/// switch off), the shape of an authentication object that no HTTP client is adjacent to, and the helper definition.
+/// switch off), the shape of an authentication object that no HTTP client is adjacent to, the helper definition, the header whose whole value comes from the environment, and the header whose
+/// whole value is a settings property that the file fills from an environment value.
 ///
 /// THE CREDENTIAL POSITION. A class that reads a literal credential declares the capture group named <see cref="CREDENTIAL_CAPTURE_GROUP"/>. Every such group takes no part in the
 /// match unless the value is a string or a template with no hole and not a placeholder, so an identifier, a concatenation or a call is never read as a literal.
 ///
-/// THE DESTINATION IS UNKNOWN for every class: a script has no type that names Relativity. Only JS-017 declares a scheme group, because only its value is an identifier that the
-/// file symbol table can resolve.
+/// THE DESTINATION IS UNKNOWN for every class: a script has no type that names Relativity. Only JS-017, JS-018 and JS-019 declare a scheme group, because only their value can be an identifier that the
+/// file symbol table resolves (JS-019's, a member name that the table's member dictionary resolves).
 /// </summary>
 internal static class JavaScriptRuleDeclarations
 {
@@ -44,6 +45,8 @@ internal static class JavaScriptRuleDeclarations
 	private const string _JS_015 = "JS-015";
 	private const string _JS_016 = "JS-016";
 	private const string _JS_017 = "JS-017";
+	private const string _JS_018 = "JS-018";
+	private const string _JS_019 = "JS-019";
 
 	private const string _AUTH_ANCHOR = "auth";
 	private const string _PASSWORD_ANCHOR = "password";
@@ -103,6 +106,18 @@ internal static class JavaScriptRuleDeclarations
 		rules[_JS_011] = BuildRule(JavaScriptPatternExpressions.NonHttpAuthObject(), "NonHttpAuthObject", ConfidenceLevel.Low, false, LiteralCredential());
 		rules[_JS_014] = BuildRule(JavaScriptPatternExpressions.JqueryAjaxCredentials(), "JqueryAjaxCredentials", ConfidenceLevel.Low, false, LiteralCredential());
 		rules[_JS_016] = BuildRule(JavaScriptPatternExpressions.RequestChallengeDependentAuth(), "RequestChallengeDependentAuth", ConfidenceLevel.Low, false);
+		rules[_JS_018] = BuildRuleWithSymbolicVerdict(
+			JavaScriptPatternExpressions.AuthorizationHeaderValueFromEnvironment(),
+			"AuthorizationHeaderValueFromEnvironment",
+			ConfidenceLevel.Low,
+			false,
+			BuildEnvironmentVerdictInterpretation());
+		rules[_JS_019] = BuildRuleWithSymbolicVerdict(
+			JavaScriptPatternExpressions.AuthorizationHeaderValueFromSettingsProperty(),
+			"AuthorizationHeaderValueFromSettingsProperty",
+			ConfidenceLevel.Low,
+			false,
+			BuildSettingsPropertyVerdictInterpretation());
 	}
 
 	/// <summary>
@@ -179,6 +194,43 @@ internal static class JavaScriptRuleDeclarations
 			WhenResolvedMatching = SymbolicVerdictResponse.ConfirmsPatternClass,
 			WhenResolvedNotMatching = SymbolicVerdictResponse.SuppressesFinding,
 			WhenIndeterminate = SymbolicVerdictResponse.SuppressesFinding
+		};
+	}
+
+	/// <summary>
+	/// The cell of the class that reads an environment value held in a name. A name that resolves to an environment declaration whose fallback word is empty (no fallback, or a fallback that is
+	/// neither a Basic nor a bearer scheme, which the declaration expression records as empty) confirms the class; a name that resolves to anything else, to a literal, or to nothing, suppresses it.
+	/// A match of the alternative that reads the environment value itself has no scheme argument and passes through. The expected token is blank on purpose: it reads the empty word.
+	/// </summary>
+	private static SymbolicVerdictInterpretation BuildEnvironmentVerdictInterpretation()
+	{
+		return new SymbolicVerdictInterpretation
+		{
+			SchemeArgumentCaptureGroupName = _SCHEME_CAPTURE_GROUP,
+			ExpectedSourceKind = SymbolSourceKind.Environment,
+			WhenResolvedMatching = SymbolicVerdictResponse.ConfirmsPatternClass,
+			WhenResolvedNotMatching = SymbolicVerdictResponse.SuppressesFinding,
+			WhenIndeterminate = SymbolicVerdictResponse.SuppressesFinding,
+			WhenSchemeArgumentDidNotParticipate = SymbolicVerdictResponse.NoEffect
+		};
+	}
+
+	/// <summary>
+	/// The cell of the class that reads a settings property filled from an environment value. The captured name is looked up in the member dictionary of the file symbol table, order-free: the one
+	/// member record of the name, an environment read with an empty fallback word, confirms the class; a record with a scheme fallback word, no record, two or more records, or a single record that is
+	/// not an environment read, suppresses it. The class is Low by base level, so nothing in its cell can propose higher.
+	/// </summary>
+	private static SymbolicVerdictInterpretation BuildSettingsPropertyVerdictInterpretation()
+	{
+		return new SymbolicVerdictInterpretation
+		{
+			SchemeArgumentCaptureGroupName = _SCHEME_CAPTURE_GROUP,
+			ExpectedSourceKind = SymbolSourceKind.Environment,
+			SymbolRecordKind = SymbolRecordKind.Member,
+			WhenResolvedMatching = SymbolicVerdictResponse.ConfirmsPatternClass,
+			WhenResolvedNotMatching = SymbolicVerdictResponse.SuppressesFinding,
+			WhenIndeterminate = SymbolicVerdictResponse.SuppressesFinding,
+			WhenSchemeArgumentDidNotParticipate = SymbolicVerdictResponse.NoEffect
 		};
 	}
 

@@ -20,6 +20,8 @@ public sealed class LowReasonVocabularyTests
 		"this pattern class is Low by definition: the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 	private const string _CHALLENGE_DEPENDENT_SENTENCE =
 		"this pattern class is Low by definition: the client sends the credential as Basic only after the server challenges with Basic, or the join between the credential and the call is by text; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points and whether a preemptive option or a hand-built header is also used";
+	private const string _ENVIRONMENT_HELD_SCHEME_SENTENCE =
+		"this pattern class is Low by definition: the Authorization header takes its whole value, scheme included, from an environment value, so the code does not show whether the scheme is Basic or a bearer token; a bearer token is the migrated form and a Basic value is not, so confirm what the deployed value holds and migrate it if it is Basic";
 	private const string _GENERIC_SENTENCE =
 		"this pattern class is Low by definition: as written it does not establish Basic Authentication towards RelativityOne";
 	private const string _COMMENT_SENTENCE =
@@ -34,6 +36,10 @@ public sealed class LowReasonVocabularyTests
 		"the file's name or content marks it as generated code, so the fix belongs in what it is generated from rather than in the file";
 	private const string _DEPLOYMENT_FOLDER_SENTENCE =
 		"the file sits in a deployment folder, so it is installation or release tooling rather than the application's own code";
+	private const string _NEUTRAL_OPERAND_PAIR_SENTENCE =
+		"the two halves of the colon-joined pair are not named like a user name and a password, so it may be a pair of ordinary values (a size, a host and port, a range or a composite key) rather than a credential; check whether it is a user name and password before migrating";
+	private const string _INACTIVE_REGION_SENTENCE =
+		"the code sits in a conditional-compilation block that the file's own symbols switch off, so it is not part of the build unless a build setting outside the file defines the symbol; check the project's build settings before dismissing it";
 	private const string _REMOVED_WORDING = "rarely live authenticating code";
 	private const string _RETIRED_VALUE = "demotedFile";
 	private const LowConfidenceReasons _RESERVED_BIT = (LowConfidenceReasons)4;
@@ -46,7 +52,9 @@ public sealed class LowReasonVocabularyTests
 		"demotedSampleFile",
 		"demotedVendoredFile",
 		"demotedGeneratedFile",
-		"demotedDeploymentFolder"
+		"demotedDeploymentFolder",
+		"neutralOperandPair",
+		"inactivePreprocessorRegion"
 	];
 
 	[Theory]
@@ -69,6 +77,7 @@ public sealed class LowReasonVocabularyTests
 	[InlineData("JS-011", _NON_HTTP_SINK_SENTENCE)]
 	[InlineData("JS-014", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("JS-016", _CHALLENGE_DEPENDENT_SENTENCE)]
+	[InlineData("JS-018", _ENVIRONMENT_HELD_SCHEME_SENTENCE)]
 	[InlineData("TST-001", _GENERIC_SENTENCE)]
 	public void AClassThatIsLowByDefinitionStatesItsOwnReason(string identifier, string expectedSentence)
 	{
@@ -105,6 +114,8 @@ public sealed class LowReasonVocabularyTests
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "demotedVendoredFile", _VENDORED_SENTENCE)]
 	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "demotedGeneratedFile", _GENERATED_SENTENCE)]
 	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "demotedDeploymentFolder", _DEPLOYMENT_FOLDER_SENTENCE)]
+	[InlineData(LowConfidenceReasons.NeutralOperandPair, "neutralOperandPair", _NEUTRAL_OPERAND_PAIR_SENTENCE)]
+	[InlineData(LowConfidenceReasons.InactivePreprocessorRegion, "inactivePreprocessorRegion", _INACTIVE_REGION_SENTENCE)]
 	public void EachDemotionKindHasItsOwnValueAndItsOwnSentence(
 		LowConfidenceReasons reason,
 		string expectedValue,
@@ -132,7 +143,9 @@ public sealed class LowReasonVocabularyTests
 	public void TheValuesAndTheSentencesFollowTheDeclaredOrderWhateverTheFlagOrder()
 	{
 		LowConfidenceReasons everyReason =
-			LowConfidenceReasons.DemotedDeploymentFolder
+			LowConfidenceReasons.InactivePreprocessorRegion
+			| LowConfidenceReasons.NeutralOperandPair
+			| LowConfidenceReasons.DemotedDeploymentFolder
 			| LowConfidenceReasons.DemotedGeneratedFile
 			| LowConfidenceReasons.DemotedVendoredFile
 			| LowConfidenceReasons.DemotedSampleFile
@@ -142,8 +155,8 @@ public sealed class LowReasonVocabularyTests
 
 		Assert.Equal(_declaredOrder, LowReasonVocabulary.ValuesOf(everyReason));
 		Assert.Equal(
-			[_GENERIC_SENTENCE, _COMMENT_SENTENCE, _MOCK_SENTENCE, _SAMPLE_SENTENCE, _VENDORED_SENTENCE, _GENERATED_SENTENCE, _DEPLOYMENT_FOLDER_SENTENCE],
-			LowReasonVocabulary.SentenceOf(everyReason).Split("; "));
+			string.Join("; ", _GENERIC_SENTENCE, _COMMENT_SENTENCE, _MOCK_SENTENCE, _SAMPLE_SENTENCE, _VENDORED_SENTENCE, _GENERATED_SENTENCE, _DEPLOYMENT_FOLDER_SENTENCE, _NEUTRAL_OPERAND_PAIR_SENTENCE, _INACTIVE_REGION_SENTENCE),
+			LowReasonVocabulary.SentenceOf(everyReason));
 	}
 
 	[Fact]
@@ -154,6 +167,8 @@ public sealed class LowReasonVocabularyTests
 		Assert.Equal(32, (int)LowConfidenceReasons.DemotedSampleFile);
 		Assert.Equal(64, (int)LowConfidenceReasons.DemotedGeneratedFile);
 		Assert.Equal(128, (int)LowConfidenceReasons.DemotedDeploymentFolder);
+		Assert.Equal(256, (int)LowConfidenceReasons.NeutralOperandPair);
+		Assert.Equal(512, (int)LowConfidenceReasons.InactivePreprocessorRegion);
 		Assert.DoesNotContain(Enum.GetValues<LowConfidenceReasons>(), reason => (int)reason == (int)_RESERVED_BIT);
 	}
 
@@ -161,6 +176,14 @@ public sealed class LowReasonVocabularyTests
 	public void AValueOutsideTheClosedVocabularyIsRefused()
 	{
 		Assert.False(LowReasonVocabulary.TryParse(["demotedMockFile", "demotedTestFile"], out _));
+	}
+
+	[Fact]
+	public void TheTwoNewValuesAreReadBackTogetherAndAValueNextToThemThatIsUnknownStillRefusesTheList()
+	{
+		Assert.True(LowReasonVocabulary.TryParse(["neutralOperandPair", "inactivePreprocessorRegion"], out LowConfidenceReasons parsed));
+		Assert.Equal(LowConfidenceReasons.NeutralOperandPair | LowConfidenceReasons.InactivePreprocessorRegion, parsed);
+		Assert.False(LowReasonVocabulary.TryParse(["neutralOperandPair", "neutralOperandPairs"], out _));
 	}
 
 	[Fact]

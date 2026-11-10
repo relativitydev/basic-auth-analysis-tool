@@ -12,8 +12,8 @@ namespace MigrateAuth.Cli.Catalog;
 public sealed class LanguageCatalog
 {
 	private const int _CURRENT_VERSION_MAJOR = 1;
-	private const int _CURRENT_VERSION_MINOR = 35;
-	private const int _CURRENT_VERSION_REVISION = 0;
+	private const int _CURRENT_VERSION_MINOR = 45;
+	private const int _CURRENT_VERSION_REVISION = 1;
 
 	private readonly FrozenDictionary<string, ILanguageAnalyzer> _analyzersByFileExtension;
 
@@ -31,15 +31,14 @@ public sealed class LanguageCatalog
 
 	/// <summary>
 	/// The version this build's embedded catalog carries. Numbered independently of the
-	/// product version. A session started under a different catalog version is started fresh.
+	/// product version.
 	///
 	/// <b>Its relation to the product version.</b> This number and the product version are
 	/// counted on two SEPARATE scales, not one scale under two names: this one versions the
 	/// runtime type <see cref="LanguageCatalog"/> actually ships - the embedded analyzers, their
 	/// expressions, their detection rules. A change that touches no runtime field (prose, a
-	/// corrected class placement) does not move this constant; a contract change moves it, and so
-	/// does a change to an analyzer's recognition expressions, declared coverage or recommendation
-	/// text. Reading either number as standing in for the other is a mistake.
+	/// corrected class placement) does not move this constant, and a contract change
+	/// moves it. Reading either number as standing in for the other is a mistake.
 	/// </summary>
 	public static CatalogVersion CurrentVersion { get; } =
 		new(_CURRENT_VERSION_MAJOR, _CURRENT_VERSION_MINOR, _CURRENT_VERSION_REVISION);

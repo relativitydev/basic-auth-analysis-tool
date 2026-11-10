@@ -104,8 +104,28 @@ public sealed record DocumentedLanguage(
 		]
 	};
 
+	/// <summary>The sixth language: Part A and Part C of TypeScript.</summary>
+	public static readonly DocumentedLanguage TypeScript = new(
+		"TypeScript",
+		"TypeScript",
+		AssessedLanguage.TypeScript,
+		"part-a-typescript.md",
+		"part-c-typescript.md",
+		TypeScriptRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"typescript",
+		"*.ts")
+	{
+		CacheAndReacquireMarker = PublicDocumentChecks.CACHE_AND_RE_ACQUIRE_WITHOUT_COMMA_MARKER,
+		AuthorizationCodeVariantMarkers =
+		[
+			("the browser variant", PublicDocumentChecks.BROWSER_VARIANT_MARKER),
+			("the Node.js server variant", PublicDocumentChecks.NODE_SERVER_VARIANT_MARKER),
+			("the Node.js command line or desktop variant", PublicDocumentChecks.NODE_COMMAND_LINE_VARIANT_MARKER)
+		]
+	};
+
 	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
-	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript];
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript, TypeScript];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()

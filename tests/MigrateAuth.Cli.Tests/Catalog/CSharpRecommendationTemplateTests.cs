@@ -8,7 +8,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The catalog's sixteen recommendation templates, registered against the real
+/// The catalog's seventeen recommendation templates, registered against the real
 /// embedded `CSharp` analyzer rather than a hand-built double, because what is under test is
 /// whether the analyzer this build ships actually answers <see cref="RecommendationTemplateProvider"/>
 /// the way the catalog and <see cref="AnalyzerContractValidator"/> both require - not whether some
@@ -20,13 +20,14 @@ public sealed class CSharpRecommendationTemplateTests
 	private const string _RELATIVE_PATH_PLACEHOLDER = "{path}";
 	private const string _LINE_PLACEHOLDER = "{line}";
 	private const string _IMPORT_API_PATTERN_CLASS = "CS-015";
+	private const int _TEMPLATED_PATTERN_CLASS_COUNT = 17;
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
-	/// <summary>The sixteen classes the catalog gives a template - every High or Medium class.</summary>
+	/// <summary>The seventeen classes the catalog gives a template - every High or Medium class.</summary>
 	private static readonly ImmutableArray<string> _templatedPatternClasses =
 	[
 		"CS-001", "CS-002", "CS-003", "CS-004", "CS-005", "CS-006", "CS-007", "CS-008", "CS-009",
-		"CS-012", "CS-013", "CS-014", "CS-015", "CS-016", "CS-017", "CS-018"
+		"CS-012", "CS-013", "CS-014", "CS-015", "CS-016", "CS-017", "CS-018", "CS-020"
 	];
 
 	/// <summary>The two classes the catalog's "Classes without a template" names.</summary>
@@ -60,9 +61,9 @@ public sealed class CSharpRecommendationTemplateTests
 			analyzer.CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![CredentialFlow.AuthorizationCode]);
 	}
 
-	/// <summary>All sixteen classes answer for both flows and CS-011 and CS-019 answer for neither.</summary>
+	/// <summary>All seventeen classes answer for both flows and CS-011 and CS-019 answer for neither.</summary>
 	[Fact]
-	public void TheAnalyzerDeclaresTheSixteenTemplatesForBothFlowsAndNothingForTheTwoUntemplatedClasses()
+	public void TheAnalyzerDeclaresTheSeventeenTemplatesForBothFlowsAndNothingForTheTwoUntemplatedClasses()
 	{
 		ILanguageAnalyzer analyzer = ReadAnalyzer();
 
@@ -135,7 +136,7 @@ public sealed class CSharpRecommendationTemplateTests
 	}
 
 	[Fact]
-	public void ExactlySixteenClassesAreTemplated()
+	public void ExactlySeventeenClassesAreTemplated()
 	{
 		ILanguageAnalyzer analyzer = ReadAnalyzer();
 
@@ -143,7 +144,7 @@ public sealed class CSharpRecommendationTemplateTests
 			.Count(patternClassIdentifier =>
 				analyzer.CandidateSelectionAndRecommendation.TemplateProvider(patternClassIdentifier, CredentialFlow.ClientCredentials) is not null);
 
-		Assert.Equal(16, templatedCount);
+		Assert.Equal(_TEMPLATED_PATTERN_CLASS_COUNT, templatedCount);
 	}
 
 	[Theory]

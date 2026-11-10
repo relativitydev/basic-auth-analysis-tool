@@ -9,15 +9,15 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// <summary>
 /// The structural half of the C# analyzer.
 ///
-/// It registers the eighteen pattern classes the catalog declares. The expressions of CS-011..CS-018,
-/// <see cref="CSharpPatternExpressions"/>, live in a second partial file,
-/// <c>EmbeddedLanguageAnalyzers.CSharp.SecondHalf.cs</c>, since <see cref="CSharpAnalyzer"/>
-/// itself is <c>file</c>-scoped and cannot be split. The fourteen preselection anchors are declared
-/// here in full: the anchor collection is a property of the catalog's whole vocabulary, and the second
-/// file extends the SAME registered analyzer rather than registering a second one.
+/// It registers the nineteen classes the catalog declares, CS-001..CS-009 and CS-011..CS-020. The
+/// <see cref="CSharpPatternExpressions"/> expressions of the later classes live in a second partial file,
+/// <c>EmbeddedLanguageAnalyzers.CSharp.SecondHalf.cs</c>, since <see cref="CSharpAnalyzer"/> itself is
+/// <c>file</c>-scoped and cannot be split. The sixteen preselection anchors are declared together: the
+/// anchor collection is a property of the catalog's whole vocabulary, not of one partial file, and the
+/// second partial file extends the SAME registered analyzer rather than registering a second one.
 ///
-/// The sixteen recommendation templates of the catalog - CS-001..CS-009 and
-/// CS-012..CS-018 - are declared for BOTH flows. The template text lives in a third
+/// The seventeen recommendation templates of the catalog - CS-001..CS-009,
+/// CS-012..CS-018 and CS-020 - are declared for BOTH flows. The template text lives in a third
 /// partial file, <c>EmbeddedLanguageAnalyzers.CSharp.Templates.cs</c>, as
 /// <see cref="CSharpRecommendationTemplates"/>'s constants, because <see cref="CSharpAnalyzer"/> is
 /// <c>file</c>-scoped and cannot be split. CS-011 and CS-019 return null for both flows: both are
@@ -30,7 +30,7 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// a High or Medium class still means "no catalog template for this class"; the declared fallback
 /// text for the finding's flow is what a finding taking that route renders. In practice no `CSharp`
 /// High or Medium class reaches the route at all, because every one of them has an entry; the
-/// declared texts exist for a class added without one.
+/// declared texts exist for the class a future catalog version adds without one.
 /// </summary>
 public static partial class EmbeddedLanguageAnalyzers
 {
@@ -124,10 +124,28 @@ internal static partial class CSharpPatternExpressions
 	private const string _CONSTRUCTOR_ARGUMENT_TEXT = @"\((?>(?:[^()]|\([^()]*\))*)\)";
 
 	/// <summary>
+	/// One argument written on one line with no comma at the top level and at most one further level of nested parentheses: an integer literal (decimal,
+	/// hexadecimal, with digit separators or a suffix), a named constant, a cast or a short expression. Atomic, and its two alternatives cannot start with the
+	/// same character (the second opens on a parenthesis, which the first refuses), so it can only end at the comma that follows it and a failed match costs its
+	/// own length once. It stops at a semicolon or a brace, so it never runs into the next statement.
+	/// </summary>
+	private const string _SINGLE_ARGUMENT_WITH_NO_TOP_LEVEL_COMMA = @"(?>(?:[^,()\r\n;{}]|\((?>[^()\r\n;]*)\))+)";
+
+	/// <summary>
 	/// The creation of the credential type, up to its opening parenthesis: <c>new</c>, then the type written
 	/// plain or qualified.
 	/// </summary>
 	private const string _NETWORK_CREDENTIAL_CREATION = @"new\s+" + _TYPE_QUALIFIER + @"NetworkCredential";
+
+	/// <summary>
+	/// A lookbehind, placed directly after the keyword <c>new</c>, that declines a creation sitting as the last
+	/// argument of a credential-cache <c>Add</c> whose scheme argument is not the literal <c>"Basic"</c>: the
+	/// call, an address, an optional port, and a scheme written as a literal or an
+	/// identifier, each argument free of a top-level comma and of at most one level of parentheses. It carries no
+	/// lazy quantifier and is tried only where the keyword stands.
+	/// </summary>
+	private const string _NOT_THE_LAST_ARGUMENT_OF_A_NON_BASIC_CACHE_ADD =
+		@"(?<!\.Add\s*\((?:[^;(),]|\([^;()]*\)){1,100}(?:,(?:[^;(),]|\([^;()]*\)){1,100})?,\s*(?!""Basic""\s*,)(?:""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*new)";
 
 	/// <summary>
 	/// An address argument that is itself a creation: <c>new T(...)</c>, with the type plain or qualified,
@@ -203,6 +221,16 @@ internal static partial class CSharpPatternExpressions
 	/// </summary>
 	private const string _INITIALIZER_CARRYING_A_NEW_CREDENTIAL =
 		@"\s*\{[^{}]*?\bCredentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR + @"[^{}]*?\}";
+
+	/// <summary>
+	/// A sink's initializer that does not itself set the credential, from its opening brace to the end of the creation statement, and the property binding that
+	/// gives the credential in a later statement within the five-line window: <c>{ EnableSsl = true };</c> then <c>mailer.Credentials = new NetworkCredential(user,
+	/// password)</c>. The body of the braces may not hold the word <c>Credentials</c> by itself (a longer name such as <c>UseDefaultCredentials</c> does not stop
+	/// it), is atomic, and cannot cross a brace, so a creation that never closes costs its own length once. The span ends in the constructed credential, which is
+	/// what lets the credential's own finding be subsumed by the sink's.
+	/// </summary>
+	private const string _INITIALIZER_NOT_SETTING_A_CREDENTIAL_THEN_THE_BINDING =
+		@"\s*\{(?>(?:(?!\bCredentials\b)[^{}])*)\}\s*;" + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR;
 
 	/// <summary>
 	/// The credential token inside a FULLY LITERAL <c>"&lt;Scheme&gt; &lt;token&gt;"</c>
@@ -331,13 +359,16 @@ internal static partial class CSharpPatternExpressions
 	/// The address takes the shared argument form or any creation with at most one further level of nested parentheses, written
 	/// plain, qualified or target-typed (<see cref="_ADDRESS_CONSTRUCTION_ARGUMENT"/>). The constructed
 	/// credential may be written qualified, with <c>global::</c> or with a partial namespace
-	/// (<see cref="_NETWORK_CREDENTIAL_CREATION"/>). Declared unsupported: a type renamed by a <c>using</c>
+	/// (<see cref="_NETWORK_CREDENTIAL_CREATION"/>). The port, the argument before the scheme of the four-argument
+	/// overload, takes any single
+	/// argument on one line with no comma at the top level and at most one further level of nested parentheses
+	/// (<see cref="_SINGLE_ARGUMENT_WITH_NO_TOP_LEVEL_COMMA"/>), an integer literal at least. Declared unsupported: a type renamed by a <c>using</c>
 	/// alias, a credential written as the target-typed <c>new(user, password)</c> in the entry's last
 	/// argument, a scheme written as a qualified constant, and an entry added by a collection initializer,
 	/// which has no <c>Add</c> call to anchor on.
 	/// </summary>
 	[GeneratedRegex(
-		@"\.(?<construct>Add)\s*\(\s*(?:" + _ADDRESS_CONSTRUCTION_ARGUMENT + @"|" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?:(?:" + _ARGUMENT_EXPRESSION + @")\s*,\s*)?(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
+		@"\.(?<construct>Add)\s*\(\s*(?:" + _ADDRESS_CONSTRUCTION_ARGUMENT + @"|" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?:" + _SINGLE_ARGUMENT_WITH_NO_TOP_LEVEL_COMMA + @"\s*,\s*)?(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex CredentialCacheBasicSchemeConstruction();
@@ -491,9 +522,15 @@ internal static partial class CSharpPatternExpressions
 	/// CS-003, CS-007 and CS-019 still holds at overlapping spans. Declared unsupported: a type renamed by a
 	/// <c>using</c> alias, a target-typed creation where the type name is not in front of the variable, and a
 	/// credential created by an initializer that carries both halves.
+	///
+	/// A credential constructed as the last argument of a credential-cache
+	/// <c>Add</c> whose scheme argument is not the literal <c>"Basic"</c> is not read
+	/// (<see cref="_NOT_THE_LAST_ARGUMENT_OF_A_NON_BASIC_CACHE_ADD"/>). A <c>Basic</c> <c>Add</c> is still
+	/// read by CS-003, which subsumes this class there; a credential held in a variable built elsewhere is
+	/// not this shape and is unaffected.
 	/// </summary>
 	[GeneratedRegex(
-		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>NetworkCredential)|\b(?<construct>NetworkCredential)" + _TARGET_TYPED_CREATION_SUFFIX + @")\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		@"(?:\bnew" + _NOT_THE_LAST_ARGUMENT_OF_A_NON_BASIC_CACHE_ADD + @"\s+" + _TYPE_QUALIFIER + @"(?<construct>NetworkCredential)|\b(?<construct>NetworkCredential)" + _TARGET_TYPED_CREATION_SUFFIX + @")\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NetworkCredentialConstruction();
@@ -506,6 +543,14 @@ internal static partial class CSharpPatternExpressions
 	private const string _CS_009_CREDENTIAL_HALF = @"(?>(?<credential>" + _IDENTIFIER_ROOTED_ARGUMENT + @"))";
 
 	/// <summary>
+	/// The user half of CS-009's pair: the whole first half, captured as <c>leftOperand</c> in the
+	/// identifier-rooted argument form, so the engine can test its words once the pair has matched. In the
+	/// concatenated spelling the half is the single argument that ends directly before the operator, so in
+	/// <c>a + b + ":" + c</c> it is <c>b</c> and never <c>a + b</c>.
+	/// </summary>
+	private const string _CS_009_LEFT_HALF = @"(?<leftOperand>" + _IDENTIFIER_ROOTED_ARGUMENT + @")";
+
+	/// <summary>
 	/// CS-009's interpolated, formatted and joined spellings of a colon-joined pair, each with both halves in
 	/// the identifier-rooted argument form (<see cref="_IDENTIFIER_ROOTED_ARGUMENT"/>), so a member access, a
 	/// call or an indexer is a half and a quoted literal never is. An empty half is the literal <c>""</c>, so
@@ -514,20 +559,23 @@ internal static partial class CSharpPatternExpressions
 	/// caller groups it.
 	/// </summary>
 	private const string _CS_009_LITERAL_OPENED_PAIR_SPELLINGS =
-		@"\$""\{\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*\}\s*:\s*\{\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\}"""
-		+ @"|(?:string|String)\.Format\s*\(\s*""\{0\}:\{1\}""\s*,\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)"
-		+ @"|(?:string|String)\.Join\s*\(\s*"":""\s*,\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)";
+		@"\$""\{\s*" + _CS_009_LEFT_HALF + @"\s*\}\s*:\s*\{\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\}"""
+		+ @"|(?:string|String)\.Format\s*\(\s*""\{0\}:\{1\}""\s*,\s*" + _CS_009_LEFT_HALF + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)"
+		+ @"|(?:string|String)\.Join\s*\(\s*"":""\s*,\s*" + _CS_009_LEFT_HALF + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)";
 
 	/// <summary>
 	/// CS-009's concatenated spelling when the pair is a statement of its own, anchored on the operator and
-	/// the colon literal that follows it, with the left half read BACKWARDS in a lookbehind: the half is an
-	/// identifier-rooted argument that no identifier character precedes and that ends, past any blanks,
-	/// directly before the operator. The alternative therefore opens on a plus sign, which is tried only
-	/// where one is, and not on an identifier, which is tried at every word of every file and, since a half may carry a call, would cost the whole class a call's arguments at each of them. The match begins at the
-	/// operator; the credential and the encoder are inside it, and the left half is not read for its value.
+	/// the colon literal that follows it. The cheap forward literal comes FIRST: the operator, then a lookahead
+	/// for the colon literal and the operator after it. Only then is the left half read BACKWARDS in a
+	/// lookbehind, so the lookbehind runs at a plus sign that is followed by <c>":" +</c> and not at every plus
+	/// sign of the file. The half is an identifier-rooted argument that no identifier character precedes and
+	/// that ends, past any blanks, directly before the operator. The alternative therefore opens on a plus
+	/// sign, which is tried only where one is, and not on an identifier, which is tried at every word of every
+	/// file and, since a half may carry a call, would cost the whole class a call's arguments at each of them.
+	/// The match begins at the operator; the credential and the encoder are inside it.
 	/// </summary>
 	private const string _CS_009_CONCATENATED_PAIR_AFTER_ITS_LEFT_HALF =
-		@"(?<=(?<![A-Za-z0-9_])" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*)\+\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
+		@"\+(?=\s*"":""\s*\+)(?<=(?<![A-Za-z0-9_])" + _CS_009_LEFT_HALF + @"\s*\+)\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
 
 	/// <summary>
 	/// CS-009's concatenated spelling inside the encoder call, read forwards: the left half must open inside
@@ -535,7 +583,34 @@ internal static partial class CSharpPatternExpressions
 	/// call that has just closed would then be read as the left half of a pair written after it.
 	/// </summary>
 	private const string _CS_009_CONCATENATED_PAIR_INSIDE_THE_WINDOW =
-		@"(?<![A-Za-z0-9_])" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*\+\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
+		@"(?<![A-Za-z0-9_])" + _CS_009_LEFT_HALF + @"\s*\+\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
+
+	/// <summary>The start of a token: the text's start, a non-alphanumeric character, or a lower-to-upper camel boundary.</summary>
+	private const string _CS_009_TOKEN_START = @"(?:(?<![^\W_])|(?<=[a-z])(?=[A-Z]))";
+
+	/// <summary>The end of a token: the text's end, a non-alphanumeric character, or a lower-to-upper camel boundary.</summary>
+	private const string _CS_009_TOKEN_END = @"(?:(?![^\W_])|(?<=[a-z])(?=[A-Z]))";
+
+	/// <summary>Between the tokens <c>api</c> and <c>key</c>: any run of separators, or a camel boundary. The separator run is a single greedy character class with no lazy group, so it is linear in the match bound.</summary>
+	private const string _CS_009_API_KEY_SEPARATOR = @"(?:[\W_]+|(?<=[a-z])(?=[A-Z]))";
+
+	/// <summary>
+	/// The words that make the user half of CS-009's pair credential-named: <c>user</c>, <c>login</c>,
+	/// <c>account</c>, <c>email</c> and <c>mail</c> as case-insensitive substrings; <c>usr</c>, <c>uname</c> and
+	/// <c>principal</c> as whole tokens. Alternations of literals, tested on the whole captured text of the half.
+	/// </summary>
+	private const string _CS_009_USER_HALF_WORDS =
+		@"(?:(?i:user|login|account|email|mail)|" + _CS_009_TOKEN_START + @"(?i:usr|uname|principal)" + _CS_009_TOKEN_END + ")";
+
+	/// <summary>
+	/// The words that make the secret half of CS-009's pair credential-named: <c>password</c>, <c>passwd</c>,
+	/// <c>passphrase</c>, <c>passcode</c>, <c>secret</c>, <c>credential</c> and <c>token</c> as case-insensitive
+	/// substrings; <c>pass</c>, <c>pwd</c>, <c>pw</c> and <c>apikey</c> (one token, or the adjacent tokens
+	/// <c>api</c> and <c>key</c>) as whole tokens.
+	/// </summary>
+	private const string _CS_009_SECRET_HALF_WORDS =
+		@"(?:(?i:password|passwd|passphrase|passcode|secret|credential|token)|" + _CS_009_TOKEN_START
+		+ @"(?:(?i:pass|pwd|pw|apikey)|(?i:api)" + _CS_009_API_KEY_SEPARATOR + @"(?i:key))" + _CS_009_TOKEN_END + ")";
 
 	/// <summary>
 	/// CS-009's pair written INSIDE the encoder call, with both halves non-empty. The encoder is the anchor
@@ -567,6 +642,24 @@ internal static partial class CSharpPatternExpressions
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex Base64UserPasswordPairConstruction();
+
+	/// <summary>
+	/// The words of CS-009's user half, tested by the engine on the whole captured text of <c>leftOperand</c>
+	/// after the match, through the timed door, with the policy match bound. A pair is neutral only if this
+	/// expression and <see cref="Base64UserPasswordPairSecretHalfWords"/> both fail to match.
+	/// </summary>
+	[GeneratedRegex(
+		_CS_009_USER_HALF_WORDS,
+		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
+	public static partial Regex Base64UserPasswordPairUserHalfWords();
+
+	/// <summary>The words of CS-009's secret half, tested on the whole captured text of <c>credential</c>; see <see cref="Base64UserPasswordPairUserHalfWords"/>.</summary>
+	[GeneratedRegex(
+		_CS_009_SECRET_HALF_WORDS,
+		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
+	public static partial Regex Base64UserPasswordPairSecretHalfWords();
 
 	/// <summary>
 	/// The factory call that obtains a file-transfer request: <c>Create</c> called through <c>WebRequest</c> or
@@ -631,25 +724,38 @@ internal static partial class CSharpPatternExpressions
 	/// qualified (<see cref="_TYPE_QUALIFIER"/>). An alternative in the <c>new</c> group reads a credential
 	/// built in the sink's own initializer, <c>new Sink(arguments) { Credentials = new NetworkCredential(user,
 	/// password) }</c>, with or without constructor parentheses, for the mail client and the proxy
-	/// (<see cref="_INITIALIZER_CARRYING_A_NEW_CREDENTIAL"/>). The sink decides, so the finding is this class at Low, and the existing subsumption of CS-008 and CS-016 removes
+	/// (<see cref="_INITIALIZER_CARRYING_A_NEW_CREDENTIAL"/>). The sink
+	/// decides, so the finding is this class at Low, and the subsumption of CS-008 and CS-016 removes
 	/// the credential inside it at overlapping spans. A top-level alternative reads
 	/// the target-typed declaration, <c>SmtpClient mailer = new(...)</c>, with the declared type directly in
 	/// front of the variable, in its initializer form, followed by the property binding, and followed by a
 	/// credential assembled across statements and bound later; the credential-first alternative reads the
 	/// target-typed sink in the same way. The target-typed alternative opens on the sink's type name as a
-	/// literal. Declared unsupported: a type renamed by a <c>using</c> alias and a target-typed creation where
+	/// literal. A sink created with an initializer that does not itself set the credential, written with or without
+	/// constructor parentheses, plain, qualified or target-typed, and given its credential by a later statement within the
+	/// five-line window, is read by the same two places (<see cref="_INITIALIZER_NOT_SETTING_A_CREDENTIAL_THEN_THE_BINDING"/>).
+	/// Declared unsupported: a type renamed by a <c>using</c> alias and a target-typed creation where
 	/// the type name is not in front of the variable.
+	///
+	/// Two tails are appended as one alternative (<see cref="_MEMBER_BOUND_CREDENTIAL_TAILS"/>, in the corrections file) for a credential stored in a
+	/// member, <c>settings.MailCredential = new NetworkCredential(user, password);</c>, and bound to a mail client, a proxy or a file-transfer request
+	/// through that same member: the sink created in the binding statement, or a receiver declared between the two links and bound through its variable.
+	/// The links lie within a tempered window of 30 line breaks and 400 characters per line, and no line the window crosses may hold the text
+	/// <c>NetworkCredential</c>. The span contains the credential's creation, so the existing subsumption of CS-008 at overlapping spans removes its finding. The same
+	/// member bound to an HTTP handler matches neither tail.
 	/// </summary>
 	[GeneratedRegex(
 		@"\bnew(?:\s+" + _TYPE_QUALIFIER + @"(?<construct>SmtpClient|FtpWebRequest|DirectoryEntry|DirectorySearcher|WebProxy)\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
 		+ @"|\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*\k<cv>\b"
 		+ @"|" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"(?:\bnew\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"|\b(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @")\b[^;]{0,300}?\bCredentials\s*=\s*\k<cv>\b"
 		+ @"|(?<=\b(?<c>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s+" + _TYPE_QUALIFIER + @"NetworkCredential" + _CREDENTIAL_ARGUMENT_PAIR + @"\s*;" + _FIVE_LINE_WINDOW + @"\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>DirectoryEntry)\s*\([^;]*?\b\k<c>\b[^;]*?\)"
-		+ @"|\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"\b(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?" + _INITIALIZER_CARRYING_A_NEW_CREDENTIAL + @")"
+		+ @"|\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"\b(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?(?:" + _INITIALIZER_CARRYING_A_NEW_CREDENTIAL + @"|" + _INITIALIZER_NOT_SETTING_A_CREDENTIAL_THEN_THE_BINDING + @"))"
 		+ @"|=(?<=\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=)\s*(?:\(\s*" + _TYPE_QUALIFIER + @"(?<construct>FtpWebRequest)\s*\)\s*" + _FILE_TRANSFER_REQUEST_FACTORY_CALL + @"|" + _FILE_TRANSFER_REQUEST_FACTORY_CALL + @"\s*as\s+" + _TYPE_QUALIFIER + @"(?<construct>FtpWebRequest))\s*;" + _FIVE_LINE_WINDOW + @"\b\k<v>\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
 		+ @"|\b(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @"(?:\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
 		+ @"|\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + _INITIALIZER_CARRYING_A_NEW_CREDENTIAL
-		+ @"|\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*\k<cv>\b)",
+		+ @"|(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?" + _INITIALIZER_NOT_SETTING_A_CREDENTIAL_THEN_THE_BINDING
+		+ @"|\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*\k<cv>\b)"
+		+ @"|" + _MEMBER_BOUND_CREDENTIAL_TAILS,
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NonHttpCredentialSinkConstruction();
@@ -715,6 +821,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _CS_017 = "CS-017";
 	private const string _CS_018 = "CS-018";
 	private const string _CS_019 = "CS-019";
+	private const string _CS_020 = "CS-020";
 
 	/// <summary>Names from the catalog's own class-heading mapping.</summary>
 	private const string _CS_001_DISPLAY_NAME = "SdkUserNamePasswordCredentials";
@@ -736,9 +843,11 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _CS_017_DISPLAY_NAME = "SdkSettingsCredentialProperties";
 	private const string _CS_018_DISPLAY_NAME = "TokenCarriedUnderBasicScheme";
 	private const string _CS_019_DISPLAY_NAME = "NonHttpCredentialSink";
+	private const string _CS_020_DISPLAY_NAME = "SdkProxyFactoryWithUserAndPassword";
 
 	private const string _CONSTRUCT_CAPTURE_GROUP = "construct";
 	private const string _CREDENTIAL_CAPTURE_GROUP = "credential";
+	private const string _LEFT_OPERAND_CAPTURE_GROUP = "leftOperand";
 	private const string _SCHEME_CAPTURE_GROUP = "scheme";
 	private const string _ENCODER_CAPTURE_GROUP = "encoder";
 	private const string _HEADER_CAPTURE_GROUP = "header";
@@ -747,6 +856,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _EXPECTED_SCHEME_TOKEN = "Basic";
 
 	private const string _LINE_COMMENT_OPENING = "//";
+	private const string _DIRECTIVE_OPENING = "#";
 	private const string _BLOCK_COMMENT_OPENING = "/*";
 	private const string _BLOCK_COMMENT_CLOSING = "*/";
 
@@ -807,7 +917,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
 	/// <summary>
-	/// Built once, following the reference analyzer's own pattern: sixteen entries, one per catalog
+	/// Built once, following the reference analyzer's own pattern: seventeen entries, one per catalog
 	/// class, whose credential provenance ends with part 2 for Client Credentials, sourced
 	/// from <see cref="CSharpRecommendationTemplates"/>.
 	/// </summary>
@@ -815,7 +925,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		BuildTemplates(CSharpRecommendationTemplates.CLIENT_CREDENTIALS_TOKEN_ACQUISITION);
 
 	/// <summary>
-	/// The same sixteen classes for Authorization Code: part 1 is identical and the credential
+	/// The same seventeen classes for Authorization Code: part 1 is identical and the credential
 	/// provenance ends with part 2 for Authorization Code, both variants.
 	/// </summary>
 	private static readonly FrozenDictionary<string, RecommendationTemplate> _authorizationCodeTemplatesByPatternClass =
@@ -829,10 +939,42 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			ConstantDeclarationExpression = CSharpPatternExpressions.ConstantDeclaration(),
 			LineCommentRules = BuildLineCommentRules(),
 			BlockCommentRules = BuildBlockCommentRules(),
-			QuoteRules = BuildQuoteRules()
+			QuoteRules = BuildQuoteRules(),
+			ConditionalCompilation = BuildConditionalCompilation()
 		};
 
 		return profile;
+	}
+
+	/// <summary>
+	/// Catalog element 1, the optional conditional-compilation element: a directive opens with a hash sign at a line start, and
+	/// the symbols the build can define outside the file read as unknown until the file undefines them. The words are the
+	/// debug, release and trace symbols; every symbol that starts with the framework prefix (which covers every framework
+	/// family and every version of one); and the platform words, each with an optional tail of digits and underscores, with or
+	/// without the greater-or-equal suffix. Every other symbol is false unless the file defines it.
+	/// </summary>
+	private static ConditionalCompilationRule BuildConditionalCompilation()
+	{
+		ConditionalCompilationRule rule = new()
+		{
+			DirectiveOpening = _DIRECTIVE_OPENING,
+			WellKnownSymbolWords =
+			[
+				"DEBUG",
+				"RELEASE",
+				"TRACE",
+				$"NET{ConditionalCompilationRule.PREFIX_WILDCARD_MARKER}",
+				$"WINDOWS{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"ANDROID{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"IOS{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"MACCATALYST{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"MACOS{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"TVOS{ConditionalCompilationRule.VERSION_TAIL_MARKER}",
+				$"BROWSER{ConditionalCompilationRule.VERSION_TAIL_MARKER}"
+			]
+		};
+
+		return rule;
 	}
 
 	private static ImmutableArray<LineCommentRule> BuildLineCommentRules()
@@ -990,7 +1132,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// should do about it. No internal design term, class identifier or section reference belongs
 	/// in either field - these entries are restated from the catalog's declared scope. The two classes supported at Low only (CS-011, CS-019) are a
 	/// DIFFERENT statement - they ARE recognized, just excluded from the recall denominator - so
-	/// they do not appear here. Split into five grouped helpers, each under the method-length
+	/// they do not appear here. Split into six grouped helpers, each under the method-length
 	/// limit, and concatenated.
 	/// </summary>
 	private static FrozenSet<DeclaredUnsupportedCoverage> BuildDeclaredUnsupportedCoverage()
@@ -999,9 +1141,35 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			.Concat(UnsupportedCoverageForResolutionAndConstruction())
 			.Concat(UnsupportedCoverageForCreationAndSchemeForms())
 			.Concat(UnsupportedCoverageForEngineLimits())
-			.Concat(UnsupportedCoverageForOutOfLanguageScope());
+			.Concat(UnsupportedCoverageForOutOfLanguageScope())
+			.Concat(UnsupportedCoverageForRealRepositoryCorrections());
 
 		return entries.ToFrozenSet();
+	}
+
+	/// <summary>The forms of the three detection corrections that the tool does not read or reads with a cost - one entry for each of the proxy factory call, the settings pair and the stored credential.</summary>
+	private static ImmutableArray<DeclaredUnsupportedCoverage> UnsupportedCoverageForRealRepositoryCorrections()
+	{
+		ImmutableArray<DeclaredUnsupportedCoverage> entries =
+		[
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a call to the Relativity helper method named GetProxy that passes a user name and a password in a form the tool does not read: two arguments with no sign of a user or a password in their names (a text second argument counts only when the first is also text or named like a user), a second argument that names both a token and a password, a different number of arguments, a call written without a type argument, a type argument that is not a single type name (one level of nested type arguments is read), an argument written as an expression more complex than a name, a member access, a single call or an index, or named arguments written in reverse order",
+				Reason = "the tool reports this call only when the second argument is named like a password, or the first argument is named like a user, or both arguments are written as text, and it never reports it when the second argument is named like a token or a key. Other calls that send a user name and a password are not reported, so search for GetProxy and review each call by hand. A call of an unrelated method with the same name and similar arguments can be reported, and should be dismissed on review"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a settings object that sets the Relativity API user name and password pair, two members whose names start with Rsapi, in a form the tool does not read: the two members more than five lines apart or in different files, one member in an initializer and the other assigned separately, the password set before the user name, a nested brace or more than 600 characters between the two members of one initializer, different middle parts in the two names, the same extra prefix before Rsapi in both, or a value that is a calculation rather than a name, a call or text",
+				Reason = "the tool reads the pair only when both members are set next to each other in one of the two plain forms; a pair set any other way can still send a user name and a password and is not reported, so search for Rsapi and review each settings object by hand. A declaration written over two lines can be reported as if it set the pair"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a credential stored in a member of a settings object and later handed to a mail, proxy or file-transfer client, in a form the tool does not follow: the client created before the credential is stored, more than 30 lines apart or across a line longer than 400 characters, a client held in a field or a parameter, the member written differently or copied through a variable first, a credential created inside an initializer or held in a single variable, any line between the two that contains the word NetworkCredential, such as another credential, a declaration or a comment, or the same member also handed to an HTTP client elsewhere in the file",
+				Reason = "the tool follows the credential only inside the window and the forms described in its entry. Outside them the credential is reported as an ordinary network credential at medium confidence, which is a false finding when it goes to a mail, proxy or file-transfer server, so confirm the destination of every such finding. A credential also handed to an HTTP client in the same file may not be reported at that place, so review the HTTP use by hand. A client or a hand-over written inside a comment or a text can be taken for real code"
+			}
+		];
+
+		return entries;
 	}
 
 	/// <summary>Who is authenticating, to what, and by what architecture - the three flow-shaped gaps.</summary>
@@ -1022,7 +1190,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a project's own custom authentication helper or wrapper written in a form the tool does not recognize",
-				Reason = "the tool matches known code patterns and cannot see inside every custom wrapper. It does detect the common case where a helper method or class visibly builds or holds a credential, but not every form a custom wrapper can take - review any authentication helper code by hand"
+				Reason = "the tool matches known code patterns and cannot see inside every custom wrapper. It does detect the common case where a helper method or class visibly builds or holds a credential, but not every form a custom wrapper can take. A settings object that sets the Relativity API user name and password pair, \"Rsapi...UserName\" and \"Rsapi...Password\", is also read in the forms described in the entry for settings objects with the Rsapi pair. Review any authentication helper code by hand"
 			}
 		];
 
@@ -1062,7 +1230,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "the retired RSAPI client obtained through a generic factory method that does not show a credential",
-				Reason = "the tool only recognizes this retired client when a credential is visibly built together with it, so as not to incorrectly flag code that is not a problem. A client obtained through a factory with no visible credential in that same code is not detected, even though it is still worth reviewing by hand"
+				Reason = "the tool only recognizes this retired client when a credential is visibly built together with it, so as not to incorrectly flag code that is not a problem. A client obtained through a factory with no visible credential in that same code is not detected, even though it is still worth reviewing by hand. A factory call that passes a user name and a password, \"GetProxy<T>(user, password)\", is a different case and is read in the forms described in the entry for calls to GetProxy"
 			},
 			new DeclaredUnsupportedCoverage
 			{
@@ -1124,7 +1292,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		return entries;
 	}
 
-	/// <summary>What the engine itself cannot yet bound or reconcile - three gaps.</summary>
+	/// <summary>What the engine itself cannot yet bound or reconcile - five gaps.</summary>
 	private static ImmutableArray<DeclaredUnsupportedCoverage> UnsupportedCoverageForEngineLimits()
 	{
 		ImmutableArray<DeclaredUnsupportedCoverage> entries =
@@ -1143,6 +1311,16 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			{
 				Construct = "a single hand-built Authorization header that the tool reports as two or three separate findings at nearby locations",
 				Reason = "the tool does not merge findings that come from more than one piece of code working together, such as a credential built on one line and used on another. Each part is reported separately even though they are one migration, and all of the reported locations need to be fixed together"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "conditional-compilation blocks in a file that also holds an interpolated raw string, or a raw string opened with more than one \"$\"",
+				Reason = "the tool cannot tell where such a literal ends, so it does not read the file's conditional-compilation directives at all, and a construct in a switched-off block is reported at the level of its class; review code in conditional blocks of such files by hand"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a declaration or a flow signal inside a switched-off conditional-compilation block, counted for code outside it",
+				Reason = "the tool reads constants and flow evidence over the whole file, so a name declared in each branch of a conditional is counted twice and may hide a finding, and evidence in a switched-off block may decide the flow of code outside it; review such files by hand"
 			}
 		];
 
@@ -1171,13 +1349,13 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "code inside a preprocessor conditional block (such as \"#if\"/\"#endif\"), and certain unusual string literal forms (an interpolated raw string, or a raw string opened with more than one \"$\")",
+				Construct = "certain unusual string literal forms (an interpolated raw string, or a raw string opened with more than one \"$\")",
 				Reason = "these are known gaps in how the tool reads C# text into code versus comments and strings, rather than a limitation of any one detection rule"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a Base64-encoded value made of two parts separated by a colon that is not actually a credential",
-				Reason = "the tool cannot always tell such values apart from an encoded user name and password pair, so a non-credential value with this same shape may occasionally be reported and should be dismissed on review"
+				Reason = "the tool cannot always tell such values apart from an encoded user name and password pair. It reads the value at Low, for manual review, when neither part is named like a user name or a password, and keeps it at Medium when a part is named so. A part whose user or password word is followed by an identifier word (an id, a GUID, a number, an index or a code) is not counted as named so. A non-credential value may therefore still be reported at Medium, and should be dismissed on review, when a part is named so without an identifier word after it, or when the identifier word is not written as a separate part of the name"
 			}
 		];
 
@@ -1205,7 +1383,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			[_CS_016] = BuildCS016(),
 			[_CS_017] = BuildCS017(),
 			[_CS_018] = BuildCS018(),
-			[_CS_019] = BuildCS019()
+			[_CS_019] = BuildCS019(),
+			[_CS_020] = BuildCS020()
 		};
 
 		return rules.ToFrozenDictionary(StringComparer.Ordinal);
@@ -1349,6 +1528,17 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		return rule;
 	}
 
+	/// <summary>
+	/// The identifier suffixes of the colon-joined pair's halves: a credential word directly followed by one of these,
+	/// as the next identifier word segment, names the identifier of a credential and not the credential. A closed list, compared whole.
+	/// </summary>
+	private static ImmutableArray<string> BuildCS009IdentifierSuffixes()
+	{
+		ImmutableArray<string> suffixes = ["Id", "Ids", "Identifier", "Guid", "Uuid", "Number", "Index", "Code"];
+
+		return suffixes;
+	}
+
 	private static DetectionRule BuildCS009()
 	{
 		DetectionRule rule = new()
@@ -1360,7 +1550,15 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			SymbolicVerdictInterpretation = SymbolicVerdictInterpretation.NotSubjectToSymbolicResolution,
 			CredentialPosition = CredentialPosition.AtCaptureGroup(_CREDENTIAL_CAPTURE_GROUP),
 			DestinationCertainty = DestinationCertainty.Unknown,
-			DisplayName = _CS_009_DISPLAY_NAME
+			DisplayName = _CS_009_DISPLAY_NAME,
+			LowWhenBothOperandsAreNeutral = new NeutralOperandPairCondition
+			{
+				FirstOperandGroupName = _LEFT_OPERAND_CAPTURE_GROUP,
+				FirstOperandWordExpression = CSharpPatternExpressions.Base64UserPasswordPairUserHalfWords(),
+				SecondOperandGroupName = _CREDENTIAL_CAPTURE_GROUP,
+				SecondOperandWordExpression = CSharpPatternExpressions.Base64UserPasswordPairSecretHalfWords(),
+				IdentifierSuffixes = BuildCS009IdentifierSuffixes()
+			}
 		};
 
 		return rule;
@@ -1559,6 +1757,27 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
+	/// CS-020. High base, self-sufficient as CS-014 and CS-015 are - the method name and the two credential arguments declare the carrier. The call names no
+	/// endpoint, so the destination is not claimed (<see cref="DestinationCertainty.Unknown"/>), and the credential position is the second argument's value.
+	/// </summary>
+	private static DetectionRule BuildCS020()
+	{
+		DetectionRule rule = new()
+		{
+			Expression = CSharpPatternExpressions.SdkProxyFactoryWithUserAndPasswordConstruction(),
+			AnchorPosition = MatchAnchor.AtCaptureGroup(_CONSTRUCT_CAPTURE_GROUP),
+			BaseLevel = ConfidenceLevel.High,
+			SelfSufficiency = SelfSufficiency.DeclaresSchemeAndCredentialCarrier,
+			SymbolicVerdictInterpretation = SymbolicVerdictInterpretation.NotSubjectToSymbolicResolution,
+			CredentialPosition = CredentialPosition.AtCaptureGroup(_CREDENTIAL_CAPTURE_GROUP),
+			DestinationCertainty = DestinationCertainty.Unknown,
+			DisplayName = _CS_020_DISPLAY_NAME
+		};
+
+		return rule;
+	}
+
+	/// <summary>
 	/// The catalog's scheme interpretation, shared by CS-003, CS-005 and CS-006 - the three
 	/// classes that carry a scheme argument subject to symbolic resolution.
 	/// </summary>
@@ -1682,12 +1901,13 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// The catalog's fourteen case-sensitive anchors: every one of CS-011..CS-018 is reached by an anchor in this list
+	/// The catalog's sixteen case-sensitive anchors, among them <c>GetProxy</c> (CS-020) and <c>Rsapi</c> (the second pair of CS-017).
+	/// Every one of CS-011..CS-018 is reached by an anchor of the set
 	/// (<c>Credential</c>, <c>Authorization</c> and <c>Authenticator</c> for CS-011; <c>Authorization</c>
 	/// for CS-012; <c>ClientCredentialType</c> for CS-013; <c>WithBasicAuth</c> for CS-014;
 	/// <c>ImportAPI</c> for CS-015; <c>Credential</c> for CS-016; <c>RelativityUsername</c> and
 	/// <c>RelativityPassword</c> for CS-017; <c>Base64</c> for CS-018) - the anchor collection is a property
-	/// of the whole catalog's vocabulary and this is the one registered `CSharp` analyzer both halves
+	/// of the whole catalog's vocabulary and this is the one registered `CSharp` analyzer both partial files
 	/// extend.
 	///
 	/// Also declares <see cref="CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow"/> for
@@ -1712,7 +1932,9 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 				new PreselectionAnchor { Text = "Base64" },
 				new PreselectionAnchor { Text = "UserName" },
 				new PreselectionAnchor { Text = "RelativityUsername" },
-				new PreselectionAnchor { Text = "RelativityPassword" }
+				new PreselectionAnchor { Text = "RelativityPassword" },
+				new PreselectionAnchor { Text = "GetProxy" },
+				new PreselectionAnchor { Text = "Rsapi" }
 			}.ToFrozenSet(),
 			TemplateProvider = ProvideTemplate,
 			FlowSignals = CSharpFlowSignalDeclarations.Build(),
@@ -1727,7 +1949,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// Sixteen classes resolve to their catalog entry for either flow; CS-011 and CS-019 - and
+	/// Seventeen classes resolve to their catalog entry for either flow; CS-011 and CS-019 - and
 	/// any identifier this analyzer does not declare - resolve to null, which is what routes a Low
 	/// finding to manual review and would route an unrecognized High or Medium finding to the
 	/// generic route with this analyzer's own declared fallback text for the flow, since
@@ -1747,8 +1969,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// The catalog's sixteen templates, one call per class, matching the per-class builder
-	/// pattern <see cref="BuildDetectionRules"/> already uses for the eighteen detection rules. The
+	/// The catalog's seventeen templates, one call per class, matching the per-class builder
+	/// pattern <see cref="BuildDetectionRules"/> already uses for the nineteen detection rules. The
 	/// token acquisition passed in is part 2 of the flow being built.
 	/// </summary>
 	private static FrozenDictionary<string, RecommendationTemplate> BuildTemplates(string tokenAcquisition)
@@ -1770,7 +1992,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			[_CS_015] = BuildCS015Template(tokenAcquisition),
 			[_CS_016] = BuildCS016Template(tokenAcquisition),
 			[_CS_017] = BuildCS017Template(tokenAcquisition),
-			[_CS_018] = BuildCS018Template(tokenAcquisition)
+			[_CS_018] = BuildCS018Template(tokenAcquisition),
+			[_CS_020] = BuildCS020Template(tokenAcquisition)
 		};
 
 		return templates.ToFrozenDictionary(StringComparer.Ordinal);
@@ -1960,6 +2183,17 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			TargetFormUnderTokenAuthentication = CSharpRecommendationTemplates.CS_018_TARGET_FORM,
 			CredentialProvenance = ComposeCredentialProvenance(CSharpRecommendationTemplates.CS_018_CREDENTIAL_PROVENANCE, tokenAcquisition),
 			VerificationNote = CSharpRecommendationTemplates.CS_018_VERIFICATION_NOTE
+		};
+	}
+
+	private static RecommendationTemplate BuildCS020Template(string tokenAcquisition)
+	{
+		return new RecommendationTemplate
+		{
+			GenericSourceForm = CSharpRecommendationTemplates.CS_020_SOURCE_FORM,
+			TargetFormUnderTokenAuthentication = CSharpRecommendationTemplates.CS_020_TARGET_FORM,
+			CredentialProvenance = ComposeCredentialProvenance(CSharpRecommendationTemplates.CS_020_CREDENTIAL_PROVENANCE, tokenAcquisition),
+			VerificationNote = CSharpRecommendationTemplates.CS_020_VERIFICATION_NOTE
 		};
 	}
 

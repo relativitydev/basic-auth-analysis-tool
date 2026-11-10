@@ -16,7 +16,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
 /// THE VOLUME PROOF, THROUGH THE REAL EMBEDDED `CSharp` ANALYZER AND THE REAL
-/// ANALYSIS PATH - ALL EIGHTEEN DETECTION RULES REGISTERED, NEVER A
+/// ANALYSIS PATH - ALL NINETEEN DETECTION RULES REGISTERED, NEVER A
 /// HAND-BUILT `RecognizedConstruct`.
 ///
 /// FIVE THOUSAND CANDIDATE FILES, GENERATED AT RUN TIME INTO A TEMPORARY DIRECTORY OUTSIDE THE
@@ -26,21 +26,20 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// is committed. Every generated file carries a preselection anchor, so every one is a real candidate
 /// - never a file the walk enumerates but Scan declines to open.
 ///
-/// THREE FILE SHAPES. Most files carry exactly one of the eighteen classes' own canonical
+/// THREE FILE SHAPES. Most files carry exactly one of the nineteen classes' own canonical
 /// construct, cycled so every class is exercised at volume. A small set carry an anchor in prose
 /// only - a real candidate that must yield no finding, proving the anchor alone does not manufacture
-/// one. And a deliberate minority prepend a verbatim string literal that the shared engine's own known
-/// defect (<c>LexicalScanner.Literals.cs</c>'s <c>MatchAConstantOpening</c>, out of this
-/// test's declared scope) never closes, so their scan is abandoned mid-file and the skipped-item list's
+/// one. And a deliberate minority prepend a verbatim string literal that the shared scanner's known
+/// defect (<c>LexicalScanner.Literals.cs</c>'s <c>MatchAConstantOpening</c>) never closes, so their
+/// scan is abandoned mid-file and the skipped-item list's
 /// <see cref="SkippedItemCategory.LexicalAnomaly"/> counts them - the number this proof records
 /// rather than works around.
 ///
 /// ONE CANONICAL CONSTRUCT IS NOT SELF-CONTAINED, AND THE EXPECTED COUNTS SAY SO RATHER THAN
-/// ASSUME OTHERWISE. CS-011's own construct co-fires CS-001 (the catalog's declared "three
-/// absences": no subsumption between a helper's declaration and the credential construction inside
-/// it). The addition is folded into the expected per-class tallies as it is generated, never asserted
-/// as an afterthought. CS-003's own construct does not co-fire CS-008: the catalog declares CS-003
-/// as subsuming it, so a cache entry in the generated files is one finding.
+/// ASSUME OTHERWISE. CS-011's own construct co-fires CS-001 (no subsumption between a helper's
+/// declaration and the credential construction inside it). The addition is folded into the expected
+/// per-class tallies as it is generated, never asserted as an afterthought. CS-003's own construct
+/// subsumes CS-008, so a cache entry in the generated files is one finding.
 ///
 /// FLOW-SIGNAL EVALUATION AT THE SAME VOLUME. Every positive file also carries
 /// one of three signal shapes, cycled by its index: an interactive-user signal, a fixed-credential
@@ -108,7 +107,8 @@ public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMe
 		("CS-016", "NetworkCredential credential = new NetworkCredential { UserName = userName };\ncredential.Password = password;"),
 		("CS-017", "importJob.Settings.RelativityUsername = userName;\nimportJob.Settings.RelativityPassword = password;"),
 		("CS-018", "string pair = \"\" + \":\" + accessToken;\nstring encoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair));"),
-		("CS-019", "var sink = new SmtpClient(host, port);\nsink.Credentials = new NetworkCredential(userName, password);")
+		("CS-019", "var sink = new SmtpClient(host, port);\nsink.Credentials = new NetworkCredential(userName, password);"),
+		("CS-020", "var proxy = helper.GetProxy<IExampleService>(userName, password);")
 	];
 
 	/// <summary>
@@ -125,7 +125,7 @@ public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMe
 	}
 
 	[Fact]
-	public void FiveThousandCandidateFilesAcrossAllEighteenClassesAnalyseCleanlyThroughTheRealPath()
+	public void FiveThousandCandidateFilesAcrossAllNineteenClassesAnalyseCleanlyThroughTheRealPath()
 	{
 		using PipelineHarness harness = PipelineHarness.CreateOverTheEmbeddedCatalog();
 
@@ -204,7 +204,7 @@ public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMe
 	}
 
 	/// <summary>
-	/// Generates all three shapes and returns the MINIMUM finding count each of the eighteen classes
+	/// Generates all three shapes and returns the MINIMUM finding count each of the nineteen classes
 	/// must reach - exact for every class except <see cref="_CS_001"/>, whose fixtures also arrive as a
 	/// side effect of the fifty unterminated-literal files.
 	/// </summary>
@@ -244,7 +244,7 @@ public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMe
 		}
 	}
 
-	/// <summary>An anchor in prose only - a real candidate, structurally incapable of matching any of the eighteen rules.</summary>
+	/// <summary>An anchor in prose only - a real candidate, structurally incapable of matching any of the nineteen rules.</summary>
 	private static void PlantNoiseFiles(PipelineHarness harness)
 	{
 		for (int fileIndex = 0; fileIndex < _NOISE_FILE_COUNT; fileIndex++)
@@ -349,7 +349,7 @@ public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMe
 			finding => finding.PatternClass.Value,
 			StringComparer.Ordinal);
 
-		_output.WriteLine("CSharp analyzer volume proof (largest supported size, all eighteen rules)");
+		_output.WriteLine("CSharp analyzer volume proof (largest supported size, all nineteen rules)");
 		_output.WriteLine(FormattedLine("Candidate file count", harness.State.ScanOutcome.CandidateFileCount));
 		_output.WriteLine(FormattedLine("Total file count", harness.State.ScanOutcome.FileCount));
 		_output.WriteLine($"Elapsed (Analyze stage, wall clock): {elapsed.TotalSeconds:N3} s");

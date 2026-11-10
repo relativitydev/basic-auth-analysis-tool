@@ -92,7 +92,7 @@ public sealed class RepositoryWalk
 		{
 			foreach (FileSystemInfo entry in entries)
 			{
-				Classify(entry, files, pendingDirectories);
+				Classify(entry, entries, files, pendingDirectories);
 			}
 		}
 		else
@@ -157,8 +157,14 @@ public sealed class RepositoryWalk
 	/// <summary>
 	/// What one entry is, in the order the tests have to be applied: a link before anything else,
 	/// because a link to a directory is still a directory and would otherwise be descended into.
+	/// A directory is excluded by its name, or - for <c>bin</c> alone - by the names of its siblings,
+	/// which are the entries already listed: nothing is opened to decide it.
 	/// </summary>
-	private void Classify(FileSystemInfo entry, List<WalkedFile> files, Stack<string> pendingDirectories)
+	private void Classify(
+		FileSystemInfo entry,
+		FileSystemInfo[] siblings,
+		List<WalkedFile> files,
+		Stack<string> pendingDirectories)
 	{
 		if (IsLink(entry))
 		{
@@ -166,7 +172,7 @@ public sealed class RepositoryWalk
 		}
 		else if (entry is DirectoryInfo directory)
 		{
-			if (WalkExclusions.IsExcluded(directory.Name))
+			if (WalkExclusions.IsExcluded(directory.Name) || WalkExclusions.IsBuildOutputBin(directory.Name, siblings))
 			{
 				RecordExcludedFolder(directory.FullName);
 			}

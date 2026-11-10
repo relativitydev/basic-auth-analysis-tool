@@ -130,6 +130,18 @@ A jQuery `ajax` or `ajaxSetup` call with `username` and `password` settings. A j
 
 A `request` call whose `auth` option or method has the immediate send turned off (`sendImmediately` false). With it off, the client sends Basic only after it receives a 401 answer, and RelativityOne does not challenge with Basic (this rests on a single RelativityOne instance observed for the earlier languages, is not documented by Relativity, and was not probed on Relativity Server), so as written the call does not send Basic to it. Confirm where the call points. If it points at RelativityOne, the call does not authenticate with that credential, and you should look for the header write or the `auth` option with the immediate send on that the code also uses, which is reported under its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. The `request` package has been deprecated since 2020, so a repository that still uses it should plan to replace it, and the replacement is a good place to apply the Bearer form. A credential written literally into the call is still a secret to remove.
 
+### JS-018 · AuthorizationHeaderValueFromEnvironment
+
+<a id="js-018-judging"></a>
+
+An `Authorization` header whose whole value is read from the process environment (`process.env`, `import.meta.env`, `Deno.env.get` or `Bun.env`), alone, with a `||` or `??` fallback, as the only hole of a template, or through a name assigned from such a read in the same file. The tool marks it Low because the code does not show what the variable holds: an environment variable that holds a whole `Authorization` value is, in real code, most often a bearer token, which is the migrated form, and the tool does not read the environment. Find out what the deployed value is. If it holds `Basic` followed by an encoded pair, the header is Basic Authentication: find the place that sets the variable (a configuration file, a deployment setting, a secret store, a build step), replace the credential with a client for token authentication, and change the code that sends the header so that it obtains and caches an access token and sends a `Bearer` header; follow the entry of the class that matches that code. If it holds a bearer token, no migration is needed. If a fallback literal is present and is not a bearer token or a Basic header, check that it does not hold a credential. The value is held in the environment or in the file that sets it, so a secret that is written into that file is still a secret to remove.
+
+### JS-019 · AuthorizationHeaderValueFromSettingsProperty
+
+<a id="js-019-judging"></a>
+
+An `Authorization` header whose whole value is a property of a settings object (`settings.serviceAuthorization`), where the file fills that property from an environment value (`process.env`, `import.meta.env`, `Deno.env.get` or `Bun.env`). The tool marks it Low because the code does not show what the variable holds: a variable that holds a whole `Authorization` value is, in real code, most often a bearer token, which is the migrated form, and the tool does not read the environment. Find out what the deployed value is. If it holds `Basic` followed by an encoded pair, the header is Basic Authentication: find the place that sets the variable (a configuration file, a deployment setting, a secret store, a build step), replace the credential with a client for token authentication, and change the code that sends the header so that it obtains and caches an access token and sends a `Bearer` header; follow the entry of the class that matches that code. If it holds a bearer token, no migration is needed. The tool joins the property to the environment value by its name alone, so confirm that the property you found is the one the header uses, and look at settings written in forms the tool does not read (a different property name, a call). The value is held in the environment or in the file that sets it, so a secret that is written into that file is still a secret to remove.
+
 ## Migration suggestions by pattern class
 
 Each pattern class has two entries, one for each flow. Choose the entry for the flow you confirmed above. Every entry contains the code being replaced, the migrated code, the question of whether the destination is RelativityOne, a description of token acquisition, caching and expiry handling in the variants of [Choosing the variant for your application](#choosing-the-variant-for-your-application), how to confirm the flow and the default, the OAuth2 Client to create or confirm with its settings, and the pointer to Secret Management (Part B of the Migration Documentation). Every Authorization Code entry adds a description of refresh-token handling, of PKCE, and of its three variants.
@@ -142,7 +154,7 @@ Each pattern class has two entries, one for each flow. Choose the entry for the 
 
 The labels *Source form* (the construct being replaced) and *Verification* (what to check before you deploy) are not numbered.
 
-The five Low classes, JS-007, JS-009, JS-011, JS-014 and JS-016, have no entry because they produce no recommendation. They are covered under [Judging a Low-confidence match](#judging-a-low-confidence-match).
+The seven Low classes, JS-007, JS-009, JS-011, JS-014, JS-016, JS-018 and JS-019, have no entry because they produce no recommendation. They are covered under [Judging a Low-confidence match](#judging-a-low-confidence-match).
 
 ### JS-001 · ClientAuthCredentialObject
 

@@ -140,6 +140,12 @@ public abstract class PartASearchTests
 /// <summary>The searches of Part A for C#, checked against the creation forms, the named-constant scheme and the other forms its analyzer is tested to read.</summary>
 public sealed class CSharpPartASearchTests : PartASearchTests
 {
+	private const string _PROXY_FACTORY_CLASS = "CS-020";
+	private const string _SETTINGS_PAIR_CLASS = "CS-017";
+	private const string _NON_HTTP_SINK_CLASS = "CS-019";
+	private const int _FORM_LABEL_COLUMN = 0;
+	private const int _FORM_SOURCE_COLUMN = 1;
+
 	public CSharpPartASearchTests()
 		: base(DocumentedLanguage.CSharp)
 	{
@@ -147,7 +153,47 @@ public sealed class CSharpPartASearchTests : PartASearchTests
 
 	internal override ImmutableArray<SearchableForm> CoveredForms()
 	{
-		return [.. CSharpDetectionFormFixtures.CoveredForms.Select(form => new SearchableForm(form.PatternClass, form.Label, form.Source))];
+		return
+		[
+			.. CSharpDetectionFormFixtures.CoveredForms.Select(form => new SearchableForm(form.PatternClass, form.Label, form.Source)),
+			.. FormsOfTheCorrections()
+		];
+	}
+
+	/// <summary>The search of CS-020 is the method name, and the search of CS-017 reads the Rsapi pair next to the first pair.</summary>
+	[Fact]
+	public void TheSearchesOfTheCorrectionsAreTheOnesPartAStates()
+	{
+		ImmutableArray<DocumentedSearch> searches = PartASearchChecks.SearchesOf(File.ReadAllText(DocumentedLanguage.CSharp.PartAPath()), DocumentedLanguage.CSharp.Analyzer().DetectionRulesByPatternClass);
+
+		Assert.Equal("GetProxy", Assert.Single(searches, search => search.PatternClassIdentifier == _PROXY_FACTORY_CLASS).Expression);
+		Assert.Equal("RelativityUsername|RelativityPassword|Rsapi", Assert.Single(searches, search => search.PatternClassIdentifier == _SETTINGS_PAIR_CLASS).Expression);
+	}
+
+	/// <summary>The Rsapi alternative is what finds the second spelling: a search without it finds none of the Rsapi forms of CS-017, and the documented one finds every one.</summary>
+	[Fact]
+	public void TheRsapiAlternativeOfTheSearchOfCs017IsWhatFindsTheSecondSpelling()
+	{
+		DocumentedSearch earlier = new(_SETTINGS_PAIR_CLASS, "RelativityUsername|RelativityPassword", IgnoresCase: false);
+		DocumentedSearch documented = Assert.Single(
+			PartASearchChecks.SearchesOf(File.ReadAllText(DocumentedLanguage.CSharp.PartAPath()), DocumentedLanguage.CSharp.Analyzer().DetectionRulesByPatternClass),
+			search => search.PatternClassIdentifier == _SETTINGS_PAIR_CLASS);
+		ImmutableArray<SearchableForm> rsapiForms = [.. FormsOfTheCorrections().Where(form => form.PatternClassIdentifier == _SETTINGS_PAIR_CLASS && form.Source.Contains("Rsapi", StringComparison.Ordinal))];
+
+		Assert.NotEmpty(rsapiForms);
+		Assert.All(rsapiForms, form => Assert.False(PartASearchChecks.Finds(earlier, form.Source), form.Label));
+		Assert.All(rsapiForms, form => Assert.True(PartASearchChecks.Finds(documented, form.Source), form.Label));
+	}
+
+	/// <summary>The forms of CS-020, CS-017 and CS-019 taken from the analyzer's own tests of them: every form of CS-020, the Rsapi pair of CS-017 and the stored credential of CS-019.</summary>
+	private static ImmutableArray<SearchableForm> FormsOfTheCorrections()
+	{
+		return
+		[
+			.. CSharpProxyFactoryDetectionTests.ReadForms().Select(row => new SearchableForm(_PROXY_FACTORY_CLASS, $"{_PROXY_FACTORY_CLASS} {(string)row[_FORM_LABEL_COLUMN]}", (string)row[_FORM_SOURCE_COLUMN])),
+			.. CSharpRsapiPairDetectionTests.ReadForms().Select(row => new SearchableForm(_SETTINGS_PAIR_CLASS, $"{_SETTINGS_PAIR_CLASS} {(string)row[_FORM_LABEL_COLUMN]}", (string)row[_FORM_SOURCE_COLUMN])),
+			.. CSharpMemberBoundCredentialDetectionTests.ReadForms().Select(row => new SearchableForm(_NON_HTTP_SINK_CLASS, $"{_NON_HTTP_SINK_CLASS} {(string)row[_FORM_LABEL_COLUMN]}", (string)row[_FORM_SOURCE_COLUMN]))
+		];
 	}
 }
 

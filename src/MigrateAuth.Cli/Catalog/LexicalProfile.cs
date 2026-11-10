@@ -35,6 +35,15 @@ public sealed class LexicalProfile
 	/// </summary>
 	public required Regex ConstantDeclarationExpression { get; init; }
 
+	/// <summary>
+	/// Optional, null by default: the member-declaration expression, which feeds the second dictionary of the file symbol table (the member records, kept apart from the variable
+	/// records of <see cref="ConstantDeclarationExpression"/>). It names the member in the group <c>name</c>, marks an environment-read value with the empty group
+	/// <see cref="EnvironmentDeclarationGroups.MARKER"/> and carries the word of the fallback in <see cref="EnvironmentDeclarationGroups.FALLBACK_WORD"/>. It must carry the match
+	/// bound, is anchored at a line start, reads one member per line, uses no look-behind and captures nothing outside its own span. It is run by the symbol-collection phase through
+	/// the same timed door as the constant-declaration expression. A profile that reuses another profile's declarations declares this one itself: the field is never inherited.
+	/// </summary>
+	public Regex? MemberDeclarationExpression { get; init; }
+
 	/// <summary>Case sensitivity, in keywords.</summary>
 	public CaseSensitivity KeywordCaseSensitivity { get; init; } = CaseSensitivity.Sensitive;
 
@@ -70,6 +79,19 @@ public sealed class LexicalProfile
 	/// <see cref="ExecutedStringContext"/>.
 	/// </summary>
 	public ExecutedStringContext? ExecutedStrings { get; init; }
+
+	/// <summary>
+	/// The code-span elements, empty where the language has none, which is every shipped profile but `Shell`. A span
+	/// is a run of code that one token opens and closes on the same physical line, whose content is a command of its own. See <see cref="CodeSpanElement"/>.
+	/// </summary>
+	public ImmutableArray<CodeSpanElement> CodeSpans { get; init; } = [];
+
+	/// <summary>
+	/// The conditional-compilation element, or null where the language has none, which is every shipped profile
+	/// but `CSharp`. Where it is declared, the engine reads the file's own directives into a
+	/// region map and a match whose anchor lies in a branch the file's own symbols switch off proposes Low. See <see cref="ConditionalCompilationRule"/>.
+	/// </summary>
+	public ConditionalCompilationRule? ConditionalCompilation { get; init; }
 
 	/// <summary>Write-only on purpose: the order supplied here is discarded, never read back.</summary>
 	public required IEnumerable<LineCommentRule> LineCommentRules

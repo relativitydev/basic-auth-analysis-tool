@@ -82,6 +82,7 @@ public sealed partial class LexicalScanner
 	private readonly SkippedQuote[] _skippedQuotes;
 	private readonly ImmutableArray<LineCommentRule> _lineCommentRules;
 	private readonly bool _tracksRegionState;
+	private readonly ImmutableArray<CodeSpanElement> _codeSpans;
 
 	public LexicalScanner(LexicalProfile profile)
 		: this(profile, TimeProvider.System)
@@ -113,6 +114,7 @@ public sealed partial class LexicalScanner
 		_executedReader = BuildTheExecutedReader(profile, _keywordComparison);
 		_executedBodies = BuildTheExecutedBodies(profile);
 		_inlineContexts = profile.ExecutedStrings?.InlineContexts ?? [];
+		_codeSpans = profile.CodeSpans;
 	}
 
 	/// <summary>The profile this scanner was parameterized by.</summary>
@@ -357,15 +359,18 @@ public sealed partial class LexicalScanner
 			context.OutermostConstructOpening = position;
 		}
 
-		int next = position;
+		int next = ReadACodeSpanAt(context, position);
 
-		foreach (LexicalRuleCandidate candidate in _index.CandidatesFor(context.Text[position]))
+		if (next == position)
 		{
-			next = BeginAConstruct(context, region, candidate, position);
-
-			if (next > position || context.IsAbandoned)
+			foreach (LexicalRuleCandidate candidate in _index.CandidatesFor(context.Text[position]))
 			{
-				break;
+				next = BeginAConstruct(context, region, candidate, position);
+
+				if (next > position || context.IsAbandoned)
+				{
+					break;
+				}
 			}
 		}
 

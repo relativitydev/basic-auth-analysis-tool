@@ -37,6 +37,8 @@ internal static partial class ShellShapedProfile
 	private const string _CASE_CLOSING_KEYWORD = "esac";
 	private const string _COMMAND_POSITION_PREDECESSORS = "\n;&|(";
 	private const string _COMMENT_PREDECESSORS = " \t\n;&|()";
+	private const string _BACKTICK = "`";
+	private const string _BACKTICK_ESCAPABLE_CHARACTERS = "`\\$";
 	private const char _ESCAPE_CHARACTER = '\\';
 	private const char _HERE_STRING_ANGLE = '<';
 	private const char _LINE_FEED = '\n';
@@ -84,7 +86,7 @@ internal static partial class ShellShapedProfile
 
 	internal static LexicalProfile Build()
 	{
-		return Build(executedStrings: null);
+		return Build(executedStrings: null, codeSpans: []);
 	}
 
 	/// <summary>
@@ -93,7 +95,23 @@ internal static partial class ShellShapedProfile
 	/// </summary>
 	internal static LexicalProfile BuildWithExecutedStrings()
 	{
-		return Build(ShellExecutedStringsDeclaration.Build());
+		return Build(ShellExecutedStringsDeclaration.Build(), codeSpans: []);
+	}
+
+	/// <summary>
+	/// The reference the shipped profile is pinned to: the executed-string context and the backtick code span, the element of the lexical vocabulary whose
+	/// first user is the shell's command substitution.
+	/// </summary>
+	internal static LexicalProfile BuildWithCodeSpans()
+	{
+		return Build(
+			ShellExecutedStringsDeclaration.Build(),
+			[new CodeSpanElement { Opening = _BACKTICK, Closing = _BACKTICK, EscapeCharacter = _ESCAPE_CHARACTER.ToString(), EscapableCharacters = _BACKTICK_ESCAPABLE_CHARACTERS }]);
+	}
+
+	internal static ZoneMask ScanWithCodeSpans(string source)
+	{
+		return new LexicalScanner(BuildWithCodeSpans()).Scan(source);
 	}
 
 	internal static ZoneMask ScanWithExecutedStrings(string source)
@@ -101,7 +119,7 @@ internal static partial class ShellShapedProfile
 		return new LexicalScanner(BuildWithExecutedStrings()).Scan(source);
 	}
 
-	private static LexicalProfile Build(ExecutedStringContext? executedStrings)
+	private static LexicalProfile Build(ExecutedStringContext? executedStrings, ImmutableArray<CodeSpanElement> codeSpans)
 	{
 		return new LexicalProfile
 		{
@@ -118,7 +136,8 @@ internal static partial class ShellShapedProfile
 			QuoteRules = BuildQuoteRules(),
 			ArithmeticContext = new ArithmeticContextRule { Opening = _ARITHMETIC_OPENING, Closing = _ARITHMETIC_CLOSING },
 			CodeEscapeCharacter = _ESCAPE_CHARACTER,
-			ExecutedStrings = executedStrings
+			ExecutedStrings = executedStrings,
+			CodeSpans = codeSpans
 		};
 	}
 

@@ -21,6 +21,49 @@ public enum SymbolicVerdict
 }
 
 /// <summary>
+/// Where a declaration of the file symbol table came from. A record is a string constant (<see cref="Literal"/>, the default of every record a
+/// declaration expression produces) or a value read from the process environment (<see cref="Environment"/>), which carries the word of its fallback.
+/// </summary>
+public enum SymbolSourceKind
+{
+	/// <summary>A string constant: the word of the record is the leading word of its literal.</summary>
+	Literal = 0,
+
+	/// <summary>A value read from the environment: the word of the record is the leading word of its fallback literal, empty where there is none.</summary>
+	Environment = 1
+}
+
+/// <summary>
+/// The groups through which a profile's constant-declaration expression says that a declaration is an environment record, by the same engine convention as the
+/// groups <c>name</c> and <c>value</c>: the empty group <see cref="MARKER"/> takes part in the match of an environment declaration, and the group
+/// <see cref="FALLBACK_WORD"/> captures the word of its fallback (it takes part, empty, where there is no fallback). An expression that declares the marker
+/// without the fallback group is refused by the validator.
+/// </summary>
+public static class EnvironmentDeclarationGroups
+{
+	/// <summary>The empty group that marks a declaration as read from the environment.</summary>
+	public const string MARKER = "environment";
+
+	/// <summary>The group that holds the word of the fallback of an environment declaration.</summary>
+	public const string FALLBACK_WORD = "fallbackWord";
+}
+
+/// <summary>
+/// Which dictionary of the file symbol table a cell reads. A <see cref="Variable"/> record is a line-start declaration of a name and resolves only where exactly one declaration
+/// of the name stands BEFORE the use. A <see cref="Member"/> record is a line-start assignment of a member name (an object-literal member or a property assignment), keyed by the
+/// member name alone, and resolution is ORDER-FREE: exactly one record of the name resolves wherever it stands in the file, because a settings object may be built after the
+/// function that uses it. Zero records, or two or more, are indeterminate; a single record that is not an environment read is indeterminate too.
+/// </summary>
+public enum SymbolRecordKind
+{
+	/// <summary>The variable dictionary, fed by <see cref="LexicalProfile.ConstantDeclarationExpression"/>.</summary>
+	Variable = 0,
+
+	/// <summary>The member dictionary, fed by <see cref="LexicalProfile.MemberDeclarationExpression"/>.</summary>
+	Member = 1
+}
+
+/// <summary>
 /// What a verdict does to a rule that is subject to symbolic resolution. The responses are
 /// an enumeration rather than a delegate so that a rule declares an interpretation and
 /// cannot execute one: an analyzer states what a verdict means, and the engine applies it.
@@ -61,8 +104,24 @@ public sealed record SymbolicVerdictInterpretation
 	/// <summary>The group holding the scheme argument to resolve, or null when there is none.</summary>
 	public string? SchemeArgumentCaptureGroupName { get; init; }
 
-	/// <summary>The token a resolved scheme is compared against, or null when there is none.</summary>
+	/// <summary>
+	/// The token a resolved scheme is compared against, or null when there is none. A cell that expects a source kind may leave it null or blank, which reads a record
+	/// of that kind whose word is empty.
+	/// </summary>
 	public string? ExpectedSchemeToken { get; init; }
+
+	/// <summary>
+	/// Optional, null by default: the kind of record the cell reads. When set, the verdict of the cell is resolved and matching only for a record of that kind whose
+	/// word matches <see cref="ExpectedSchemeToken"/>, and a record of the other kind is resolved and not matching; when null the cell reads records of both kinds.
+	/// Meaningful only with a scheme argument.
+	/// </summary>
+	public SymbolSourceKind? ExpectedSourceKind { get; init; }
+
+	/// <summary>
+	/// Optional, <see cref="Catalog.SymbolRecordKind.Variable"/> by default: the dictionary the scheme argument is resolved in. <see cref="Catalog.SymbolRecordKind.Member"/> reads
+	/// the member dictionary by the captured name, and requires the profile to declare <see cref="LexicalProfile.MemberDeclarationExpression"/>. Meaningful only with a scheme argument.
+	/// </summary>
+	public SymbolRecordKind SymbolRecordKind { get; init; } = SymbolRecordKind.Variable;
 
 	public SymbolicVerdictResponse WhenResolvedMatching { get; init; } = SymbolicVerdictResponse.NoEffect;
 

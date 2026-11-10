@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -21,14 +22,16 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// the one the streaming design makes: the table is written row by row from the same
 /// filtered sequence section 4 walks, so a report with the table still holds nothing and stays inside
 /// the memory limit every other volume proof in this suite is held to - one gigabyte, sampled
-/// as the peak working set of the process (<see cref="PeakWorkingSetSampler"/>).
+/// as the peak working set of the process (<see cref="PeakWorkingSetSampler"/>). The report is rendered, and its result checked,
+/// in a child process that has done nothing else (<see cref="VolumeProofChildProcess"/>), so the working set is the
+/// rendering's and not what earlier tests left resident in the test host.
 ///
 /// THERE IS NO NUMERIC BOUND ON THE SIZE OF A REPORT FILE to hold this to: the memory
 /// the writer needs is bounded and not the length of what it writes, and the length is what a person's disk and a
 /// reader's patience decide. The size of the report and of the table inside it are printed with the
 /// test output so that the figure is on the record.
 ///
-/// RUN ALONE, like the other volume proofs, because the working set is process-wide.
+/// RUN ALONE, like the other volume proofs, because the working set is process-wide and the child process shares the machine.
 /// </summary>
 [Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
 public sealed class ReportSummaryVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
@@ -55,6 +58,20 @@ public sealed class ReportSummaryVolumeProofTests : IClassFixture<VolumeProofMem
 	{
 		Assert.Equal(FindingsCapPolicy.PROVISIONAL_GLOBAL_FINDINGS_CAP, _FINDING_COUNT);
 
+		(OperationFigures render, IReadOnlyList<string> details) = VolumeProofChildProcess.RunAndReadDetails(
+			VolumeProofChildProcess.REPORT_SUMMARY_RENDER_OPERATION);
+
+		ReportFigures(details, render);
+
+		Assert.True(render.PeakWorkingSetInBytes < _MEMORY_LIMIT_IN_BYTES, "Rendering the report passed 1 GB of working set.");
+	}
+
+	/// <summary>
+	/// The rendering, as the child process runs it: the findings are built, then the report is written while the sink counts it.
+	/// It checks that the summary table lists every finding and prints the sizes the counting sink saw.
+	/// </summary>
+	internal static OperationFigures RenderTheFullReport(string[] arguments)
+	{
 		ReportContent content = ReportHarness.ContentWith(
 			ReportHarness.CatalogWithCSharpOnly(),
 			ReportHarness.ConfigurationWith(ConfidenceLevel.Low),
@@ -62,17 +79,23 @@ public sealed class ReportSummaryVolumeProofTests : IClassFixture<VolumeProofMem
 		CountingTextWriter writer = new();
 
 		PeakWorkingSetSampler.ReleaseUnusedMemory();
+
 		PeakWorkingSetSampler sampler = PeakWorkingSetSampler.Start();
+		long workingSetBefore = Environment.WorkingSet;
+		Stopwatch stopwatch = Stopwatch.StartNew();
 
 		MarkdownReportRenderer.Render(writer, content, new UnwiredGenericRecommendationProvider());
 
-		long peakWorkingSet = sampler.StopAndReadPeakInBytes();
+		stopwatch.Stop();
 
-		ReportFigures(writer, peakWorkingSet);
+		OperationFigures figures = new(stopwatch.Elapsed, sampler.StopAndReadPeakInBytes(), workingSetBefore);
 
 		Assert.Equal(_FINDING_COUNT, writer.SummaryRowCount);
 		Assert.Equal(ThresholdFilter.CountReported(content.Findings, ConfidenceLevel.Low), writer.SummaryRowCount);
-		Assert.True(peakWorkingSet < _MEMORY_LIMIT_IN_BYTES, "Rendering the report passed 1 GB of working set.");
+
+		PrintReportSizes(writer);
+
+		return figures;
 	}
 
 	private static ImmutableArray<Finding> BuildFindings()
@@ -101,16 +124,32 @@ public sealed class ReportSummaryVolumeProofTests : IClassFixture<VolumeProofMem
 			lowReasons: level == ConfidenceLevel.Low ? LowConfidenceReasons.CommentOrStringLiteral : LowConfidenceReasons.None);
 	}
 
-	private void ReportFigures(CountingTextWriter writer, long peakWorkingSet)
+	private static void PrintReportSizes(CountingTextWriter writer)
+	{
+		Console.WriteLine(FormattedLine("Summary table rows", writer.SummaryRowCount));
+		Console.WriteLine(FormattedLine("Markdown report size (bytes)", writer.TotalBytes));
+		Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "Markdown report size (MiB): {0:F2}", writer.TotalBytes / _BYTES_PER_MEBIBYTE));
+		Console.WriteLine(FormattedLine("Summary table size (bytes)", writer.SummaryBytes));
+		Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "Summary table size (MiB): {0:F2}", writer.SummaryBytes / _BYTES_PER_MEBIBYTE));
+	}
+
+	private void ReportFigures(IReadOnlyList<string> details, OperationFigures render)
 	{
 		_output.WriteLine("Report volume proof with the findings summary table (largest supported size)");
 		_output.WriteLine(FormattedLine("Findings reported", _FINDING_COUNT));
-		_output.WriteLine(FormattedLine("Summary table rows", writer.SummaryRowCount));
-		_output.WriteLine(FormattedLine("Markdown report size (bytes)", writer.TotalBytes));
-		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, "Markdown report size (MiB): {0:F2}", writer.TotalBytes / _BYTES_PER_MEBIBYTE));
-		_output.WriteLine(FormattedLine("Summary table size (bytes)", writer.SummaryBytes));
-		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, "Summary table size (MiB): {0:F2}", writer.SummaryBytes / _BYTES_PER_MEBIBYTE));
-		_output.WriteLine(FormattedLine("Peak working set while rendering (bytes)", peakWorkingSet));
+
+		foreach (string detail in details)
+		{
+			_output.WriteLine(detail);
+		}
+
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"Rendering (child process): duration {0:F0} ms, peak working set {1:N0} bytes ({2:F1} MiB), working set before {3:N0} bytes",
+			render.Duration.TotalMilliseconds,
+			render.PeakWorkingSetInBytes,
+			render.PeakWorkingSetInBytes / _BYTES_PER_MEBIBYTE,
+			render.WorkingSetBeforeInBytes));
 		_output.WriteLine(FormattedLine("Limit (1 GB taken as 1 GiB, bytes)", _MEMORY_LIMIT_IN_BYTES));
 	}
 

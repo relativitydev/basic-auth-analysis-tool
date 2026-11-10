@@ -9,12 +9,13 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
 /// THE ACCEPTANCE TEST: A REPOSITORY WITH ALL EIGHT LANGUAGES, THROUGH THE REAL SCAN
-/// STAGE, WITH FIVE OF THEM SHIPPING AN ANALYZER.
+/// STAGE, WITH SIX OF THEM SHIPPING AN ANALYZER.
 ///
-/// The embedded catalog this harness builds carries the real `CSharp`, `JavaScript`, `PowerShell`, `VBNet` and `Shell` analyzers
-/// and the invented reference profile - nothing for the other three. This class proves each file of those three in this tree is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
+/// The embedded catalog this harness builds carries the real `CSharp`, `JavaScript`, `PowerShell`, `TypeScript`, `VBNet` and `Shell` analyzers
+/// and the invented reference profile - nothing for the other two. This class proves each file of those
+/// two is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
 /// from candidate selection, and that the three genuinely unrecognized files - no extension and no
-/// table-named shebang, and a `.txt` file - are the only ones still counted as unrecognized.
+/// table-named shebang, and a `.txt` file - are the only ones counted as unrecognized.
 /// </summary>
 public sealed class BaseLanguageInventoryScanTests
 {
@@ -54,12 +55,12 @@ public sealed class BaseLanguageInventoryScanTests
 	private const int _TOTAL_FILE_COUNT = 18;
 
 	/// <summary>
-	/// TypeScript and Go carry one file each; Python carries two - its own named-extension
+	/// Go carries one file; Python carries two - its own named-extension
 	/// file plus the shebang file that resolves to the same language. PowerShell and Shell also carry
-	/// two each and are assessed, as is VBNet with its one, and JavaScript with its `app.js` and the four
-	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. 1 + 1 + 2 = 4.
+	/// two each and are assessed, as is VBNet with its one, TypeScript with its `app.ts`, and JavaScript with its `app.js` and the four
+	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. 1 + 2 = 3.
 	/// </summary>
-	private const int _UNASSESSED_FILE_COUNT = 4;
+	private const int _UNASSESSED_FILE_COUNT = 3;
 
 	/// <summary>`app.js` plus the four extensionless `node` and `nodejs` shebang files, all assessed.</summary>
 	private const int _JAVASCRIPT_FILE_COUNT = 5;
@@ -111,7 +112,7 @@ public sealed class BaseLanguageInventoryScanTests
 	}
 
 	[Fact]
-	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheFiveShippedOnesAreNot()
+	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheSixShippedOnesAreNot()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
@@ -123,7 +124,7 @@ public sealed class BaseLanguageInventoryScanTests
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.CSharp), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.VBNet), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), assessed: true);
-		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), assessed: false);
+		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.PowerShell), assessed: true);

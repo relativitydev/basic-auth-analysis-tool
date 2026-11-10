@@ -40,5 +40,11 @@ public enum LowConfidenceReasons
 	DemotedGeneratedFile = 64,
 
 	/// <summary>A demotion signal that names a deployment folder proposed Low.</summary>
-	DemotedDeploymentFolder = 128
+	DemotedDeploymentFolder = 128,
+
+	/// <summary>A rule-declared per-match condition proposed Low: both operands of a colon-joined pair are named like ordinary values, not like a user name and a password.</summary>
+	NeutralOperandPair = 256,
+
+	/// <summary>The match's anchor sits in a conditional-compilation block that the file's own symbols switch off.</summary>
+	InactivePreprocessorRegion = 512
 }

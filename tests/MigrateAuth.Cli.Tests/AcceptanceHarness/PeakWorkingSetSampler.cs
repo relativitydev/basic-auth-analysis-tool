@@ -1,6 +1,10 @@
+using System.Buffers;
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime;
 using System.Runtime.InteropServices;
+
+using MigrateAuth.Cli.Session;
 
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
@@ -25,6 +29,9 @@ internal sealed class PeakWorkingSetSampler
 	private const int _SAMPLE_INTERVAL_IN_MILLISECONDS = 2;
 	private const string _SAMPLER_THREAD_NAME = "peak-working-set-sampler";
 
+	/// <summary>The smallest pooled buffer worth draining: below it the pool holds too little for the figures to notice.</summary>
+	private const int _SMALLEST_DRAINED_BUFFER_IN_BYTES = 1024 * 1024;
+
 	private readonly Thread _thread;
 
 	private volatile bool _stopRequested;
@@ -39,9 +46,19 @@ internal sealed class PeakWorkingSetSampler
 		};
 	}
 
-	/// <summary>Collects what can be collected, and trims the working set where the platform lets a process do so.</summary>
+	/// <summary>
+	/// Collects what can be collected, and trims the working set where the platform lets a process do so.
+	///
+	/// The shared buffer pool is drained first. A collection cannot free what the pool holds: the JSON serializer rents its output
+	/// buffer from <see cref="ArrayPool{T}.Shared"/>, which keeps a returned buffer for some seconds before it trims it on a later
+	/// collection. The save of the largest session state leaves the buffer, up to a quarter of a gigabyte, in the pool,
+	/// and the next proof's baseline then depends on how recently an earlier proof saved or loaded. Renting one buffer of every pooled size
+	/// takes the held one out of the pool, and dropping it lets the collection below free it.
+	/// </summary>
 	internal static void ReleaseUnusedMemory()
 	{
+		DrainTheSharedBufferPool();
+
 		GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
 		GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
 		GC.WaitForPendingFinalizers();
@@ -52,6 +69,16 @@ internal sealed class PeakWorkingSetSampler
 			using Process current = Process.GetCurrentProcess();
 
 			EmptyWorkingSet(current.Handle);
+		}
+	}
+
+	private static void DrainTheSharedBufferPool()
+	{
+		ulong largestBuffer = BitOperations.RoundUpToPowerOf2((ulong)SessionStateStore.MAXIMUM_STATE_FILE_LENGTH_IN_BYTES);
+
+		for (ulong length = _SMALLEST_DRAINED_BUFFER_IN_BYTES; length <= largestBuffer; length <<= 1)
+		{
+			_ = ArrayPool<byte>.Shared.Rent((int)length);
 		}
 	}
 

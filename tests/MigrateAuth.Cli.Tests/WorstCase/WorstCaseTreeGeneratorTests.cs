@@ -44,6 +44,15 @@ public sealed class WorstCaseTreeGeneratorTests
 	private const string _JAVASCRIPT_HASHBANG_LINE = "#!/usr/bin/env node";
 	private const string _JAVASCRIPT_SOURCE_EXTENSION = ".js";
 	private const string _JAVASCRIPT_JSX_EXTENSION = ".jsx";
+	private const int _TYPESCRIPT_BASIS_POINTS = 1_000;
+	private const int _TYPESCRIPT_SHARE_CEILING_DIVISOR = 4;
+	private const int _BASIS_POINTS_ABOVE_THE_WHOLE = 10_001;
+	private const string _TYPESCRIPT_LANGUAGE_NAME = "TypeScript";
+	private const string _DECLARATION_FILE_MARKER = ".d.";
+	private const string _TYPESCRIPT_SOURCE_EXTENSION = ".ts";
+	private const string _TYPESCRIPT_JSX_EXTENSION = ".tsx";
+	private const string _URL_SCHEME_SEPARATOR = "://";
+	private const int _EXPECTED_SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 	private const char _LINE_FEED = '\n';
 
 	[Fact]
@@ -114,7 +123,7 @@ public sealed class WorstCaseTreeGeneratorTests
 
 		Assert.Equal(options.FileCount / _PROGRESS_BLOCK_FOR_TEST, lines.Count);
 		Assert.Equal($"Wrote {_PROGRESS_BLOCK_FOR_TEST:N0} of {options.FileCount:N0} files", lines[0]);
-		Assert.Equal(50_000, WorstCaseTreeOptions.SCENARIO_PROGRESS_BLOCK_SIZE);
+		Assert.Equal(_EXPECTED_SCENARIO_PROGRESS_BLOCK_SIZE,WorstCaseTreeOptions.SCENARIO_PROGRESS_BLOCK_SIZE);
 	}
 
 	[Fact]
@@ -148,7 +157,8 @@ public sealed class WorstCaseTreeGeneratorTests
 			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS,
 			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS,
 			ShellScriptBasisPoints = _SHELL_BASIS_POINTS,
-			JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS
+			JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS,
+			TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS
 		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
@@ -379,6 +389,130 @@ public sealed class WorstCaseTreeGeneratorTests
 
 		Assert.Contains(true, preselected);
 		Assert.Contains(false, preselected);
+	}
+
+	[Fact]
+	public void ATreeAskedForNoTypeScriptHoldsNoTypeScriptFileAndTheTypeScriptShareReplacesOrdinaryFilesOnly()
+	{
+		WorstCaseTreeOptions withoutShare = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS, VBNetSourceBasisPoints = _VBNET_BASIS_POINTS, ShellScriptBasisPoints = _SHELL_BASIS_POINTS, JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS };
+		WorstCaseTreeOptions withShare = withoutShare with { TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS };
+		List<(WorstCaseFileKind Before, WorstCaseFileKind After)> pairs = KindPairsOf(withoutShare, withShare);
+
+		Assert.DoesNotContain(pairs, pair => IsTypeScriptKind(pair.Before));
+		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal(WorstCaseFileKind.Filler, pair.Before));
+		Assert.All(TypeScriptKinds(), kind => Assert.Contains(pairs, pair => pair.After == kind));
+	}
+
+	[Fact]
+	public void TheTypeScriptShareIsRoughlyTheBasisPointsAskedForAndTheKindsStillSumToTheTotal()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS };
+
+		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
+		long typeScriptFiles = TypeScriptKinds().Sum(kind => summary.FilesByKind.GetValueOrDefault(kind));
+
+		Assert.Equal(options.FileCount, summary.FilesByKind.Values.Sum());
+		Assert.InRange(typeScriptFiles, 1, options.FileCount / _TYPESCRIPT_SHARE_CEILING_DIVISOR);
+	}
+
+	[Fact]
+	public void ATreeWithNoTypeScriptShareIsByteIdenticalWhetherTheTypeScriptShareIsLeftOutOrSetToZero()
+	{
+		using TemporaryFolder first = TemporaryFolder.Create();
+		using TemporaryFolder second = TemporaryFolder.Create();
+		WorstCaseTreeOptions baseline = OptionsFor(first, _SHAPE_FILE_COUNT, _SEED) with { JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS };
+		WorstCaseTreeOptions explicitZero = baseline with { OutputRoot = second.Path, TypeScriptSourceBasisPoints = 0 };
+
+		WorstCaseTreeGenerator.Generate(baseline);
+		WorstCaseTreeGenerator.Generate(explicitZero);
+
+		List<string> firstFiles = RelativeFilesOf(first.Path);
+
+		Assert.Equal(firstFiles, RelativeFilesOf(second.Path));
+		Assert.All(firstFiles, relative => Assert.Equal(File.ReadAllBytes(Path.Combine(first.Path, relative)), File.ReadAllBytes(Path.Combine(second.Path, relative))));
+		Assert.DoesNotContain(firstFiles, relative => relative.EndsWith(_TYPESCRIPT_SOURCE_EXTENSION, StringComparison.Ordinal) || relative.EndsWith(_TYPESCRIPT_JSX_EXTENSION, StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void ATypeScriptShareAboveTheWholeIsRefusedAndNothingIsWritten()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SMALL_FILE_COUNT, _SEED) with { TypeScriptSourceBasisPoints = _BASIS_POINTS_ABOVE_THE_WHOLE };
+
+		Assert.Throws<ArgumentException>(() => WorstCaseTreeGenerator.Generate(options));
+		Assert.Empty(RelativeFilesOf(folder.Path));
+	}
+
+	[Fact]
+	public void ANegativeTypeScriptShareIsRefused()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SMALL_FILE_COUNT, _SEED) with { TypeScriptSourceBasisPoints = -1 };
+
+		Assert.Throws<ArgumentException>(() => WorstCaseTreeGenerator.Generate(options));
+	}
+
+	[Fact]
+	public void ATypeScriptTreeInsideTheRepositoryIsRefusedAndNothingIsWritten()
+	{
+		string repositoryRoot = RepositoryBoundary.FindRepositoryRoot(AppContext.BaseDirectory)!;
+		string target = Path.Combine(repositoryRoot, _GENERATED_FOLDER_NAME);
+
+		Assert.Throws<ArgumentException>(() => WorstCaseTreeGenerator.Generate(new WorstCaseTreeOptions { OutputRoot = target, FileCount = _SMALL_FILE_COUNT, TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS }));
+		Assert.False(Directory.Exists(target));
+	}
+
+	[Fact]
+	public void ATypeScriptFileIsAttributedToTypeScriptByItsExtensionAndDeclarationFilesKeepTheirDoubleExtension()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(folder.Path);
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		Assert.All(TypeScriptKinds(), kind => Assert.NotEmpty(PathsOf(plans, kind)));
+		Assert.All(plans.Where(plan => IsTypeScriptKind(plan.Kind)), plan =>
+		{
+			(RepositoryRelativePath relativePath, string firstLine) = ResolveScannedFile(repository, folder.Path, plan.RelativePath);
+
+			Assert.Equal(_TYPESCRIPT_LANGUAGE_NAME, attribution.Attribute(relativePath, firstLine).LanguageName);
+			Assert.Equal(plan.Kind is WorstCaseFileKind.TypeScriptDeclarationFile or WorstCaseFileKind.TypeScriptModuleDeclarationFile or WorstCaseFileKind.TypeScriptCommonJsDeclarationFile, plan.RelativePath.Contains(_DECLARATION_FILE_MARKER, StringComparison.Ordinal));
+		});
+	}
+
+	[Fact]
+	public void AShareOfTheTypeScriptFilesIsPreselectedAndAnchorDenseDeclarationFilesHoldManyAnchors()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		ILanguageAnalyzer typeScriptAnalyzer = LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName[_TYPESCRIPT_LANGUAGE_NAME];
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		List<bool> preselected = plans.Where(plan => IsTypeScriptKind(plan.Kind))
+			.Select(plan => CandidatePreselection.IsCandidate(typeScriptAnalyzer, File.ReadAllText(Path.Combine(folder.Path, plan.RelativePath))))
+			.ToList();
+		int mostAnchorsInADeclarationFile = PathsOf(plans, WorstCaseFileKind.TypeScriptDeclarationFile)
+			.Max(path => File.ReadAllText(Path.Combine(folder.Path, path)).Split(_URL_SCHEME_SEPARATOR).Length - 1);
+
+		Assert.Contains(true, preselected);
+		Assert.Contains(false, preselected);
+		Assert.True(mostAnchorsInADeclarationFile > 1);
+	}
+
+	private static IEnumerable<WorstCaseFileKind> TypeScriptKinds()
+	{
+		return Enum.GetValues<WorstCaseFileKind>().Where(IsTypeScriptKind);
+	}
+
+	private static bool IsTypeScriptKind(WorstCaseFileKind kind)
+	{
+		return kind >= WorstCaseFileKind.TypeScriptSource;
 	}
 
 	private static void AssertAttributedToJavaScript(LanguageAttribution attribution, RepositoryFolderPath repository, string folderPath, string path, string expectedExtension)

@@ -80,6 +80,8 @@ file sealed class ShellAnalyzer : ILanguageAnalyzer
 	private const string _CASE_KEYWORD = "case";
 	private const string _CASE_CLOSING_KEYWORD = "esac";
 	private const string _COMMAND_POSITION_PREDECESSORS = "\n;&|(";
+	private const string _BACKTICK = "`";
+	private const string _BACKTICK_ESCAPABLE_CHARACTERS = "`\\$";
 
 	/// <summary>
 	/// The characters after which a hash opens a comment: a blank, a line feed and the shell's word separators that stand before a word. The angle brackets are
@@ -132,10 +134,29 @@ file sealed class ShellAnalyzer : ILanguageAnalyzer
 			QuoteRules = BuildQuoteRules(),
 			ArithmeticContext = new ArithmeticContextRule { Opening = _ARITHMETIC_OPENING, Closing = _ARITHMETIC_CLOSING },
 			CodeEscapeCharacter = _ESCAPE_CHARACTER,
-			ExecutedStrings = ShellExecutedStringDeclarations.Build()
+			ExecutedStrings = ShellExecutedStringDeclarations.Build(),
+			CodeSpans = BuildCodeSpans()
 		};
 
 		return profile;
+	}
+
+	/// <summary>
+	/// The backtick command substitution, the one code span of the shell: a backtick that closes on its own line holds a command of its own, in which a
+	/// here-document has an empty body in every shell. A backslash before a backtick, a backslash or a dollar sign is removed from the content.
+	/// </summary>
+	private static ImmutableArray<CodeSpanElement> BuildCodeSpans()
+	{
+		return
+		[
+			new CodeSpanElement
+			{
+				Opening = _BACKTICK,
+				Closing = _BACKTICK,
+				EscapeCharacter = _ESCAPE_CHARACTER.ToString(),
+				EscapableCharacters = _BACKTICK_ESCAPABLE_CHARACTERS
+			}
+		];
 	}
 
 	/// <summary>

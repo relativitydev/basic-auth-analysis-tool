@@ -65,6 +65,13 @@ public sealed record WorstCaseTreeOptions
 	/// </summary>
 	public int JavaScriptSourceBasisPoints { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are TypeScript instead, spread evenly over seven forms (<c>.ts</c>, <c>.tsx</c>, <c>.mts</c>, <c>.cts</c>, <c>.d.ts</c>, <c>.d.mts</c> and <c>.d.cts</c>),
+	/// drawn on streams of their own after the JavaScript share, so every other file keeps its kind. Zero, the default, writes no TypeScript file, so a tree asked for nothing else is byte for byte
+	/// the tree without this share.
+	/// </summary>
+	public int TypeScriptSourceBasisPoints { get; init; }
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 

@@ -43,6 +43,7 @@ internal static class ShellMatchBoundStressSet
 	private const int _OPENINGS_ON_ONE_LINE = 2_000;
 	private const int _CONTINUED_COMMAND_LINES = 20;
 	private const int _ARRAY_LINES = 600;
+	private const int _ARRAY_QUERY_PAIRS = 399;
 	private const int _BASIC_VARIABLE_FILLER_LINES = 6;
 	private const int _BASIC_VARIABLE_FILLER_LINE_LENGTH = 590;
 	private const int _DEFINITION_FILLER_LINES = 29;
@@ -313,6 +314,8 @@ internal static class ShellMatchBoundStressSet
 		shapes.Add(Shape("sh-two-thousand-openings-on-one-line", TwoThousandOpeningsOnOneLine()));
 		shapes.Add(Shape("sh-substitution-nested-eight-deep", FillToCeilingWithLines(_NESTED_SUBSTITUTION_LINE)));
 		shapes.Add(Shape("sh-long-argument-arrays", LongArgumentArrays()));
+		shapes.Add(Shape("sh-unfinished-array-lines-to-the-size-ceiling", FillToCeilingWithLines("x=(\n")));
+		shapes.Add(Shape("sh-one-line-arrays-of-four-hundred-pairs", OneLineArraysOfFourHundredPairs()));
 		shapes.Add(Shape("sh-basic-variable-then-long-lines", BasicVariableThenLongLines()));
 		shapes.Add(Shape("sh-describe-lines-without-it", FillToCeilingWithLines("Describe 'suite'\n")));
 		shapes.Add(Shape("sh-stty-echo-lines-without-read", FillToCeilingWithLines("stty -echo\n")));
@@ -637,6 +640,28 @@ internal static class ShellMatchBoundStressSet
 			}
 
 			builder.Append(")\ncurl \"${REQUEST_ARGS[@]}\" https://example.test/api\n");
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>Arrays on one physical line of about nine thousand characters, each with a credential option at its start, closed, then the command that expands it.</summary>
+	private static string OneLineArraysOfFourHundredPairs()
+	{
+		StringBuilder builder = new(TARGET_SIZE_IN_CHARACTERS + _BUILDER_SLACK_IN_CHARACTERS);
+
+		builder.Append(Header());
+
+		while (builder.Length < TARGET_SIZE_IN_CHARACTERS)
+		{
+			builder.Append("fields=(--silent -u user:pass");
+
+			for (int pair = 0; pair < _ARRAY_QUERY_PAIRS; pair++)
+			{
+				builder.Append(" --url-query 'col=0001'");
+			}
+
+			builder.Append(")\ncurl \"${fields[@]}\" https://example.test/api\n");
 		}
 
 		return builder.ToString();

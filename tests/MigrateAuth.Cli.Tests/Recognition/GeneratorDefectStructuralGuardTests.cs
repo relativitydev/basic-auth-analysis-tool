@@ -59,6 +59,8 @@ public sealed class GeneratorDefectStructuralGuardTests
 	private const string _BOUND_OF_ONE_CONDITION = "!= 0";
 	private const int _BOUND_OF_ONE = 1;
 	private const int _BOUND_ABOVE_ONE = 3;
+	private const string _C_SHARP_EXPRESSIONS_CLASS = "CSharpPatternExpressions";
+	private const string _JAVA_SCRIPT_EXPRESSIONS_CLASS = "JavaScriptPatternExpressions";
 
 	private readonly ITestOutputHelper _output;
 
@@ -106,6 +108,45 @@ public sealed class GeneratorDefectStructuralGuardTests
 		}
 
 		Assert.Equal(source.GeneratedTypeNames.Order(StringComparer.Ordinal), source.Methods.Select(method => method.GeneratedTypeName).Order(StringComparer.Ordinal));
+	}
+
+	[Fact]
+	public void TheChangedNeutralPairExpressionAndItsTwoWordExpressionsAreReadByTheGuardAndCarryNoDefectiveSite()
+	{
+		EmittedRegexSource source = EmittedRegexSource.Read(LocateTheEmittedSource());
+		string[] changedExpressions =
+		[
+			$"{_C_SHARP_EXPRESSIONS_CLASS}.Base64UserPasswordPairConstruction",
+			$"{_C_SHARP_EXPRESSIONS_CLASS}.Base64UserPasswordPairUserHalfWords",
+			$"{_C_SHARP_EXPRESSIONS_CLASS}.Base64UserPasswordPairSecretHalfWords"
+		];
+
+		foreach (string displayName in changedExpressions)
+		{
+			EmittedPartialMethod method = Assert.Single(source.Methods, candidate => candidate.DisplayName == displayName);
+
+			Assert.DoesNotContain(method.GeneratedTypeName, source.DefectiveSitesByGeneratedType.Keys);
+			Assert.NotNull(ResolveTheDeclaredExpression(method));
+		}
+	}
+
+	[Fact]
+	public void TheSettingsPropertyExpressionAndTheMemberExpressionAreReadByTheGuardAndCarryNoDefectiveSite()
+	{
+		EmittedRegexSource source = EmittedRegexSource.Read(LocateTheEmittedSource());
+		string[] addedExpressions =
+		[
+			$"{_JAVA_SCRIPT_EXPRESSIONS_CLASS}.AuthorizationHeaderValueFromSettingsProperty",
+			$"{_JAVA_SCRIPT_EXPRESSIONS_CLASS}.MemberDeclaration"
+		];
+
+		foreach (string displayName in addedExpressions)
+		{
+			EmittedPartialMethod method = Assert.Single(source.Methods, candidate => candidate.DisplayName == displayName);
+
+			Assert.DoesNotContain(method.GeneratedTypeName, source.DefectiveSitesByGeneratedType.Keys);
+			Assert.NotNull(ResolveTheDeclaredExpression(method));
+		}
 	}
 
 	[Theory]

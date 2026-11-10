@@ -22,10 +22,10 @@ public sealed class ExcludedFoldersAndConfigurationFileTests
 	private const string _ORDINARY_FILE_NAME = "ordinary.ex1";
 	private const string _ORDINARY_CONTENT = "public sealed class Ordinary\n{\n}\n";
 	private const string _EXCLUDED_AT_ROOT = "node_modules";
-	private const string _EXCLUDED_NESTED = "src/bin";
+	private const string _EXCLUDED_NESTED = "src/obj";
 	private const string _EXCLUDED_DEEP = "a/b/obj";
 	private const string _EXCLUDED_FILE_NAME = "inside.ex1";
-	private const string _PACKAGE_FOLDER_FORMAT = "pkg-{0:D3}/bin";
+	private const string _PACKAGE_FOLDER_FORMAT = "pkg-{0:D3}/obj";
 	private const int _MORE_THAN_THE_CEILING = ReadingCeilings.ENUMERATED_SKIPPED_PATHS_PER_CATEGORY + 5;
 	private const string _CONFIGURATION_FILE_NAME = ConfigurationResolver.CONFIGURATION_FILE_NAME;
 	private const string _NESTED_CONFIGURATION_FILE_PATH = "sub/.migrate-auth.json";

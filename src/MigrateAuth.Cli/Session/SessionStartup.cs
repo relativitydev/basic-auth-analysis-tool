@@ -17,10 +17,11 @@ namespace MigrateAuth.Cli.Session;
 /// split between startup and mid-session failures that has nothing to salvage; the mid-session half returns to the prompt and lives in
 /// <see cref="SessionShell"/>.
 ///
-/// A message about the destination names the folder by its label, because no absolute path may appear in
-/// anything the product emits. A message about a repository path that cannot be used echoes the text
-/// the user supplied, exactly as given, because the user typed it and needs to see which path was
-/// refused - the label alone is only its last segment.
+/// A message about the destination echoes the folder as the user supplied it (console channel only): relative to the working folder when it is the default or relative, for
+/// example <c>./Outputs</c>, and as typed when it is absolute or a leading <c>~</c> from the profile file.
+/// The canonical resolved path is never printed, and the report and the data artifact stay label-only. A message about a
+/// repository path that cannot be used echoes the text the user supplied, exactly as given, because the user typed
+/// it and needs to see which path was refused - the label alone is only its last segment.
 /// </summary>
 public static class SessionStartup
 {
@@ -47,6 +48,20 @@ public static class SessionStartup
 	/// <summary>Said when the destination cannot be created or written to.</summary>
 	public const string DESTINATION_FOLDER_NOT_WRITABLE_MESSAGE_FORMAT =
 		"The documentation destination folder cannot be written to: {0}.";
+
+	/// <summary>
+	/// Said when the profile's output path starts with <c>~</c> and the user's home folder cannot be
+	/// resolved. The run ends with <see cref="ExitCode.OutputDestinationNotWritable"/>.
+	/// </summary>
+	public const string DESTINATION_HOME_FOLDER_UNRESOLVED_MESSAGE_FORMAT =
+		"The documentation destination folder path {0} starts with '~', but the home folder of the current user cannot be determined, so the path cannot be expanded. Supply an absolute path instead.";
+
+	/// <summary>
+	/// Said when the profile's output path is a <c>~user</c> form. The run ends with
+	/// <see cref="ExitCode.OutputDestinationNotWritable"/>.
+	/// </summary>
+	public const string DESTINATION_OTHER_USER_HOME_NOT_SUPPORTED_MESSAGE_FORMAT =
+		"The documentation destination folder path {0} names the home folder of another user, which is not supported. Use '~', '~/' or '~\\' for your own home folder, or supply an absolute path.";
 
 	/// <summary>Said when the supplied destination text cannot be read as a path.</summary>
 	public const string DESTINATION_FOLDER_PATH_MALFORMED_MESSAGE =
@@ -132,6 +147,13 @@ public static class SessionStartup
 	/// does not move its own output. The repository's own configuration file is not one of the
 	/// candidates and never reaches this method.
 	///
+	/// A leading <c>~</c>, <c>~/</c> or <c>~\</c> in a value that came from the USER PROFILE file is expanded to the
+	/// home folder BEFORE canonicalization, so Pre-flight's containment comparison sees the expanded folder; an unresolvable
+	/// home folder and a <c>~user</c> form are refused with a message, and the caller ends the run with exit code 4.
+	/// A command-line value is never expanded (the shell does that), and neither is <c>repositoryFolderPath</c>.
+	/// <paramref name="homeFolderProvider"/> defaults to the platform's user profile folder and is
+	/// injected by tests so that they never change the process environment.
+	///
 	/// WRITABILITY IS A SEPARATE STEP ON PURPOSE, and the split is what the containment rule costs. Establishing
 	/// that a folder can be written to means writing to it, and the most natural invocation of
 	/// this tool makes that folder the repository under audit - so probing before the containment
@@ -141,18 +163,71 @@ public static class SessionStartup
 	public static bool TryCanonicalizeDestinationFolder(
 		EffectiveConfiguration configuration,
 		TextWriter outputWriter,
-		out DocumentationDestinationFolderPath destinationFolder)
+		out DocumentationDestinationFolderPath destinationFolder,
+		Func<string>? homeFolderProvider = null)
 	{
 		ArgumentNullException.ThrowIfNull(configuration);
 		ArgumentNullException.ThrowIfNull(outputWriter);
 
 		destinationFolder = default;
-		string suppliedText = configuration.OutputPathText ?? Directory.GetCurrentDirectory();
+		bool canonicalized = false;
+		string? configuredText = configuration.OutputPathText;
+		OutputPathExpansion expansion = ExpandConfiguredOutputPath(
+			configuration,
+			homeFolderProvider ?? OutputPathHomeExpansion.ReadUserProfileFolder);
+
+		if (expansion.Outcome is OutputPathExpansionOutcome.HomeFolderUnresolved)
+		{
+			WriteFormatted(outputWriter, DESTINATION_HOME_FOLDER_UNRESOLVED_MESSAGE_FORMAT, ForConsole(expansion.Text));
+		}
+		else if (expansion.Outcome is OutputPathExpansionOutcome.OtherUserFormRefused)
+		{
+			WriteFormatted(outputWriter, DESTINATION_OTHER_USER_HOME_NOT_SUPPORTED_MESSAGE_FORMAT, ForConsole(expansion.Text));
+		}
+		else
+		{
+			canonicalized = TryCanonicalizeDestinationText(configuredText, expansion, outputWriter, out destinationFolder);
+		}
+
+		return canonicalized;
+	}
+
+	private static OutputPathExpansion ExpandConfiguredOutputPath(
+		EffectiveConfiguration configuration,
+		Func<string> homeFolderProvider)
+	{
+		string? configuredText = configuration.OutputPathText;
+		bool comesFromTheProfileFile = configuration.Provenance.OutputPathOrigin is ConfigurationSource.UserProfileFile;
+
+		return configuredText is not null && comesFromTheProfileFile
+			? OutputPathHomeExpansion.Expand(configuredText, homeFolderProvider)
+			: new OutputPathExpansion(OutputPathExpansionOutcome.NotApplicable, configuredText ?? string.Empty);
+	}
+
+	/// <summary>
+	/// Canonicalizes what <see cref="ExpandConfiguredOutputPath"/> left, keeping the text the console will show: the
+	/// default is shown as the working folder, an expanded <c>~</c> as the user wrote it, anything else by its supplied form.
+	/// </summary>
+	private static bool TryCanonicalizeDestinationText(
+		string? configuredText,
+		OutputPathExpansion expansion,
+		TextWriter outputWriter,
+		out DocumentationDestinationFolderPath destinationFolder)
+	{
+		destinationFolder = default;
 		bool canonicalized = false;
 
 		try
 		{
-			destinationFolder = DocumentationDestinationFolderPath.FromSuppliedText(suppliedText);
+			destinationFolder = configuredText is null
+				? DocumentationDestinationFolderPath.FromResolvedText(
+					Directory.GetCurrentDirectory(),
+					DocumentationDestinationFolderPath.DefaultConsoleDisplayText)
+				: DocumentationDestinationFolderPath.FromResolvedText(
+					expansion.Text,
+					expansion.Outcome is OutputPathExpansionOutcome.Expanded
+						? configuredText
+						: DocumentationDestinationFolderPath.DeriveConsoleDisplayText(configuredText));
 			canonicalized = true;
 		}
 		catch (ArgumentException)
@@ -185,7 +260,7 @@ public static class SessionStartup
 
 		if (!writable)
 		{
-			WriteFormatted(outputWriter, DESTINATION_FOLDER_NOT_WRITABLE_MESSAGE_FORMAT, destinationFolder.Label);
+			WriteFormatted(outputWriter, DESTINATION_FOLDER_NOT_WRITABLE_MESSAGE_FORMAT, destinationFolder.ConsoleDisplayText);
 		}
 
 		return writable;
@@ -410,6 +485,8 @@ public static class SessionStartup
 	{
 		outputWriter.WriteLine(Format(messageFormat, argument));
 	}
+
+	private static string ForConsole(string suppliedText) => ConsoleTextSafety.StripUnsafeCharacters(suppliedText);
 
 	private static string Format(string messageFormat, string argument) =>
 		string.Format(CultureInfo.InvariantCulture, messageFormat, argument);

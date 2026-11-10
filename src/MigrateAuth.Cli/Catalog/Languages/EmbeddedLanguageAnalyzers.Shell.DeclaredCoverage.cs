@@ -120,7 +120,7 @@ internal static class ShellDeclaredCoverage
 				"a here-document terminator word quoted across a raw line feed, in a script run by dash",
 				"dash closes the body on two consecutive lines that hold the two halves of the word, while bash never closes it and reads to the end of the file; the tool follows bash, so the lines dash runs after the two halves are read as body"),
 			Entry(
-				"a here-document opened inside a command substitution that closes on the opening line, in bash before version 5.2 and in dash",
+				"a here-document opened inside a command substitution that closes on the opening line, in code or in a double-quoted string, in bash before version 5.2 and in dash",
 				"those shells end the here-document at the substitution's end with an empty body and run the following lines as commands, where the tool reads them as the body, as bash 5.2 does")
 		];
 
@@ -133,7 +133,7 @@ internal static class ShellDeclaredCoverage
 		ImmutableArray<DeclaredUnsupportedCoverage> entries =
 		[
 			Entry(
-				"a file whose analysis takes too long, a command longer than the reading window, a quoted string longer than 4,096 characters inside a window, a line longer than 10,000 characters, and a use of a variable more than thirty lines after its definition",
+				"a file whose analysis takes too long, a command longer than the reading window, a quoted string longer than 4,096 characters inside a window, a line longer than 10,000 characters, an array of command options whose text, from its opening parenthesis to its closing one, is longer than one line of 10,000 characters or thirty lines of 400 characters, and a use of a variable more than thirty lines after its definition",
 				"these are internal limits that keep the cost bounded: a file that trips a time limit or holds a line over the ceiling is skipped and counted in the report, so the loss is visible as a number, and a window that grew without bound would make the cost grow without bound"),
 			Entry(
 				"which findings were left out when the findings cap was reached, per file or in all",

@@ -166,15 +166,15 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 	/// sorted under the order key with its raw-ordinal tie-break, and the same half-million files -
 	/// one construct each, offered in a permuted order - go through global-cap admission, which must
 	/// keep only the 50,000 smallest keys. Duration and peak working set are recorded for each.
-	/// No path is normalized, so what is measured is the comparison and the bounded admission.
+	/// No path is normalized, so what is measured is the comparison and the bounded admission. Each
+	/// runs, and checks its result, in a child process that has done nothing else
+	/// (<see cref="VolumeProofChildProcess"/>).
 	/// </summary>
 	[Fact]
 	public void HalfAMillionLongPathsSortAndAdmitUnderTheKeyWithinOneGigabyte()
 	{
-		FindingHarness harness = new();
-
-		OrderingFigures sorting = MeasureSortingOfHalfAMillionPaths(harness);
-		OrderingFigures admission = MeasureAdmissionOfHalfAMillionFiles(harness);
+		OperationFigures sorting = VolumeProofChildProcess.Run(VolumeProofChildProcess.ORDERING_SORT_OPERATION);
+		OperationFigures admission = VolumeProofChildProcess.Run(VolumeProofChildProcess.ORDERING_ADMISSION_OPERATION);
 
 		_output.WriteLine("Ordering proof, 500,000 paths of 150 characters");
 		_output.WriteLine(FormattedFigures("Sort under the order key with tie-break", sorting));
@@ -198,20 +198,33 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 			constructs);
 	}
 
-	private static OrderingFigures MeasureSortingOfHalfAMillionPaths(FindingHarness harness)
+	/// <summary>The sort, as the child process runs it.</summary>
+	internal static OperationFigures SortHalfAMillionPaths(string[] arguments)
+	{
+		return MeasureSortingOfHalfAMillionPaths(new FindingHarness());
+	}
+
+	/// <summary>The admission, as the child process runs it.</summary>
+	internal static OperationFigures AdmitHalfAMillionFiles(string[] arguments)
+	{
+		return MeasureAdmissionOfHalfAMillionFiles(new FindingHarness());
+	}
+
+	private static OperationFigures MeasureSortingOfHalfAMillionPaths(FindingHarness harness)
 	{
 		FindingOrderKey[] keys = [.. Enumerable.Range(0, _ORDERING_PATH_COUNT).Select(index => OrderKeyOf(harness, PermutedIndex(index)))];
 
 		PeakWorkingSetSampler.ReleaseUnusedMemory();
 
 		PeakWorkingSetSampler sampler = PeakWorkingSetSampler.Start();
+		long workingSetBefore = Environment.WorkingSet;
 		Stopwatch stopwatch = Stopwatch.StartNew();
 
 		Array.Sort(keys);
 
 		stopwatch.Stop();
 
-		OrderingFigures figures = new(stopwatch.Elapsed, sampler.StopAndReadPeakInBytes());
+		OperationFigures figures = new(stopwatch.Elapsed, sampler.StopAndReadPeakInBytes(), workingSetBefore);
 
 		Assert.Equal(_ORDERING_PATH_COUNT, keys.Length);
 		Assert.Equal(PathTextOf(0), keys[0].RawPath);
@@ -223,7 +236,7 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 		return figures;
 	}
 
-	private static OrderingFigures MeasureAdmissionOfHalfAMillionFiles(FindingHarness harness)
+	private static OperationFigures MeasureAdmissionOfHalfAMillionFiles(FindingHarness harness)
 	{
 		string text = FindingHarness.FillerText(_ORDERED_ADMISSION_LINE_COUNT, _ORDERED_ADMISSION_LINE_LENGTH);
 		RecognizedConstruct construct = FindingHarness.ConstructAt(FindingHarness.CREDENTIAL_TYPE_PATTERN_CLASS, anchorOffset: 0);
@@ -231,6 +244,7 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 		PeakWorkingSetSampler.ReleaseUnusedMemory();
 
 		PeakWorkingSetSampler sampler = PeakWorkingSetSampler.Start();
+		long workingSetBefore = Environment.WorkingSet;
 		Stopwatch stopwatch = Stopwatch.StartNew();
 
 		ComposedFindingSet composed = FindingComposition.ComposeWithCapOutcome(
@@ -238,7 +252,7 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 
 		stopwatch.Stop();
 
-		OrderingFigures figures = new(stopwatch.Elapsed, sampler.StopAndReadPeakInBytes());
+		OperationFigures figures = new(stopwatch.Elapsed, sampler.StopAndReadPeakInBytes(), workingSetBefore);
 
 		Assert.Equal(FindingsCapPolicy.PROVISIONAL_GLOBAL_FINDINGS_CAP, composed.Findings.Length);
 		Assert.Equal(_ORDERING_PATH_COUNT, composed.CapOutcome.TotalRecognizedCount);
@@ -277,7 +291,7 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 		return head + filler + _ORDERING_PATH_EXTENSION;
 	}
 
-	private static string FormattedFigures(string operation, OrderingFigures figures)
+	private static string FormattedFigures(string operation, OperationFigures figures)
 	{
 		return string.Format(
 			CultureInfo.InvariantCulture,
@@ -287,8 +301,6 @@ public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemor
 			figures.PeakWorkingSetInBytes,
 			figures.PeakWorkingSetInBytes / _BYTES_PER_MEBIBYTE);
 	}
-
-	private readonly record struct OrderingFigures(TimeSpan Duration, long PeakWorkingSetInBytes);
 
 	private static void AssertTheCountersMatchWhatWasGenerated(PipelineHarness harness)
 	{

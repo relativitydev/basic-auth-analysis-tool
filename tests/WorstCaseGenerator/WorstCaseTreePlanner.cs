@@ -57,7 +57,27 @@ public static class WorstCaseTreePlanner
 	private const int _JAVASCRIPT_JSX_FORM = 1;
 	private const string _JAVASCRIPT_SOURCE_EXTENSION = ".js";
 	private const string _JAVASCRIPT_JSX_EXTENSION = ".jsx";
+	private const int _STREAM_TYPESCRIPT_SHARE = 13;
+	private const int _STREAM_TYPESCRIPT_FORM = 14;
+	private const string _TYPESCRIPT_SOURCE_EXTENSION = ".ts";
+	private const string _TYPESCRIPT_TSX_EXTENSION = ".tsx";
+	private const string _TYPESCRIPT_MODULE_EXTENSION = ".mts";
+	private const string _TYPESCRIPT_COMMONJS_EXTENSION = ".cts";
+	private const string _TYPESCRIPT_DECLARATION_EXTENSION = ".d.ts";
+	private const string _TYPESCRIPT_MODULE_DECLARATION_EXTENSION = ".d.mts";
+	private const string _TYPESCRIPT_COMMONJS_DECLARATION_EXTENSION = ".d.cts";
 	private const string _NO_EXTENSION = "";
+
+	private static readonly WorstCaseFileKind[] _TypeScriptKinds =
+	[
+		WorstCaseFileKind.TypeScriptSource,
+		WorstCaseFileKind.TypeScriptTsxSource,
+		WorstCaseFileKind.TypeScriptModuleSource,
+		WorstCaseFileKind.TypeScriptCommonJsSource,
+		WorstCaseFileKind.TypeScriptDeclarationFile,
+		WorstCaseFileKind.TypeScriptModuleDeclarationFile,
+		WorstCaseFileKind.TypeScriptCommonJsDeclarationFile
+	];
 
 	private static readonly string[] _NonCandidateExtensions = [".txt", ".md", ".json", ".xml"];
 
@@ -83,6 +103,13 @@ public static class WorstCaseTreePlanner
 			WorstCaseFileKind.JavaScriptSource => _JAVASCRIPT_SOURCE_EXTENSION,
 			WorstCaseFileKind.JavaScriptJsxSource => _JAVASCRIPT_JSX_EXTENSION,
 			WorstCaseFileKind.JavaScriptNodeScript => _NO_EXTENSION,
+			WorstCaseFileKind.TypeScriptSource => _TYPESCRIPT_SOURCE_EXTENSION,
+			WorstCaseFileKind.TypeScriptTsxSource => _TYPESCRIPT_TSX_EXTENSION,
+			WorstCaseFileKind.TypeScriptModuleSource => _TYPESCRIPT_MODULE_EXTENSION,
+			WorstCaseFileKind.TypeScriptCommonJsSource => _TYPESCRIPT_COMMONJS_EXTENSION,
+			WorstCaseFileKind.TypeScriptDeclarationFile => _TYPESCRIPT_DECLARATION_EXTENSION,
+			WorstCaseFileKind.TypeScriptModuleDeclarationFile => _TYPESCRIPT_MODULE_DECLARATION_EXTENSION,
+			WorstCaseFileKind.TypeScriptCommonJsDeclarationFile => _TYPESCRIPT_COMMONJS_DECLARATION_EXTENSION,
 			_ => _CANDIDATE_EXTENSION
 		};
 	}
@@ -110,7 +137,21 @@ public static class WorstCaseTreePlanner
 			kind = KindByBasisPoints(DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, STREAM_KIND));
 		}
 
-		return kind == WorstCaseFileKind.Filler ? JavaScriptInsteadOfFiller(options, index, ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index)))) : kind;
+		return kind == WorstCaseFileKind.Filler ? TypeScriptInsteadOfFiller(options, index, JavaScriptInsteadOfFiller(options, index, ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index))))) : kind;
+	}
+
+	/// <summary>A file still ordinary after the JavaScript share is a TypeScript file for the share the options ask for, and its form (one of seven extensions) is decided on a stream of its own.</summary>
+	private static WorstCaseFileKind TypeScriptInsteadOfFiller(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		WorstCaseFileKind result = kind;
+
+		if (kind == WorstCaseFileKind.Filler
+			&& DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_TYPESCRIPT_SHARE) < options.TypeScriptSourceBasisPoints)
+		{
+			result = _TypeScriptKinds[DeterministicRandom.Below(_TypeScriptKinds.Length, options.Seed, index, _STREAM_TYPESCRIPT_FORM)];
+		}
+
+		return result;
 	}
 
 	/// <summary>A file still ordinary after the Shell share is a JavaScript source for the share the options ask for, and its form (<c>.js</c>, <c>.jsx</c> or an extensionless <c>node</c> script) is decided on a stream of its own.</summary>

@@ -42,6 +42,25 @@ public sealed class BaseLanguageDetectionTests
 		Assert.Equal(expected, language);
 	}
 
+	/// <summary>
+	/// A declaration file is attributed by its final extension, the way every other file is: the last extension of <c>credentials.d.ts</c> is <c>.ts</c>, so the table answers TypeScript for the
+	/// three declaration suffixes as it does for the plain extensions, and no second table entry exists for them.
+	/// </summary>
+	[Theory]
+	[InlineData("credentials.d.ts")]
+	[InlineData("types.d.mts")]
+	[InlineData("legacy.d.cts")]
+	[InlineData("Credentials.D.TS")]
+	public void ADeclarationFileIsAttributedToTypeScriptByItsFinalExtension(string fileName)
+	{
+		string extension = Path.GetExtension(fileName);
+
+		bool found = BaseLanguageDetection.TryGetByExtension(extension, out AssessedLanguage language);
+
+		Assert.True(found);
+		Assert.Equal(AssessedLanguage.TypeScript, language);
+	}
+
 	/// <summary>The catalog's own extension index compares without case, and this table matches it.</summary>
 	[Fact]
 	public void TheExtensionTableIsMatchedWithoutCase()
@@ -50,6 +69,19 @@ public sealed class BaseLanguageDetectionTests
 
 		Assert.True(found);
 		Assert.Equal(AssessedLanguage.CSharp, language);
+	}
+
+	/// <summary>The runner shebangs that name a TypeScript executor are not in the table: an extensionless script that starts with one is not attributed.</summary>
+	[Theory]
+	[InlineData("#!/usr/bin/env ts-node")]
+	[InlineData("#!/usr/bin/env tsx")]
+	[InlineData("#!/usr/bin/env -S deno run")]
+	[InlineData("#!/usr/bin/env bun")]
+	public void ARunnerShebangThatNamesATypeScriptExecutorIsNotFound(string firstLine)
+	{
+		bool found = BaseLanguageDetection.TryGetByShebangFirstLine(firstLine, out _);
+
+		Assert.False(found);
 	}
 
 	[Fact]

@@ -175,14 +175,18 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
-	/// THE FILE'S TWO PRE-RULE PHASES, EACH BOUNDED, THEN THE RULE LOOP.
+	/// THE FILE'S PRE-RULE PHASES, THEN THE RULE LOOP.
 	///
-	/// Symbol-table collection and demotion-signal evaluation each run an analyzer-declared expression
-	/// over the whole file, exactly like a detection rule, so both are charged to the match bound.
-	/// <see cref="FileSymbolTable.TryCollect"/> and <see cref="FileDemotionSignals.TryEvaluate"/> report
-	/// whether they completed within the file's budget on the same terms <see cref="RecognizeOneRule"/>
-	/// reports for a rule, and a trip in either one skips the rule loop entirely and discards the file
-	/// exactly as a rule's own trip would - through the single <c>completed</c> value this method returns.
+	/// <see cref="FileSymbolTable.TryCollect"/> and <see cref="FileDemotionSignals.TryEvaluate"/> each run
+	/// analyzer-declared expressions over the whole file and report whether they completed within the
+	/// file's budget, on the same terms <see cref="RecognizeOneRule"/> reports for a rule; a trip in either
+	/// one skips the rule loop entirely and discards the file exactly as a rule's own trip would - through
+	/// the single <c>completed</c> value this method returns.
+	///
+	/// A THIRD PRE-RULE PHASE, NOT BOUNDED BECAUSE IT RUNS NO EXPRESSION: the conditional-region map, built once here for a
+	/// profile that declares the optional conditional-compilation element (<see cref="ConditionalRegionMap.Build"/>), and
+	/// read per match at its anchor offset. It is built here and not in the scanner or the analysis stage so that every
+	/// caller of the engine, tests included, gets it.
 	/// </summary>
 	private bool RecognizeEveryRule(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
 	{
@@ -201,10 +205,12 @@ public sealed class RecognitionEngine
 		}
 
 		VariableReferenceIndex references = new(context.NormalizedText, context.Mask);
+		ConditionalRegionMap regions = ConditionalRegionMap.Build(
+			context.Analyzer.LexicalProfile.ConditionalCompilation, context.NormalizedText, context.Mask);
 
 		if (completed)
 		{
-			completed = RecognizeEveryDetectionRule(context, symbols, references, demotion, classifiedMatches);
+			completed = RecognizeEveryDetectionRule(context, new PerFileRecognitionInputs(symbols, references, demotion, regions), classifiedMatches);
 		}
 
 		if (completed)
@@ -274,9 +280,7 @@ public sealed class RecognitionEngine
 
 	private bool RecognizeEveryDetectionRule(
 		FileRecognitionContext context,
-		FileSymbolTable symbols,
-		VariableReferenceIndex references,
-		FileDemotion demotion,
+		PerFileRecognitionInputs inputs,
 		List<ClassifiedMatch> classifiedMatches)
 	{
 		bool completed = true;
@@ -291,9 +295,10 @@ public sealed class RecognitionEngine
 					Context = context,
 					PatternClassIdentifier = patternClassIdentifier,
 					Rule = rule,
-					Symbols = symbols,
-					References = references,
-					Demotion = demotion
+					Symbols = inputs.Symbols,
+					References = inputs.References,
+					Demotion = inputs.Demotion,
+					Regions = inputs.Regions
 				},
 				classifiedMatches))
 			{
@@ -434,9 +439,14 @@ public sealed class RecognitionEngine
 				state, expression, normalizedText, match, ref searchOrigin, out resumedMatch);
 			matchWasResumed = true;
 		}
-		else if (completed && TryClassify(state, match, out ClassifiedMatch classifiedMatch))
+		else if (completed)
 		{
-			classifiedMatches.Add(classifiedMatch);
+			Match conditionGroupSource = ReadTheConditionGroupSource(state, normalizedText, searchOrigin, match, out completed);
+
+			if (completed && TryClassify(state, match, conditionGroupSource, out ClassifiedMatch classifiedMatch))
+			{
+				classifiedMatches.Add(classifiedMatch);
+			}
 		}
 
 		return completed;
@@ -660,6 +670,55 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
+	/// THE INTERPRETED CROSS-CHECK, EXTENDED TO EVERY GROUP A DECLARED PER-MATCH CONDITION READS. A rule that declares
+	/// <see cref="DetectionRule.LowWhenBothOperandsAreNeutral"/> has each accepted match re-run through the interpreter
+	/// at the same attempt start the generator used, and for EVERY condition group its participation, index and length
+	/// must agree with the generated result. On any disagreement the INTERPRETED match is returned, so its captures are
+	/// the ones the condition reads, and the defect is counted through <see cref="ReportTheFileAsHoldingAMalformedMatch"/>;
+	/// the run does not fail. A rule with no such condition returns <paramref name="generatedMatch"/> untouched and
+	/// runs nothing. <paramref name="completed"/> is false only when the match bound has tripped before the re-run.
+	/// </summary>
+	private Match ReadTheConditionGroupSource(
+		RuleRecognitionState state, string normalizedText, int attemptStartPosition, Match generatedMatch, out bool completed)
+	{
+		Match groupSource = generatedMatch;
+		completed = true;
+
+		if (state.Rule.LowWhenBothOperandsAreNeutral is NeutralOperandPairCondition condition)
+		{
+			completed = !_matchBoundWatch.HasBeenExceeded();
+
+			if (completed)
+			{
+				Match interpretedMatch = TimedRegexEvaluation.Match(
+					_matchBoundWatch, InterpretedExpressionFor(state.Rule), normalizedText, attemptStartPosition);
+
+				if (!ConditionGroupsAgree(condition, generatedMatch, interpretedMatch))
+				{
+					groupSource = interpretedMatch;
+					ReportTheFileAsHoldingAMalformedMatch(state.Context.Path);
+				}
+			}
+		}
+
+		return groupSource;
+	}
+
+	/// <summary>Whether both condition groups have the same participation and, when they participate, the same index and length in the two matches.</summary>
+	private static bool ConditionGroupsAgree(NeutralOperandPairCondition condition, Match generatedMatch, Match interpretedMatch)
+	{
+		return GroupsAgree(generatedMatch.Groups[condition.FirstOperandGroupName], interpretedMatch.Groups[condition.FirstOperandGroupName])
+			&& GroupsAgree(generatedMatch.Groups[condition.SecondOperandGroupName], interpretedMatch.Groups[condition.SecondOperandGroupName]);
+	}
+
+	private static bool GroupsAgree(Group generatedGroup, Group interpretedGroup)
+	{
+		return generatedGroup.Success == interpretedGroup.Success
+			&& (!generatedGroup.Success
+				|| (generatedGroup.Index == interpretedGroup.Index && generatedGroup.Length == interpretedGroup.Length));
+	}
+
+	/// <summary>
 	/// The confidence composition, and the two ways a match yields no finding at all. Neither of them is a
 	/// Low finding: an anchor that does not resolve was never recognized, and a demonstrated
 	/// negative scheme verdict means the construct is NOT AN INSTANCE OF THE CLASS - that is placed
@@ -667,7 +726,7 @@ public sealed class RecognitionEngine
 	/// receives exactly one level" true. A THIRD, NARROWER WAY: after a lexical budget trip the match
 	/// or its anchor lies where <see cref="ZoneMask.IsAnalyzableAt"/> is false, and no finding is emitted there.
 	/// </summary>
-	private static bool TryClassify(RuleRecognitionState state, Match match, out ClassifiedMatch classifiedMatch)
+	private bool TryClassify(RuleRecognitionState state, Match match, Match conditionGroupSource, out ClassifiedMatch classifiedMatch)
 	{
 		classifiedMatch = default;
 
@@ -689,7 +748,8 @@ public sealed class RecognitionEngine
 		if (recognized)
 		{
 			LexicalZone anchorZone = state.Context.Mask.ZoneAt(anchorOffset);
-			ConfidenceLevel level = ComposeLevel(state, anchorZone, response);
+			PerMatchLowSignals perMatchSignals = ReadThePerMatchLowSignals(state, conditionGroupSource, anchorOffset);
+			ConfidenceLevel level = ComposeLevel(state, anchorZone, response, perMatchSignals);
 
 			classifiedMatch = new ClassifiedMatch
 			{
@@ -700,11 +760,76 @@ public sealed class RecognitionEngine
 				Level = level,
 				LiteralCredentialSignal = ReadTheLiteralCredentialSignal(state, match),
 				TestCode = state.Demotion.FiredKinds.HasFlag(DemotionKinds.Test),
-				LowReasons = ReadTheLowReasons(state, anchorZone, level)
+				LowReasons = ReadTheLowReasons(state, anchorZone, perMatchSignals, level)
 			};
 		}
 
 		return recognized;
+	}
+
+	/// <summary>
+	/// THE PER-MATCH LOW SIGNALS, COMPUTED ONCE PER CLASSIFIED MATCH AND HANDED TO BOTH <see cref="ComposeLevel"/> AND
+	/// <see cref="ReadTheLowReasons"/>. The neutral-operand-pair signal is true if and only if the rule declares the
+	/// condition, both of its groups participated in <paramref name="conditionGroupSource"/> (the generated match, or the
+	/// interpreted one where the cross-check disagreed) and neither group's whole captured text matches its word
+	/// expression, each test charged to the match bound through <see cref="TimedRegexEvaluation"/>. A group that did not
+	/// participate, or no declared condition, is false: the failure direction keeps the class level. The inactive-region
+	/// signal is true if and only if the match's ANCHOR OFFSET lies in a conditional-compilation branch the file's own
+	/// symbols switch off (<see cref="ConditionalRegionMap.IsInactiveAt"/>): one binary search, for every rule of a profile
+	/// that declares the element, with no per-class declaration.
+	/// </summary>
+	private PerMatchLowSignals ReadThePerMatchLowSignals(RuleRecognitionState state, Match conditionGroupSource, int anchorOffset)
+	{
+		bool neutralOperandPair = false;
+
+		if (state.Rule.LowWhenBothOperandsAreNeutral is NeutralOperandPairCondition condition)
+		{
+			Group firstOperand = conditionGroupSource.Groups[condition.FirstOperandGroupName];
+			Group secondOperand = conditionGroupSource.Groups[condition.SecondOperandGroupName];
+
+			if (firstOperand.Success && secondOperand.Success)
+			{
+				bool firstOperandIsNamed = HalfIsCredentialNamed(condition.FirstOperandWordExpression, firstOperand.Value, condition.IdentifierSuffixes);
+				bool secondOperandIsNamed = HalfIsCredentialNamed(condition.SecondOperandWordExpression, secondOperand.Value, condition.IdentifierSuffixes);
+
+				neutralOperandPair = !firstOperandIsNamed && !secondOperandIsNamed;
+			}
+		}
+
+		return new PerMatchLowSignals
+		{
+			NeutralOperandPair = neutralOperandPair,
+			InactiveRegion = state.Regions.IsInactiveAt(anchorOffset)
+		};
+	}
+
+	/// <summary>
+	/// WHETHER A HALF OF THE PAIR IS CREDENTIAL-NAMED. With no declared identifier suffix this is the word expression's yes/no
+	/// probe on the half's whole text. With suffixes the half is named only if some occurrence of the expression's
+	/// words is NOT directly followed by an identifier suffix segment, so every occurrence is read through the same timed door
+	/// (the first attempt, then each next match), and the walk stops at the first occurrence that counts.
+	/// </summary>
+	private bool HalfIsCredentialNamed(Regex wordExpression, string halfText, ImmutableArray<string> identifierSuffixes)
+	{
+		bool named;
+
+		if (identifierSuffixes.IsDefaultOrEmpty)
+		{
+			named = TimedRegexEvaluation.IsMatch(_matchBoundWatch, wordExpression, halfText);
+		}
+		else
+		{
+			named = false;
+			Match occurrence = TimedRegexEvaluation.Match(_matchBoundWatch, wordExpression, halfText);
+
+			while (!named && occurrence.Success)
+			{
+				named = !IdentifierSuffixSegments.IsDirectlyFollowedByASuffix(halfText, occurrence.Index + occurrence.Length, identifierSuffixes);
+				occurrence = named ? occurrence : TimedRegexEvaluation.NextMatch(_matchBoundWatch, occurrence);
+			}
+		}
+
+		return named;
 	}
 
 	/// <summary>
@@ -839,7 +964,8 @@ public sealed class RecognitionEngine
 	private static ConfidenceLevel ComposeLevel(
 		RuleRecognitionState state,
 		LexicalZone anchorZone,
-		SymbolicVerdictResponse response)
+		SymbolicVerdictResponse response,
+		PerMatchLowSignals perMatchSignals)
 	{
 		CandidateLevelSet candidates = new();
 
@@ -857,6 +983,8 @@ public sealed class RecognitionEngine
 		candidates.ProposeWhen(
 			(state.Demotion.FiredKinds & ~DemotionKinds.Test) != DemotionKinds.None,
 			ConfidenceLevel.Low);
+		candidates.ProposeWhen(perMatchSignals.NeutralOperandPair, ConfidenceLevel.Low);
+		candidates.ProposeWhen(perMatchSignals.InactiveRegion, ConfidenceLevel.Low);
 
 		return candidates.Minimum();
 	}
@@ -870,6 +998,7 @@ public sealed class RecognitionEngine
 	private static LowConfidenceReasons ReadTheLowReasons(
 		RuleRecognitionState state,
 		LexicalZone anchorZone,
+		PerMatchLowSignals perMatchSignals,
 		ConfidenceLevel assignedLevel)
 	{
 		LowConfidenceReasons reasons = LowConfidenceReasons.None;
@@ -885,6 +1014,8 @@ public sealed class RecognitionEngine
 			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Vendored, LowConfidenceReasons.DemotedVendoredFile);
 			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Generated, LowConfidenceReasons.DemotedGeneratedFile);
 			reasons |= ReasonOf(state.Demotion.FiredKinds, DemotionKinds.Deployment, LowConfidenceReasons.DemotedDeploymentFolder);
+			reasons |= perMatchSignals.NeutralOperandPair ? LowConfidenceReasons.NeutralOperandPair : LowConfidenceReasons.None;
+			reasons |= perMatchSignals.InactiveRegion ? LowConfidenceReasons.InactivePreprocessorRegion : LowConfidenceReasons.None;
 		}
 
 		return reasons;
@@ -937,6 +1068,13 @@ public sealed class RecognitionEngine
 		}
 	}
 
+	/// <summary>The inputs computed once per file, before the rule loop, and shared by every rule's recognition.</summary>
+	private sealed record PerFileRecognitionInputs(
+		FileSymbolTable Symbols,
+		VariableReferenceIndex References,
+		FileDemotion Demotion,
+		ConditionalRegionMap Regions);
+
 	/// <summary>
 	/// Everything one rule's recognition needs, in one value. It exists so that the classification
 	/// methods take a state rather than six parameters each, and it is a private nested type
@@ -955,5 +1093,7 @@ public sealed class RecognitionEngine
 		internal required VariableReferenceIndex References { get; init; }
 
 		internal required FileDemotion Demotion { get; init; }
+
+		internal required ConditionalRegionMap Regions { get; init; }
 	}
 }

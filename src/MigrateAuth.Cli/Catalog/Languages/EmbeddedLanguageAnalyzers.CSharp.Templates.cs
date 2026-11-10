@@ -4,7 +4,7 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
 /// The catalog's recommendation text for `CSharp`, encoded from the catalog
-/// (its version is <see cref="LanguageCatalog.CurrentVersion"/>): sixteen classes, both flows, and both generic fallback texts.
+/// (its version is <see cref="LanguageCatalog.CurrentVersion"/>): seventeen classes, both flows, and both generic fallback texts.
 /// CS-011 and CS-019 carry no entry: the catalog's "Classes without a template" routes both to
 /// manual review.
 ///
@@ -297,4 +297,20 @@ internal static class CSharpRecommendationTemplates
 	/// <summary>CS-018 verification note.</summary>
 	public const string CS_018_VERIFICATION_NOTE =
 		"**Verification note — two things.**\n\n**Verify the destination accepts `Bearer` before changing the prefix.** Some services accept only Basic, and there the prefix change breaks working code.\n\n**A header set once on a long-lived client cannot be refreshed.** If the token has a lifetime, set the header per request with a current token rather than on a shared client's default headers.";
+
+	/// <summary>CS-020 generic source form.</summary>
+	public const string CS_020_SOURCE_FORM =
+		"```csharp\nvar proxy = helper.GetProxy<IExampleService>(userName, password);\n```";
+
+	/// <summary>CS-020 target form under token authentication.</summary>
+	public const string CS_020_TARGET_FORM =
+		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — this finding is informational and the rest of this template does not apply.\n\nReplace the call that passes a user name and a password with **the helper's token-bearing equivalent**, given the access token, and remove the two credential arguments. This template does not name that overload or member, because which one exists depends on the version of the helper or SDK in use. **Confirm the version in use offers one; where it does not, this is an upgrade before it is a code change.**";
+
+	/// <summary>CS-020 class share of the credential provenance.</summary>
+	public const string CS_020_CREDENTIAL_PROVENANCE =
+		"**Where the credentials come from.** The call shape establishes that a user name and a password are given to a factory, not that the factory connects to RelativityOne; if it is not RelativityOne — including a Relativity Server instance, whose own documentation governs — the migration is that service's own token mechanism, this finding is informational for this tool, and no migration to RelativityOne applies. If it is RelativityOne, the token comes from the token-acquisition part that follows.";
+
+	/// <summary>CS-020 verification note.</summary>
+	public const string CS_020_VERIFICATION_NOTE =
+		"**Verification note — two things. The first decides whether the change can be made at all.**\n\n**Helper or SDK version support comes first.** Where the version in use has no token-bearing equivalent of the call, the change cannot be made at this call site at all, and the upgrade carries its own verification.\n\n**A token has a finite lifetime, and the method is read by its name.** A proxy obtained once and reused across a long-running process or test run holds a token that expires; obtain it with a current token for each run. Also confirm the call is the Relativity helper: a method of another library with the same name and two arguments is read the same way.";
 }

@@ -121,6 +121,7 @@ public sealed class LexicalBudgetTests
 		"LanguageIdentification.FirstLineDetectionExpression",
 		"LanguageShapedDemotionSignals.GenerationMarkerExpressions",
 		"LexicalProfile.ConstantDeclarationExpression",
+		"LexicalProfile.MemberDeclarationExpression",
 		"QuoteRule.InterpolationIdentifierExtent"
 	];
 

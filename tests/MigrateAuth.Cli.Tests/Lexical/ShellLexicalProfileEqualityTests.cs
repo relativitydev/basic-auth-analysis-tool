@@ -11,14 +11,16 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Lexical;
 
 /// <summary>
-/// THE SHIPPED `Shell` PROFILE IS PINNED to <see cref="ShellShapedProfile.BuildWithExecutedStrings"/>, the reference profile the real-shaped text tests use: the same rules in the same order, field by field (expressions by pattern text, options and timeout), the same arithmetic context, code
-/// escape, arm blocks and executed-string declaration, the context predicates compared by what they answer, and the same masks on the same text. The reference and the shipped profile carry the same comment predecessors (an angle bracket is no comment predecessor).
+/// THE SHIPPED `Shell` PROFILE IS PINNED to <see cref="ShellShapedProfile.BuildWithCodeSpans"/>, the reference the real-shaped text tests run on: the same
+/// rules in the same order, field by field (expressions by pattern text, options and timeout), the same arithmetic context, code escape, arm blocks,
+/// executed-string declaration and code span, the context predicates compared by what they answer, and the same masks on the same text. In both, an angle
+/// bracket is no comment predecessor.
 /// </summary>
 public sealed class ShellLexicalProfileEqualityTests
 {
 	private static readonly LexicalProfile _shipped = ShellRegisteredExpressions.Analyzer.LexicalProfile;
 
-	private static readonly LexicalProfile _reference = ShellShapedProfile.BuildWithExecutedStrings();
+	private static readonly LexicalProfile _reference = ShellShapedProfile.BuildWithCodeSpans();
 
 	[Fact]
 	public void TheShippedProfileDeclaresTheCaseSensitivitiesOfTheReference()
@@ -37,6 +39,18 @@ public sealed class ShellLexicalProfileEqualityTests
 		Assert.Equal(_reference.ArithmeticContext, _shipped.ArithmeticContext);
 		Assert.NotNull(_shipped.ExecutedStrings);
 		AssertDeepEqual(_reference.ExecutedStrings, _shipped.ExecutedStrings, nameof(LexicalProfile.ExecutedStrings));
+	}
+
+	[Fact]
+	public void TheShippedProfileDeclaresTheBacktickCodeSpanOfTheReference()
+	{
+		CodeSpanElement span = Assert.Single(_shipped.CodeSpans);
+
+		Assert.Equal(_reference.CodeSpans.AsEnumerable(), _shipped.CodeSpans.AsEnumerable());
+		Assert.Equal("`", span.Opening);
+		Assert.Equal("`", span.Closing);
+		Assert.Equal("\\", span.EscapeCharacter);
+		Assert.Equal("`\\$", span.EscapableCharacters);
 	}
 
 	[Fact]
@@ -150,9 +164,13 @@ public sealed class ShellLexicalProfileEqualityTests
 	[InlineData("bash -c 'echo \"inner\" # note'\nsudo -u root sh -c \"curl -u a:b http://h.test/\"\nafter=1\n")]
 	[InlineData("let v=1<<3\nbody\n3\nafter=1\n")]
 	[InlineData("echo \"unterminated\nstill inside\n")]
+	[InlineData("x=`cat <<EOF`\ncurl -u a:b http://h.test/\nafter=1\n")]
+	[InlineData("x=`echo \"a b\" $(date)` # tail\nafter=1\n")]
+	[InlineData("x=`cat <<EOF\nbody\nEOF\n`\nafter=1\n")]
+	[InlineData("y=\"`cat <<EOF`\"\nz=$(echo `date`)\nafter=1\n")]
 	public void TheShippedProfileAndTheReferenceProduceTheSameMask(string source)
 	{
-		ZoneMask referenceMask = ShellShapedProfile.ScanWithExecutedStrings(source);
+		ZoneMask referenceMask = ShellShapedProfile.ScanWithCodeSpans(source);
 		ZoneMask shippedMask = new LexicalScanner(_shipped).Scan(source);
 
 		Assert.Equal(referenceMask.IsCompletelyValid, shippedMask.IsCompletelyValid);

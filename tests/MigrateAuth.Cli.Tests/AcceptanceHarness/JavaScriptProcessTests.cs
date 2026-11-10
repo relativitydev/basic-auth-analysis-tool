@@ -16,12 +16,13 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
 /// A `JavaScript` repository through a REAL PROCESS, from scan to report: a `.js`, a `.mjs`, a `.cjs` and a `.jsx` file and an extensionless file whose first line names `node` are
-/// assessed, found and attributed to the language by name, a `.ts` file beside them is counted and never assessed, and a literal credential in them is never printed. The scripts
+/// assessed, found and attributed to the language by name, a `.ts` file beside them is assessed as `TypeScript` and attributed to it by name, and a literal credential in them is never printed. The scripts
 /// are invented placeholders.
 /// </summary>
 public sealed class JavaScriptProcessTests
 {
 	private const string _LANGUAGE_NAME = "JavaScript";
+	private const string _TYPESCRIPT_LANGUAGE_NAME = "TypeScript";
 	private const string _SCRIPT_PATH = "src/upload.js";
 	private const string _MODULE_PATH = "src/upload.mjs";
 	private const string _COMMONJS_PATH = "src/upload.cjs";
@@ -49,7 +50,7 @@ public sealed class JavaScriptProcessTests
 	private const string _TYPESCRIPT_CONTENT = $"const response: Response = await got(url, {{ username: 'admin', password: '{_PLACEHOLDER_REDACTED_VALUE}' }});\n";
 
 	[Fact]
-	public void TheFourJavaScriptExtensionsAndAnExtensionlessNodeScriptAreAssessedFoundAndAttributedToJavaScriptAndATypeScriptFileIsNotAssessedInARealProcess()
+	public void TheFourJavaScriptExtensionsAndAnExtensionlessNodeScriptAreAssessedFoundAndAttributedToJavaScriptAndATypeScriptFileIsAssessedAndAttributedToTypeScriptInARealProcess()
 	{
 		using RepositoryFixture repository = RepositoryFixture.CreateEmpty();
 		using TemporaryFolder destination = TemporaryFolder.Create();
@@ -69,18 +70,23 @@ public sealed class JavaScriptProcessTests
 		ArtifactDocument artifact = ReadArtifact(destination.Path);
 
 		Assert.Equal(
-			new[] { _SCRIPT_PATH, _MODULE_PATH, _COMMONJS_PATH, _JSX_PATH, _NODE_SHEBANG_PATH }.Order(StringComparer.Ordinal),
+			new[] { _SCRIPT_PATH, _MODULE_PATH, _COMMONJS_PATH, _JSX_PATH, _NODE_SHEBANG_PATH, _TYPESCRIPT_PATH }.Order(StringComparer.Ordinal),
 			artifact.Findings.Select(finding => finding.FilePath).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
 		Assert.All(artifact.Findings, finding =>
 		{
-			Assert.Equal(_LANGUAGE_NAME, finding.Language);
+			string expectedLanguage = finding.FilePath == _TYPESCRIPT_PATH ? _TYPESCRIPT_LANGUAGE_NAME : _LANGUAGE_NAME;
+
+			Assert.Equal(expectedLanguage, finding.Language);
 			Assert.StartsWith(_PATTERN_CLASS_PREFIX, finding.PatternClass, StringComparison.Ordinal);
 		});
 
-		string[] javaScriptRows = [.. outcome.StandardOutput.Split('\n').Where(line => line.Contains(_LANGUAGE_NAME, StringComparison.Ordinal))];
+		foreach (string languageName in new[] { _LANGUAGE_NAME, _TYPESCRIPT_LANGUAGE_NAME })
+		{
+			string[] languageRows = [.. outcome.StandardOutput.Split('\n').Where(line => line.Contains(languageName, StringComparison.Ordinal))];
 
-		Assert.NotEmpty(javaScriptRows);
-		Assert.All(javaScriptRows, row => Assert.DoesNotContain(ScanStage.UNASSESSED_ROW_SUFFIX.Trim(), row, StringComparison.Ordinal));
+			Assert.NotEmpty(languageRows);
+			Assert.All(languageRows, row => Assert.DoesNotContain(ScanStage.UNASSESSED_ROW_SUFFIX.Trim(), row, StringComparison.Ordinal));
+		}
 	}
 
 	[Fact]

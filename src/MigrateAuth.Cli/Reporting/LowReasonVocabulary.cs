@@ -39,6 +39,8 @@ public static class LowReasonVocabulary
 	private const string _DEMOTED_VENDORED_FILE_VALUE = "demotedVendoredFile";
 	private const string _DEMOTED_GENERATED_FILE_VALUE = "demotedGeneratedFile";
 	private const string _DEMOTED_DEPLOYMENT_FOLDER_VALUE = "demotedDeploymentFolder";
+	private const string _NEUTRAL_OPERAND_PAIR_VALUE = "neutralOperandPair";
+	private const string _INACTIVE_PREPROCESSOR_REGION_VALUE = "inactivePreprocessorRegion";
 	private const string _SENTENCE_SEPARATOR = "; ";
 	private const string _HELPER_DEFINITION_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "it is a definition that builds a credential or an authentication header, not a call, so the migration belongs in the helper and its callers show no credential";
@@ -46,6 +48,10 @@ public static class LowReasonVocabulary
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential goes to a sink that is not an HTTP client, such as remoting, mail, file transfer, a directory or a proxy; that is live code, but not Basic Authentication towards RelativityOne";
 	private const string _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE =
 		$"{PATTERN_CLASS_SENTENCE_LEAD}the client sends the credential as Basic only after the server challenges with Basic, or the join between the credential and the call is by text; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points and whether a preemptive option or a hand-built header is also used";
+	private const string _ENVIRONMENT_HELD_SCHEME_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "the Authorization header takes its whole value, scheme included, from an environment value, so the code does not show whether the scheme is Basic or a bearer token; a bearer token is the migrated form and a Basic value is not, so confirm what the deployed value holds and migrate it if it is Basic";
+	private const string _SETTINGS_PROPERTY_HELD_SCHEME_SENTENCE =
+		$"{PATTERN_CLASS_SENTENCE_LEAD}the Authorization header takes its whole value, scheme included, from a settings property that is filled from an environment value, so the code does not show whether the scheme is Basic or a bearer token; confirm what the deployed value holds and migrate it if it is Basic";
 	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 
@@ -60,7 +66,9 @@ public static class LowReasonVocabulary
 		LowConfidenceReasons.DemotedSampleFile,
 		LowConfidenceReasons.DemotedVendoredFile,
 		LowConfidenceReasons.DemotedGeneratedFile,
-		LowConfidenceReasons.DemotedDeploymentFolder
+		LowConfidenceReasons.DemotedDeploymentFolder,
+		LowConfidenceReasons.NeutralOperandPair,
+		LowConfidenceReasons.InactivePreprocessorRegion
 	];
 
 	private static readonly FrozenDictionary<LowConfidenceReasons, string> _valuesByReason =
@@ -72,7 +80,9 @@ public static class LowReasonVocabulary
 			[LowConfidenceReasons.DemotedSampleFile] = _DEMOTED_SAMPLE_FILE_VALUE,
 			[LowConfidenceReasons.DemotedVendoredFile] = _DEMOTED_VENDORED_FILE_VALUE,
 			[LowConfidenceReasons.DemotedGeneratedFile] = _DEMOTED_GENERATED_FILE_VALUE,
-			[LowConfidenceReasons.DemotedDeploymentFolder] = _DEMOTED_DEPLOYMENT_FOLDER_VALUE
+			[LowConfidenceReasons.DemotedDeploymentFolder] = _DEMOTED_DEPLOYMENT_FOLDER_VALUE,
+			[LowConfidenceReasons.NeutralOperandPair] = _NEUTRAL_OPERAND_PAIR_VALUE,
+			[LowConfidenceReasons.InactivePreprocessorRegion] = _INACTIVE_PREPROCESSOR_REGION_VALUE
 		}.ToFrozenDictionary();
 
 	private static readonly FrozenDictionary<string, LowConfidenceReasons> _reasonsByValue =
@@ -94,7 +104,11 @@ public static class LowReasonVocabulary
 			[LowConfidenceReasons.DemotedGeneratedFile] =
 				"the file's name or content marks it as generated code, so the fix belongs in what it is generated from rather than in the file",
 			[LowConfidenceReasons.DemotedDeploymentFolder] =
-				"the file sits in a deployment folder, so it is installation or release tooling rather than the application's own code"
+				"the file sits in a deployment folder, so it is installation or release tooling rather than the application's own code",
+			[LowConfidenceReasons.NeutralOperandPair] =
+				"the two halves of the colon-joined pair are not named like a user name and a password, so it may be a pair of ordinary values (a size, a host and port, a range or a composite key) rather than a credential; check whether it is a user name and password before migrating",
+			[LowConfidenceReasons.InactivePreprocessorRegion] =
+				"the code sits in a conditional-compilation block that the file's own symbols switch off, so it is not part of the build unless a build setting outside the file defines the symbol; check the project's build settings before dismissing it"
 		}.ToFrozenDictionary();
 
 	private static readonly FrozenDictionary<string, string> _patternClassSentencesByIdentifier =
@@ -118,7 +132,9 @@ public static class LowReasonVocabulary
 			["JS-009"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
 			["JS-011"] = _NON_HTTP_SINK_SENTENCE,
 			["JS-014"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
-			["JS-016"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE
+			["JS-016"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
+			["JS-018"] = _ENVIRONMENT_HELD_SCHEME_SENTENCE,
+			["JS-019"] = _SETTINGS_PROPERTY_HELD_SCHEME_SENTENCE
 		}.ToFrozenDictionary(StringComparer.Ordinal);
 
 	/// <summary>The stable values of the reasons that apply, in the declared order. Empty when none do.</summary>
