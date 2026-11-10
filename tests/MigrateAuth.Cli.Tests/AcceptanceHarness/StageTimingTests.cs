@@ -17,23 +17,25 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// <c>ReportStage</c>, composed exactly as <c>Program</c> composes them, each behind one
 /// <c>Run</c> call, on the clock the product ships with.
 ///
-/// TWO SHAPES, because throughput depends on match density and not only on file count, and the four
-/// stages divide the work differently at the two ends: a repository where 2 % of files are
-/// candidates, and a repository where every file is a candidate. Both are reported and neither is
-/// presented as the figure.
+/// TWO SHAPES, BECAUSE ONE NUMBER PER STAGE WOULD BE A LIE ABOUT THE OTHER SHAPE. Throughput depends
+/// on match density and not only on file count, and the four stages divide the work completely
+/// differently at the two ends. A repository where 2 % of files are candidates is what ordinary
+/// repositories look like in practice. A repository where every file is a candidate is the worst
+/// case the scan tests already generate. Both are reported and neither is presented as the figure.
 ///
-/// THE SIZE IS 3,000 FILES: large enough that a stage's duration is signal rather than scheduling
-/// noise, and small enough to run on every build.
+/// THE SIZE IS 3,000 FILES AND THAT IS A CHOICE ABOUT THE SUITE, NOT ABOUT THE PRODUCT. It is large
+/// enough that a stage's duration is signal rather than scheduling noise, and small enough to run on
+/// every build.
 ///
 /// WHAT IS ASSERTED IS THE REQUIRED FLOOR AND NOTHING ELSE. A test that compared this machine against a
-/// recorded figure would fail whenever a machine was busy. The measured table is reported; the
-/// assertion is the requirement.
+/// recorded figure would fail whenever a laptop was busy, and a test that fails for that reason gets
+/// deleted. The measured table is reported; the assertion is the requirement.
 /// </summary>
-public sealed class StageBenchmarkTests
+public sealed class StageTimingTests
 {
 	private const int _FOLDER_COUNT = 60;
 	private const int _FILES_PER_FOLDER = 50;
-	private const int _PLANTED_FILE_COUNT = _FOLDER_COUNT * _FILES_PER_FOLDER;
+	private const int _GENERATED_FILE_COUNT = _FOLDER_COUNT * _FILES_PER_FOLDER;
 
 	/// <summary>One file in fifty carries a construct: 2 %.</summary>
 	private const int _TYPICAL_ONE_CANDIDATE_IN = 50;
@@ -59,14 +61,14 @@ public sealed class StageBenchmarkTests
 
 	private static readonly string _typicalShapeDescription = string.Format(
 		CultureInfo.InvariantCulture,
-		"{0:N0} files, of which {1:N0} carry a construct. The base design measured 1.9 % candidates on an ordinary repository; this is 2 %.",
-		_PLANTED_FILE_COUNT,
-		_PLANTED_FILE_COUNT / _TYPICAL_ONE_CANDIDATE_IN);
+		"{0:N0} files, of which {1:N0} carry a construct. Measurements on an ordinary repository found 1.9 % candidates; this is 2 %.",
+		_GENERATED_FILE_COUNT,
+		_GENERATED_FILE_COUNT / _TYPICAL_ONE_CANDIDATE_IN);
 
 	private static readonly string _worstCaseShapeDescription = string.Format(
 		CultureInfo.InvariantCulture,
-		"{0:N0} files, every one of them a candidate carrying one construct. This is the band V2 worst case for the term DR-07 declines to cap.",
-		_PLANTED_FILE_COUNT);
+		"{0:N0} files, every one of them a candidate carrying one construct. This is the worst case for the one term the engine does not cap.",
+		_GENERATED_FILE_COUNT);
 
 	private const string _WARM_UP_FILE_NAME = "warm-up/Candidate.cs";
 
@@ -83,7 +85,7 @@ public sealed class StageBenchmarkTests
 
 	private readonly ITestOutputHelper _output;
 
-	public StageBenchmarkTests(ITestOutputHelper output)
+	public StageTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}
@@ -98,12 +100,12 @@ public sealed class StageBenchmarkTests
 	{
 		WarmUpEveryStage();
 
-		BenchmarkShape typicalShape = MeasureOneShape(
+		TimingShape typicalShape = MeasureOneShape(
 			_TYPICAL_SHAPE_NAME,
 			_typicalShapeDescription,
 			_TYPICAL_ONE_CANDIDATE_IN);
 
-		BenchmarkShape worstCaseShape = MeasureOneShape(
+		TimingShape worstCaseShape = MeasureOneShape(
 			_WORST_CASE_SHAPE_NAME,
 			_worstCaseShapeDescription,
 			_WORST_CASE_ONE_CANDIDATE_IN);
@@ -136,15 +138,15 @@ public sealed class StageBenchmarkTests
 	}
 
 	/// <summary>
-	/// One shape, planted and run once. The harness is the pipeline tests' own composition - the same
+	/// One shape, generated and run once. The harness is the pipeline set's own composition - the same
 	/// decorator chain <c>Program</c> builds - taken over the system clock, so the per-item clock
 	/// read, the progress cadence and the match bound all cost what they cost in a session.
 	/// </summary>
-	private static BenchmarkShape MeasureOneShape(string name, string description, int oneCandidateIn)
+	private static TimingShape MeasureOneShape(string name, string description, int oneCandidateIn)
 	{
 		using PipelineHarness harness = PipelineHarness.CreateOverTheSystemClock();
 
-		PlantTree(harness, oneCandidateIn);
+		GenerateTree(harness, oneCandidateIn);
 
 		ImmutableArray<StageTiming> timings =
 		[
@@ -154,12 +156,12 @@ public sealed class StageBenchmarkTests
 			Measure(harness, CommandId.Report, _FINDINGS_LABEL, () => harness.State.Findings.Length)
 		];
 
-		// The benchmark must not report four durations over a repository that produced nothing,
+		// The timing table must not report four durations over a repository that produced nothing,
 		// which is the way a broken fixture would present as a very fast engine.
-		Assert.Equal(_PLANTED_FILE_COUNT, harness.State.ScanOutcome.FileCount);
-		Assert.Equal(_PLANTED_FILE_COUNT / oneCandidateIn, harness.State.Findings.Length);
+		Assert.Equal(_GENERATED_FILE_COUNT, harness.State.ScanOutcome.FileCount);
+		Assert.Equal(_GENERATED_FILE_COUNT / oneCandidateIn, harness.State.Findings.Length);
 
-		return new BenchmarkShape
+		return new TimingShape
 		{
 			Name = name,
 			Description = description,
@@ -170,7 +172,7 @@ public sealed class StageBenchmarkTests
 	/// <summary>
 	/// One stage, timed around its single <c>Run</c> call. What is NOT inside the stopwatch is the
 	/// shell's own work after a stage completes - marking it and persisting the session state - which
-	/// belongs to the session rather than to the stage boundary.
+	/// belongs to the session rather than to the boundary between stages.
 	/// </summary>
 	private static StageTiming Measure(
 		PipelineHarness harness,
@@ -196,21 +198,21 @@ public sealed class StageBenchmarkTests
 		};
 	}
 
-	private static void PlantTree(PipelineHarness harness, int oneCandidateIn)
+	private static void GenerateTree(PipelineHarness harness, int oneCandidateIn)
 	{
-		int plantedCount = 0;
+		int generatedCount = 0;
 
 		for (int folder = 0; folder < _FOLDER_COUNT; folder++)
 		{
 			for (int file = 0; file < _FILES_PER_FOLDER; file++)
 			{
-				bool carriesAConstruct = plantedCount % oneCandidateIn == 0;
+				bool carriesAConstruct = generatedCount % oneCandidateIn == 0;
 
 				harness.WriteSourceFile(
 					string.Format(CultureInfo.InvariantCulture, _SOURCE_FILE_NAME_FORMAT, folder, file),
 					carriesAConstruct ? _candidateContent : _ORDINARY_CONTENT);
 
-				plantedCount++;
+				generatedCount++;
 			}
 		}
 	}
@@ -219,18 +221,18 @@ public sealed class StageBenchmarkTests
 	/// The required floor, applied to the four stages together rather than to any one of them. The
 	/// requirement is about what the user waits for, and the user waits for the workflow.
 	/// </summary>
-	private static void AssertTheFloorIsCleared(BenchmarkShape shape)
+	private static void AssertTheFloorIsCleared(TimingShape shape)
 	{
 		double elapsedSeconds = shape.Timings.Sum(timing => timing.Elapsed.TotalSeconds);
-		double filesPerMinute = _PLANTED_FILE_COUNT / Math.Max(elapsedSeconds, double.Epsilon) * _SECONDS_PER_MINUTE;
+		double filesPerMinute = _GENERATED_FILE_COUNT / Math.Max(elapsedSeconds, double.Epsilon) * _SECONDS_PER_MINUTE;
 
 		Assert.True(filesPerMinute > _REQUIRED_FILES_PER_MINUTE);
 	}
 
-	private void ReportTheTable(ImmutableArray<BenchmarkShape> shapes)
+	private void ReportTheTable(ImmutableArray<TimingShape> shapes)
 	{
-		string document = StageBenchmarkTable.Render(shapes, DateTimeOffset.Now);
-		string? writtenPath = StageBenchmarkTable.TryWrite(document);
+		string document = StageTimingTable.Render(shapes, DateTimeOffset.Now);
+		string? writtenPath = StageTimingTable.TryWrite(document);
 
 		_output.WriteLine(document);
 		_output.WriteLine(writtenPath is null

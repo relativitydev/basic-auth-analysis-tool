@@ -333,6 +333,28 @@ public sealed class FindingsSummaryTableTests
 	}
 
 	[Fact]
+	public void ADemotedPowerShellFindingDoesNotMentionADeploymentFile()
+	{
+		ReportContent content = ContentOf(
+			[
+				ReportHarness.FindingAt(
+					1,
+					_LOW_PATH,
+					1,
+					ReportHarness.TEMPLATED_PATTERN_CLASS,
+					ConfidenceLevel.Low,
+					language: AssessedLanguage.PowerShell,
+					lowReasons: LowConfidenceReasons.DemotedFile)
+			],
+			ConfidenceLevel.Low);
+
+		string report = Render(content);
+
+		Assert.Contains("- Low because: the file's name, folder or content marks it as a test, sample or generated file", report, StringComparison.Ordinal);
+		Assert.DoesNotContain("deployment file", report, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void SeveralReasonsAreAllStated()
 	{
 		LowConfidenceReasons both = LowConfidenceReasons.CommentOrStringLiteral | LowConfidenceReasons.DemotedFile;

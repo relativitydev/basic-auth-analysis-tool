@@ -1,7 +1,7 @@
 namespace MigrateAuth.Cli.Catalog;
 
 /// <summary>
-/// WHICH OF THE CONFIDENCE SIGNALS PROPOSED LOW FOR A FINDING, KEPT SO THAT A READER CAN BE TOLD WHY.
+/// WHICH OF THE CLASSIFICATION SIGNALS PROPOSED LOW FOR A FINDING, KEPT SO THAT A READER CAN BE TOLD WHY.
 ///
 /// The level of a finding is the minimum over every proposal, and the minimum forgets its
 /// inputs: two findings that both read Low can be Low for unrelated reasons, and only one of them

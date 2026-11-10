@@ -8,7 +8,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Recognition;
 
 /// <summary>
-/// THE FOUR-ROW SYMBOL TABLE, EXERCISED ROW BY ROW, AND THEN WHAT EACH VERDICT DOES TO A FINDING.
+/// THE FOUR-ROW TABLE, EXERCISED ROW BY ROW, AND THEN WHAT EACH VERDICT DOES TO A FINDING.
 ///
 /// The table is arithmetic over declarations and not a scope model, so every row here is a
 /// statement about COUNTING and POSITION and nothing else: how many declarations of the name the
@@ -96,7 +96,7 @@ public sealed class SymbolicResolutionTests
 
 	/// <summary>
 	/// More than one declaration, anywhere, in any scope. The file is not consulted for which one
-	/// is nearer: there is no scope model.
+	/// is nearer, which is the whole of the refusal to build a scope model it cannot have.
 	/// </summary>
 	[Fact]
 	public void MoreThanOneDeclarationOfTheNameIsIndeterminate()
@@ -134,7 +134,7 @@ public sealed class SymbolicResolutionTests
 	}
 
 	/// <summary>
-	/// The negative case, which is a RECOGNITION outcome and not a classification one.
+	/// The demonstrated negative, which is a RECOGNITION outcome and not a classification one.
 	/// The reference analyzer reads a resolved-and-not-matching verdict as suppressing the finding,
 	/// and what that has to produce is NOTHING - not a Low finding, which would still count as a
 	/// false positive and would still be shown to a developer as something to look at.
@@ -170,8 +170,7 @@ public sealed class SymbolicResolutionTests
 	}
 
 	/// <summary>
-	/// Every indeterminate row of the table, through the engine. This verdict is the common one on
-	/// real code, and every indeterminate row must land at Medium.
+	/// Every indeterminate row of the table, through the engine: each lands at Medium.
 	/// </summary>
 	[Theory]
 	[InlineData(_TWO_DECLARATIONS)]

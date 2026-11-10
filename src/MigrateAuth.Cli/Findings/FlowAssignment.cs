@@ -18,7 +18,8 @@ namespace MigrateAuth.Cli.Findings;
 /// A Low finding carries no flow evidence and no flow: it stays in manual review.
 ///
 /// IT NEVER READS <see cref="Finding.LiteralCredentialSignal"/>. A literal credential is a security
-/// property and not evidence of which flow applies.
+/// property and not evidence of which flow applies; any later literal flow evidence must
+/// derive from that signal, never from a second expression.
 ///
 /// One finding at a time and no state: the same input gives the same output on every platform,
 /// and the pass over a full set holds one extra finding of memory rather than a second set.

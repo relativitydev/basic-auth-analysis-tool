@@ -1,7 +1,7 @@
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The one name every text uses for where a client's OAuth 2.0 credentials belong.
+/// THE ONE NAME EVERY TEXT USES FOR WHERE A CLIENT'S OAUTH 2.0 CREDENTIALS BELONG.
 ///
 /// The pointer is to Part B of the Migration Documentation, which the product delivers with this
 /// tool. It carries a name and nothing else: no URL, because the tool is offline by design and a

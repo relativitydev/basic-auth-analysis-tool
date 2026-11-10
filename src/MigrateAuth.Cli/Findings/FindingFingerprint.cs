@@ -21,15 +21,17 @@ namespace MigrateAuth.Cli.Findings;
 /// WHAT THE ORDINAL BUYS AND WHAT IT COSTS. It resolves collision between two identical
 /// occurrences of one class in one file, which a path and a class alone cannot. And because it
 /// counts OCCURRENCES rather than positions, the fingerprint survives inserting or deleting lines
-/// anywhere in the file.
+/// anywhere in the file - the most frequent change between two runs, and the iterative flow the
+/// whole mechanism exists for.
 ///
 /// What it does not survive is a change to the population it counts. Insert a new occurrence of
 /// the SAME CLASS earlier in the same file and every later occurrence of that class shifts by
-/// one; delete one and they shift back. Two occurrences that swap order, and a finding that moved
-/// to another file, are not recognized as the same.
+/// one; delete one and they shift back. A finding that moved to another file is not recognized
+/// either. Both are the price of eliminating guessable material.
 ///
-/// IT IS A VALUE TYPE for the reason <see cref="Finding"/> gives, and equality here is
-/// structural - two fingerprints are equal exactly when all their parts are equal.
+/// IT IS A VALUE TYPE for the reason <see cref="Finding"/> gives: the set it is carried in is
+/// sized in the hundreds of thousands, and equality here is structural - two fingerprints are
+/// equal exactly when all their parts are equal.
 /// </summary>
 public readonly record struct FindingFingerprint
 {
@@ -80,7 +82,7 @@ public readonly record struct FindingFingerprint
 	/// </summary>
 	public int PathDisambiguator { get; init; }
 
-	/// <summary>Part two. The pattern class identifier, not its name.</summary>
+	/// <summary>Part two. The pattern class, which is the identifier and not the name.</summary>
 	public required RuleIdentifier PatternClass { get; init; }
 
 	/// <summary>Part three. Which occurrence of that class within that file this is, counted from one.</summary>
@@ -91,7 +93,8 @@ public readonly record struct FindingFingerprint
 	///
 	/// It is rendered here rather than by the writer so that there is one form rather than one per
 	/// destination, and it is built from the invariant culture so that the ordinal's digits do not
-	/// vary with a host's number formatting.
+	/// vary with a host's number formatting - the same reason every comparison in this
+	/// product free of locale data.
 	/// </summary>
 	public string Text =>
 		string.Create(

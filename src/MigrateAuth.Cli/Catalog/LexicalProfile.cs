@@ -4,10 +4,11 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Catalog;
 
 /// <summary>
-/// The lexical shape of a language as declarative data, including its constant declaration
-/// expression. One scanner is parameterized by this; there is no scanner per language.
+/// Contract element 1. The lexical shape of a language as declarative data, in the
+/// lexical vocabulary, including its constant declaration expression. One scanner is parameterized
+/// by this; there is no scanner per language.
 ///
-/// The three rules that belong to the engine are unrepresentable here by construction:
+/// The three rules the vocabulary assigns to the engine are unrepresentable here by construction:
 ///
 /// - The author hands its rules over through set-only properties. There is no accessor that
 ///   returns them in the order they were supplied, so the order an author wrote cannot reach
@@ -24,13 +25,13 @@ public sealed class LexicalProfile
 
 	/// <summary>
 	/// Names the profile, not the language. Two languages may share one profile, which is
-	/// why the language name is not read from here.
+	/// why the language name is derived by contract element 2 rather than read from here.
 	/// </summary>
 	public required string ProfileName { get; init; }
 
 	/// <summary>
-	/// The constant declaration expression, handed over already constructed, which is what
-	/// file-scoped symbolic resolution collects with.
+	/// Contract element 1: the profile carries the constant declaration expression, handed over
+	/// already constructed, which is what file-scoped symbolic resolution collects with.
 	/// </summary>
 	public required Regex ConstantDeclarationExpression { get; init; }
 
@@ -39,6 +40,12 @@ public sealed class LexicalProfile
 
 	/// <summary>Case sensitivity, in delimiters.</summary>
 	public CaseSensitivity DelimiterCaseSensitivity { get; init; } = CaseSensitivity.Sensitive;
+
+	/// <summary>
+	/// Selects the comparer of the file-scoped symbol table. Defaults to
+	/// <see cref="IdentifierCaseSensitivityMode.Sensitive"/>, the ordinal comparison.
+	/// </summary>
+	public IdentifierCaseSensitivityMode IdentifierCaseSensitivity { get; init; } = IdentifierCaseSensitivityMode.Sensitive;
 
 	/// <summary>Write-only on purpose: the order supplied here is discarded, never read back.</summary>
 	public required IEnumerable<LineCommentRule> LineCommentRules

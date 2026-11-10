@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Catalog;
 
 /// <summary>
-/// The anchor position: the offset within the match whose
+/// Anchor position, and contract element 3 field 2. The offset within the match whose
 /// zone decides classification. The engine tests that position, not the start of the match:
 /// a rule recognizing a header added as a string starts on the opening quote, and with the
 /// whole literal marked non-code that rule could otherwise never emit a finding.
@@ -75,7 +75,7 @@ public readonly record struct MatchAnchor
 }
 
 /// <summary>
-/// The credential position, optional and defaulting to none, which
+/// Contract element 3 field 6. The credential position, optional and defaulting to none, which
 /// is the honest answer for a class where no argument is the credential.
 ///
 /// It is not the anchor offset, and the two are separate fields because a construct's anchor

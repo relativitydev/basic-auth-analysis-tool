@@ -9,7 +9,15 @@ public enum SymbolicVerdict
 {
 	Indeterminate = 0,
 	ResolvedMatching = 1,
-	ResolvedNotMatching = 2
+	ResolvedNotMatching = 2,
+
+	/// <summary>
+	/// The declared scheme group took no part in the match: the construct was recognized by an
+	/// alternative that carries no scheme argument at all (an assembled value, say). Distinct from
+	/// <see cref="Indeterminate"/>, where the argument is present and its value cannot be resolved.
+	/// A rule answers it with <see cref="SymbolicVerdictInterpretation.WhenSchemeArgumentDidNotParticipate"/>.
+	/// </summary>
+	ArgumentDidNotParticipate = 3
 }
 
 /// <summary>
@@ -26,8 +34,8 @@ public enum SymbolicVerdictResponse
 	ConfirmsPatternClass = 1,
 
 	/// <summary>
-	/// The construct is not an instance of this class, so there is no finding at all. A
-	/// demonstrated negative is placed in recognition rather than in classification, which is
+	/// The construct is not an instance of this class, so there is no finding at all. The
+	/// design places a demonstrated negative in recognition rather than in classification, which is
 	/// what keeps "every finding receives exactly one level" true.
 	/// </summary>
 	SuppressesFinding = 2,
@@ -37,10 +45,10 @@ public enum SymbolicVerdictResponse
 }
 
 /// <summary>
-/// How a rule interprets the symbolic verdicts affecting it, and
+/// Contract element 3 field 5. How a rule interprets the symbolic verdicts affecting it, and
 /// what its scheme argument is compared against.
 ///
-/// The comparison semantics are not here: the engine fixes them as case-insensitive and tolerant
+/// The comparison semantics are not here: they are fixed as case-insensitive and tolerant
 /// of surrounding whitespace, uniformly, because an HTTP authentication scheme is a
 /// case-insensitive token and an ordinal comparison against "Basic" produces a false negative
 /// on code that works. Uniform semantics belong to the engine, so there is no field for them.
@@ -61,6 +69,12 @@ public sealed record SymbolicVerdictInterpretation
 	public SymbolicVerdictResponse WhenResolvedNotMatching { get; init; } = SymbolicVerdictResponse.NoEffect;
 
 	public SymbolicVerdictResponse WhenIndeterminate { get; init; } = SymbolicVerdictResponse.NoEffect;
+
+	/// <summary>
+	/// What a match in which the scheme group did not participate means for the rule. Null, the default,
+	/// reads it as <see cref="WhenIndeterminate"/>. Only meaningful with a scheme group.
+	/// </summary>
+	public SymbolicVerdictResponse? WhenSchemeArgumentDidNotParticipate { get; init; }
 
 	/// <summary>True when this rule declares an argument for the engine to resolve.</summary>
 	public bool IsSubjectToSymbolicResolution => SchemeArgumentCaptureGroupName is not null;

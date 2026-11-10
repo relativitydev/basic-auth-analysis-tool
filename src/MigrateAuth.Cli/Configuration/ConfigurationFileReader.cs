@@ -108,17 +108,9 @@ internal static class ConfigurationFileReader
 			{
 				read = Without(ConfigurationFileCondition.Absent);
 			}
-			else if (configurationFile.Length > MAXIMUM_CONFIGURATION_FILE_LENGTH_IN_BYTES)
-			{
-				read = Malformed(new ConfigurationFileDiagnostic
-				{
-					Location = location,
-					Kind = ConfigurationDiagnosticKind.TooLarge
-				});
-			}
 			else
 			{
-				read = Interpret(File.ReadAllText(filePath, _utf8WithoutByteOrderMark), location);
+				read = ReadWithinCeiling(filePath, location);
 			}
 		}
 		catch (IOException)
@@ -132,6 +124,36 @@ internal static class ConfigurationFileReader
 		catch (NotSupportedException)
 		{
 			read = Without(ConfigurationFileCondition.Unreadable);
+		}
+
+		return read;
+	}
+
+	/// <summary>
+	/// Reads the file through its OPENED stream, bounded at the cap: the length is checked on the
+	/// opened file and every byte delivered is counted, so a file that grows after the open cannot
+	/// get past the cap the way it could past a length read from the directory entry beforehand.
+	/// </summary>
+	private static ConfigurationFileRead ReadWithinCeiling(string filePath, ConfigurationFileLocation location)
+	{
+		ConfigurationFileRead read;
+
+		try
+		{
+			using FileStream openedFile = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+			using ReadCeilingEnforcingStream boundedStream =
+				ReadCeilingEnforcingStream.Wrap(openedFile, MAXIMUM_CONFIGURATION_FILE_LENGTH_IN_BYTES);
+			using StreamReader reader = new(boundedStream, _utf8WithoutByteOrderMark);
+
+			read = Interpret(reader.ReadToEnd(), location);
+		}
+		catch (ReadCeilingExceededException)
+		{
+			read = Malformed(new ConfigurationFileDiagnostic
+			{
+				Location = location,
+				Kind = ConfigurationDiagnosticKind.TooLarge
+			});
 		}
 
 		return read;
@@ -229,8 +251,7 @@ internal static class ConfigurationFileReader
 
 	/// <summary>
 	/// The language list, or null when the key is absent, null, or unusable. An unknown language name
-	/// is not unusable: it is skipped later, on its own, so that a file written for a later release
-	/// still loads.
+	/// is not unusable: it is skipped later, on its own, so that a file written for a later release still loads.
 	/// </summary>
 	private static string[]? ReadLanguageList(
 		Dictionary<string, JsonElement> knownValues,

@@ -43,7 +43,7 @@ public sealed class ReleaseNotesIdentifierTests
 	[
 		("PL", "-"),
 		("DR", "-"),
-		("R-", "M0"),
+		("R-M", "0"),
 		("AC", "-"),
 		("FR", "D"),
 		("A", "DR"),

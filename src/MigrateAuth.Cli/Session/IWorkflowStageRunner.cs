@@ -21,11 +21,12 @@ public enum StageRunOutcome
 	Failed = 2,
 
 	/// <summary>
-	/// The stage is not offered by this release - <c>ai-assist</c>. The shell leaves completion state
-	/// exactly as it found it: a stage is committed only on <see cref="Completed"/>, so there is nothing
-	/// to mark and nothing downstream to invalidate. The shell also writes nothing further, because the
-	/// stage runner that returns this outcome has already said everything there is to say in its own,
-	/// client-facing words.
+	/// The stage is not offered by this release (<c>ai-assist</c>). The shell leaves completion
+	/// state exactly as it found it: a stage commits only on <see cref="Completed"/>, so there is
+	/// nothing to mark and nothing downstream to invalidate. The shell also writes nothing further,
+	/// because the stage runner that returns this outcome has already said everything there is to
+	/// say in its own, client-facing words - a second, generic line here would either repeat that
+	/// text or contradict it.
 	/// </summary>
 	NotAvailable = 3
 }
@@ -47,18 +48,18 @@ public interface IWorkflowStageRunner
 }
 
 /// <summary>
-/// The stage runner for the one workflow command this release does not ship: <c>ai-assist</c>.
+/// THE STAGE RUNNER FOR THE ONE WORKFLOW COMMAND THIS RELEASE DOES NOT SHIP: <c>ai-assist</c>.
 ///
-/// It is the class at the bottom of <c>Program</c>'s decorator chain. What it prints names what the
-/// client already has, and its outcome is <see cref="StageRunOutcome.NotAvailable"/> rather than
-/// <see cref="StageRunOutcome.Completed"/>, so the session's own bookkeeping does not assert that a
-/// review took place.
+/// It is the class at the bottom of <c>Program</c>'s decorator chain. Running it names what the
+/// client already has, and the outcome is <see cref="StageRunOutcome.NotAvailable"/> rather than
+/// <see cref="StageRunOutcome.Completed"/>, so the session's own bookkeeping does not assert a
+/// review took place and <c>help</c> can still say the stage ships later.
 /// </summary>
 public sealed class AiAssistNotAvailableStageRunner : IWorkflowStageRunner
 {
 	/// <summary>
 	/// The command list names <c>ai-assist</c> as the optional fifth workflow command; this is what
-	/// running it says in a release that does not ship it.
+	/// running it says while its build belongs to a later release.
 	/// </summary>
 	public const string AI_ASSIST_NOT_AVAILABLE_MESSAGE_FORMAT =
 		"{0}: AI-assisted review is not available in this release. The report and the JSON findings file already hold the complete assessment.";

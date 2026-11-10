@@ -13,7 +13,8 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Recognition;
 
 /// <summary>
-/// FLOW-SIGNAL EVALUATION AT THE ENGINE, OVER A FIXTURE ANALYZER THAT DECLARES SIGNALS UNDER TESTS.
+/// FLOW-SIGNAL EVALUATION AT THE ENGINE, OVER A FIXTURE ANALYZER
+/// THAT DECLARES SIGNALS UNDER TESTS.
 ///
 /// The reference analyzer is wrapped, not edited: <see cref="FlowSignalFixtureAnalyzer"/> replaces its
 /// signals and leaves everything else its own, so each test states the one thing it varies. The mask
@@ -38,7 +39,7 @@ public sealed class FlowSignalEvaluationTests
 	private const string _TIMING_OUT_SIGNAL_NAME = "fixture-timing-out";
 	private const string _EMBEDDED_CSHARP_LANGUAGE_NAME = "CSharp";
 	private const int _EMBEDDED_CSHARP_FLOW_SIGNAL_COUNT = 17;
-	private const string _CATALOG_VERSION_WITH_THE_CSHARP_DETECTION_SHAPES = "1.6.0";
+	private const string _CATALOG_VERSION_WITH_THE_CSHARP_DETECTION_SHAPES = "1.13.0";
 	private const string _SOURCE_RELATIVE_PATH = "source/module.ex1";
 	private const int _FIRST_SIGNAL_ATTEMPTS = 2;
 	private const int _ONE_MILLISECOND = 1;

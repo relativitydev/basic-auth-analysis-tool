@@ -59,36 +59,42 @@ public sealed record AnalyzeStageContext
 /// <summary>
 /// THE SECOND STAGE THAT DOES REAL WORK, AND IT COMPOSES RATHER THAN COMPUTES.
 ///
-/// It runs, over the candidate set the Scan stage persisted, the read, the language attribution
-/// made by Scan, the lexical scan, recognition and classification, and the composition that orders
-/// and numbers, and then records the findings in the session state. There is no analysis decision
-/// taken here, which is why there is no rule, no level and no ordering in this file.
+/// It runs, in order, the read, the attribution (made by Scan and reused here), the lexical
+/// scan, recognition and classification, and the composition that orders and numbers, over the
+/// candidate set the Scan stage persisted, and puts the result where findings live in the
+/// session state. This stage is that loop and nothing else - there is no analysis decision taken
+/// here, which is why there is no rule, no level and no ordering in this file.
 ///
 /// IT ANALYZES THE CANDIDATE SET AND NEVER THE REPOSITORY. The candidate set is an output
-/// of Scan that is persisted, so that Analysis consumes a recorded artifact rather than
+/// of Scan that is persisted, precisely so that Analysis consumes a recorded artifact rather than
 /// walking the tree a second time - which is also what makes the read-only guarantee verifiable and lets the
 /// stage cascade compare concrete artifacts.
 ///
 /// THE RECOGNIZED FILES ARE STREAMED INTO COMPOSITION, NOT COLLECTED BEFORE IT. A
 /// <see cref="RecognizedFile"/> carries the file's whole normalized text, because every anchor
 /// offset indexes into it; a list of them built before composing would hold every candidate file's
-/// text at once, which in a large repository is the largest thing this product could allocate.
-/// Streaming means a file that yields no construct is released as soon as the next one is read,
-/// and only files that actually contributed a construct are still reachable while the sort runs.
+/// text at once, which for the largest supported repositories is the largest thing this product
+/// could allocate. Streaming means a file that
+/// yields no construct is released as soon as the next one is read, and only files that actually
+/// contributed a construct are still reachable while the sort runs.
 ///
-/// THE FINDINGS TABLE IS DISPLAYED HERE, by way of <see cref="AnalyzeConsoleReport"/>, so a path
-/// and a line of an analyzed file reach this console surface. The data invariant still holds at
-/// this sink: the relative path is its one stated exemption, never the matched text or the secret
-/// a warning flags beside it.
+/// THE ANALYSIS STAGE, NOT REPORT, DISPLAYS THE FINDINGS TABLE, so a path and a line of an
+/// analyzed file reach this console surface by way of <see cref="AnalyzeConsoleReport"/>. The
+/// data invariant holds at this sink: the relative path is its one stated exemption, never the
+/// matched text or the secret a warning flags beside it.
 /// </summary>
 public sealed class AnalyzeStage
 {
 	/// <summary>Said before the pass, so that a long analysis is not a silent one.</summary>
 	public const string ANALYSIS_STARTED_MESSAGE_FORMAT = $"{_STAGE_NAME}: analyzing {{0:N0}} candidate files.";
 
+	/// <summary>The same line when exactly one candidate file is analyzed.</summary>
+	public const string SINGLE_CANDIDATE_ANALYSIS_STARTED_MESSAGE = $"{_STAGE_NAME}: analyzing 1 candidate file.";
+
 	/// <summary>
 	/// The empty candidate set, which is not an error. A repository with no candidate files
-	/// completes every stage and produces a valid report, and this is the line that case prints here.
+	/// completes every stage and produces a valid report, and this is the line that case prints
+	/// here.
 	/// </summary>
 	public const string NO_CANDIDATES_MESSAGE =
 		$"{_STAGE_NAME}: the scan recorded no candidate files, so there is nothing to analyze.";
@@ -122,6 +128,7 @@ public sealed class AnalyzeStage
 		"Skipped during analysis: {0:N0} files. The report lists skipped items from both stages.";
 
 	private const string _STAGE_NAME = "analyze";
+	private const int _SINGULAR_COUNT = 1;
 	private const string _ITEM_LABEL = "candidate files";
 	private const char _PORTABLE_DIRECTORY_SEPARATOR = '/';
 
@@ -210,13 +217,19 @@ public sealed class AnalyzeStage
 
 	private void AnnounceTheWorkAhead(SessionState state, StageProgressReporter progress)
 	{
+		SessionStartup.ReportScanConfigurationChange(state, _context.Configuration, _context.Output);
+
 		if (state.CandidateRelativePaths.Count == 0)
 		{
 			_context.Output.WriteLine(NO_CANDIDATES_MESSAGE);
 		}
 		else
 		{
-			WriteFormatted(ANALYSIS_STARTED_MESSAGE_FORMAT, state.CandidateRelativePaths.Count);
+			WriteFormatted(
+				state.CandidateRelativePaths.Count == _SINGULAR_COUNT
+					? SINGLE_CANDIDATE_ANALYSIS_STARTED_MESSAGE
+					: ANALYSIS_STARTED_MESSAGE_FORMAT,
+				state.CandidateRelativePaths.Count);
 		}
 
 		progress.WarnWhenTheWorkIsLarge();
@@ -415,11 +428,11 @@ public sealed class AnalyzeStage
 		/// <summary>
 		/// The file's analyzer and the enumeration value a finding must carry, both resolved from the
 		/// language name Scan's first-line attribution persisted for the candidate. Nothing
-		/// here reads the file's first line or attributes it: Analysis charges the lexical scan only,
-		/// and a file cannot be attributed to one language in Scan and another here.
+		/// here reads the file's first line or attributes it: Analysis charges the lexical scan only
+		/// (never the classification), and a file cannot be attributed to one language in Scan and another here.
 		///
-		/// BOTH ARE REQUIRED AND THE SECOND IS THE ONE THAT CAN FAIL ON A CORRECT CATALOG. An analyzer
-		/// may derive any language name, while
+		/// BOTH ARE REQUIRED AND THE SECOND IS THE ONE THAT CAN FAIL ON A CORRECT CATALOG. The analyzer
+		/// contract lets an analyzer derive any name it likes, while
 		/// <see cref="Finding.Language"/> is one of the eight languages - so a catalog holding
 		/// an analyzer for a language outside that enumeration attributes the file correctly and
 		/// still has nowhere to put it in a finding. That is declared unsupported coverage rather
@@ -444,13 +457,16 @@ public sealed class AnalyzeStage
 		}
 
 		/// <summary>
-		/// THE MISSING-CANDIDATE SKIPPED-ITEM CATEGORY, RAISED HERE BECAUSE THIS IS THE ONLY STAGE THAT
-		/// CAN RAISE IT.
+		/// THE SKIPPED-ITEM CATEGORY FOR A RECORDED CANDIDATE THAT IS NO LONGER THERE, RAISED HERE
+		/// BECAUSE THIS IS THE ONLY STAGE THAT CAN RAISE IT.
 		///
-		/// The category exists for a path recorded in Scan that Analysis later opens, so
-		/// <see cref="RepositoryFileReader"/> does not raise it. Without it a candidate
+		/// <see cref="RepositoryFileReader"/> declines to raise it in its own words: the category
+		/// "exists for a path recorded in Scan that Analysis later opens, a situation the persisted
+		/// candidate set creates and the inventory owns", and a reader raising it would be inventing an
+		/// occasion for a category it does not own. This is that occasion. Without it a candidate
 		/// deleted between <c>scan</c> and <c>analyze</c> would vanish from the assessment with
-		/// nothing counting it, which is a silent hole in coverage.
+		/// nothing counting it, which is precisely the silent hole in coverage the skipped-item
+		/// enumeration exists to prevent.
 		///
 		/// The path may be undeclared, when the recorded text could not be expressed relative to
 		/// the root at all. The ledger handles that by construction - it counts every item and

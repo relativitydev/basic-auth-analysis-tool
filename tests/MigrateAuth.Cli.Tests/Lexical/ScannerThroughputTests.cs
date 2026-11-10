@@ -15,24 +15,24 @@ namespace MigrateAuth.Cli.Tests.Lexical;
 /// WHAT THE SCANNER COSTS, AND - THE PART THAT IS ACTUALLY A PROOF - WHETHER THAT COST HOLDS AT
 /// THE CEILING.
 ///
-/// The reader sets a 2 MB file-size ceiling and a 10,000-character line-length ceiling, and the
-/// scanner a recursion bound of eight. All three exist to CAP A COST, and a cap that exists without
+/// The reader sets a 2 MB file-size ceiling and a 10,000-character line-length ceiling, and the scanner sets
+/// a recursion bound of eight. All three exist to CAP A COST, and a cap that exists without
 /// holding is worse than none, because the file that reaches it is the file nobody looked at. So
 /// the volume proof here is not "a large file scans" but "per-megabyte cost at the ceiling is the
 /// same per-megabyte cost as at a tenth of it", measured over content chosen to be hostile:
 /// interpolation nested to the bound, suspended sub-ranges, variable-length runs that nearly
 /// close, and lines at the length ceiling.
 ///
-/// NOTHING HERE ASSERTS A WALL-CLOCK TIMING. The numbers are this machine's and are reported; what
-/// is ASSERTED is the SHAPE - that cost per megabyte does not degrade with file size - which is a
-/// property of the algorithm and survives being run on a busy build agent. The generous factor is
-/// chosen so that the test fails on a quadratic scanner and on nothing else.
+/// NOTHING HERE ASSERTS A WALL-CLOCK TIMING. The numbers are this machine's and are reported; what is ASSERTED is the SHAPE - that
+/// cost per megabyte does not degrade with file size - which is a property of the algorithm and
+/// survives being run on a busy build agent. The generous factor is chosen so that the test fails
+/// on a quadratic scanner and on nothing else.
 /// </summary>
 public sealed class ScannerThroughputTests
 {
 	private const int _SMALL_FILE_SIZE_IN_CHARACTERS = 64 * 1024;
-	private const int _CORPUS_FILE_SIZE_IN_CHARACTERS = 8 * 1024;
-	private const int _CORPUS_FILE_COUNT = 200;
+	private const int _SAMPLE_FILE_SIZE_IN_CHARACTERS = 8 * 1024;
+	private const int _SAMPLE_FILE_COUNT = 200;
 	private const int _WARM_UP_ITERATIONS = 2;
 
 	/// <summary>
@@ -62,18 +62,19 @@ public sealed class ScannerThroughputTests
 	}
 
 	/// <summary>
-	/// Throughput over a corpus of ordinary files in the reference language, reported per language
-	/// profile.
+	/// Throughput over a set of ordinary sample files in the reference language, which is the number
+	/// the figure reported per language profile and the one a later language analyzer will compare its own
+	/// language against.
 	/// </summary>
 	[Fact]
-	public void TheScannerReportsItsThroughputOverACorpusOfOrdinaryFiles()
+	public void TheScannerReportsItsThroughputOverASetOfOrdinarySampleFiles()
 	{
 		LexicalScanner scanner = new(ReferenceProfileScanner.Profile());
-		List<string> corpus = BuildCorpus();
+		List<string> sampleFiles = BuildSampleFiles();
 
-		Measurement measurement = Measure(scanner, corpus, "ordinary corpus");
+		Measurement measurement = Measure(scanner, sampleFiles, "ordinary sample files");
 
-		Assert.All(corpus, file => Assert.False(scanner.Scan(file).WasAbandonedMidFile));
+		Assert.All(sampleFiles, file => Assert.False(scanner.Scan(file).WasAbandonedMidFile));
 		Assert.True(measurement.CharacterCount > 0);
 	}
 
@@ -97,7 +98,7 @@ public sealed class ScannerThroughputTests
 		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, _RATIO_FORMAT, ratio));
 		Assert.True(
 			ratio < _ADMITTED_COST_RATIO,
-			"Per-megabyte scanning cost grew with file size, which is the degradation the DR-07 ceilings and the DR-08 recursion bound exist to cap.");
+			"Per-megabyte scanning cost grew with file size, which is the degradation the file-size and line-length ceilings and the recursion bound exist to cap.");
 	}
 
 	/// <summary>
@@ -155,6 +156,66 @@ public sealed class ScannerThroughputTests
 		Assert.True(measurement.CharacterCount > 0);
 	}
 
+	/// <summary>
+	/// The reference profile declares no nesting opener, so the nesting path is
+	/// measured with a test-local profile that does: balanced nested holes, a here-string with trailing
+	/// blanks and comments, at 64 KiB and at the ceiling. The assertion is the same shape as the volume
+	/// proof above.
+	/// </summary>
+	[Fact]
+	public void PerMegabyteCostWithNestedHolesDeclaredDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		LexicalScanner scanner = new(PowerShellShapedProfile.Build(countsNestedParentheses: true));
+		string smallFile = NestingSource(_NESTING_BALANCED_UNIT, _SMALL_FILE_SIZE_IN_CHARACTERS);
+		string ceilingFile = NestingSource(_NESTING_BALANCED_UNIT, _CEILING_FILE_SIZE_IN_CHARACTERS);
+
+		WarmUp(scanner, smallFile);
+
+		Measurement small = Measure(scanner, [smallFile], "nesting declared, balanced, 64 KiB");
+		Measurement ceiling = Measure(scanner, [ceilingFile], "nesting declared, balanced, 2 MB ceiling");
+		double ratio = ceiling.SecondsPerMegabyte / small.SecondsPerMegabyte;
+
+		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, _RATIO_FORMAT, ratio));
+		Assert.True(ratio < _ADMITTED_COST_RATIO, "Per-megabyte cost with nested holes declared grew with file size.");
+		Assert.True(scanner.Scan(ceilingFile).IsCompletelyValid);
+	}
+
+	/// <summary>
+	/// The worst case for nested holes: a ceiling-sized file of nothing but unbalanced holes. Each recovery
+	/// re-reads a hole, so the number of recoveries is bounded per file and the scan stays linear in the file.
+	/// </summary>
+	[Fact]
+	public void AFileOfUnbalancedHolesAtTheCeilingStaysWithinTheRecoveryBound()
+	{
+		LexicalScanner scanner = new(PowerShellShapedProfile.Build(countsNestedParentheses: true));
+		LexicalScanner plain = new(PowerShellShapedProfile.Build(countsNestedParentheses: false));
+		string ceilingFile = NestingSource(_NESTING_UNBALANCED_UNIT, _CEILING_FILE_SIZE_IN_CHARACTERS);
+
+		Measurement nesting = Measure(scanner, [ceilingFile], "nesting declared, unbalanced, 2 MB ceiling");
+		Measurement baseline = Measure(plain, [ceilingFile], "nesting not declared, same text, 2 MB ceiling");
+		ZoneMask mask = scanner.Scan(ceilingFile);
+
+		Assert.True(mask.UnbalancedNestingCount <= LexicalEnginePolicy.MAXIMUM_NESTING_RECOVERIES_PER_FILE);
+		Assert.True(nesting.SecondsPerMegabyte / baseline.SecondsPerMegabyte < _ADMITTED_COST_RATIO * _ADMITTED_COST_RATIO);
+	}
+
+	private const string _NESTING_BALANCED_UNIT =
+		"$a = \"id $(Get-Item (Join-Path (Get-Root) 'x')) end\"\n$b = @\"  \nbody line\n\"@\n# a comment (with parens)\n";
+
+	private const string _NESTING_UNBALANCED_UNIT = "$a = \"id $(Get-Item (Join-Path 1 ) end\"\n";
+
+	private static string NestingSource(string unit, int approximateLength)
+	{
+		StringBuilder source = new(approximateLength);
+
+		while (source.Length < approximateLength)
+		{
+			source.Append(unit);
+		}
+
+		return source.ToString();
+	}
+
 	private static void WarmUp(LexicalScanner scanner, string source)
 	{
 		for (int iteration = 0; iteration < _WARM_UP_ITERATIONS; iteration++)
@@ -193,16 +254,16 @@ public sealed class ScannerThroughputTests
 	/// regular expression literal and code. It is what the profile was written to describe, so it
 	/// is what a throughput figure for this profile ought to be measured over.
 	/// </summary>
-	private static List<string> BuildCorpus()
+	private static List<string> BuildSampleFiles()
 	{
-		List<string> corpus = [];
+		List<string> sampleFiles = [];
 
-		for (int file = 0; file < _CORPUS_FILE_COUNT; file++)
+		for (int file = 0; file < _SAMPLE_FILE_COUNT; file++)
 		{
-			corpus.Add(OrdinarySource(_CORPUS_FILE_SIZE_IN_CHARACTERS));
+			sampleFiles.Add(OrdinarySource(_SAMPLE_FILE_SIZE_IN_CHARACTERS));
 		}
 
-		return corpus;
+		return sampleFiles;
 	}
 
 	/// <summary>

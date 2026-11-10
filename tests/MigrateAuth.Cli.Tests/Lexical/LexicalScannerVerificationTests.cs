@@ -5,15 +5,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Lexical;
 
 /// <summary>
-/// THE SCANNER VERIFICATION SUITE.
+/// THE SCANNER VERIFICATION SUITE. It covers the constructions that break a naive scanner, including
+/// the three most destructive - a variable-length raw literal containing a shorter quote run, a
+/// closing brace inside a nested literal inside an interpolation hole, and a regular expression
+/// literal containing the block comment opener - as well as the doubled close and the character
+/// class inside a regular expression literal.
 ///
-/// It covers the constructions known to break a naive scanner, including a variable-length raw
-/// literal containing a shorter quote run, a closing brace inside a nested literal inside an
-/// interpolation hole, a regular expression literal containing the block comment opener, a doubled
-/// close consumed one character at a time, and a character class truncating a regular expression
-/// literal.
-///
-/// EVERY CASE RUNS AGAINST THE REFERENCE PROFILE, which exercises every lexical-profile field at once.
+/// EVERY CASE RUNS AGAINST THE REFERENCE PROFILE, which exercises every profile field at once.
 /// A case that needed a profile written for it would be testing the case, not the contract.
 /// </summary>
 public sealed class LexicalScannerVerificationTests
@@ -102,7 +100,7 @@ public sealed class LexicalScannerVerificationTests
 	}
 
 	/// <summary>
-	/// Why the <see cref="LexicalZone.Delimiter"/> zone exists, stated as a test: the
+	/// The reason for the <see cref="LexicalZone.Delimiter"/> zone, stated as a test: the
 	/// quote that opens a literal is part of the syntactic expression, so a rule anchored there
 	/// is anchored in code.
 	/// </summary>

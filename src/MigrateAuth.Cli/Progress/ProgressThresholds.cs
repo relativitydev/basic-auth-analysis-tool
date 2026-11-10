@@ -1,11 +1,10 @@
 namespace MigrateAuth.Cli.Progress;
 
 /// <summary>
-/// THE TWO PROGRESS THRESHOLDS AND THE CADENCE BETWEEN THEM, AS NAMED VALUES.
+/// The two progress thresholds and the cadence between them, as named values.
 ///
-/// They are in their own namespace rather than in the scan, because neither number is a property
-/// of scanning: they are properties of the repository, and progress is reported during Analysis
-/// as well.
+/// They are in their own namespace rather than in the scan, because progress is reported
+/// during Analysis as well as during Scan.
 /// </summary>
 public static class ProgressThresholds
 {
@@ -17,10 +16,9 @@ public static class ProgressThresholds
 	public const int PROGRESS_REPORTING_FILE_COUNT = 5_000;
 
 	/// <summary>
-	/// Fifty thousand files. Past this, an advance warning says the scan will take
-	/// several minutes - BEFORE scanning begins, which is why the stage is split into an
-	/// enumeration pass and an inventory pass. At 5,000 files a minute, fifty thousand files is
-	/// ten minutes.
+	/// Fifty thousand files. Past this, the warning that the scan will take several minutes is
+	/// written BEFORE scanning begins, which is the whole reason the stage is split into an
+	/// enumeration pass and an inventory pass.
 	/// </summary>
 	public const int ADVANCE_WARNING_FILE_COUNT = 50_000;
 

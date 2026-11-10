@@ -294,7 +294,7 @@ public sealed class PersistedFindingsTests
 	}
 
 	/// <summary>
-	/// Flow fields, read as hostile input. Every case edits the flow fields of one otherwise well-formed
+	/// The flow fields, read as hostile input. Every case edits the flow fields of one otherwise well-formed
 	/// finding: a missing member, a member on a Low finding, a name outside the closed vocabulary or in
 	/// another casing, and a triple whose parts disagree (an interactive signal that decided a
 	/// client-credentials flow, a fixed signal recorded as the default).

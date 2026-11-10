@@ -1,16 +1,16 @@
 namespace MigrateAuth.Cli.Writing;
 
 /// <summary>
-/// Path canonicalization, and the segment decomposition its comparison is built on.
+/// Canonicalization, and the segment decomposition the containment comparison is built on.
 ///
 /// Two things happen here and they are separate on purpose. <see cref="Resolve"/> turns
-/// supplied text into an absolute path with links resolved along the whole path rather than
+/// supplied text into an absolute path with links resolved along the WHOLE path rather than
 /// only at its last component - a destination reached through a directory link named anywhere
 /// above it resolves to where it actually lands, which is the only form a containment
 /// comparison can be trusted on. <see cref="SplitIntoSegments"/> then breaks a canonical path
-/// into the units that comparison uses, because a string prefix test fails on case differences, on
-/// sibling folders with overlapping names, on traversals, on short names, on drives mapped to shares,
-/// and on directory links resolving inside the tree.
+/// into the units that comparison uses, because a string prefix test is forbidden: a prefix
+/// fails on case differences, on sibling folders with overlapping names, on traversals, on
+/// short names, on drives mapped to shares, and on directory links resolving inside the tree.
 /// </summary>
 public static class CanonicalPath
 {
@@ -72,9 +72,10 @@ public static class CanonicalPath
 	/// <summary>
 	/// Replaces each component that exists with the name the filesystem actually holds for it.
 	///
-	/// This handles the short name among the things a string prefix gets wrong: the platform's own
-	/// temporary folder is commonly handed out in its eight-dot-three form, so the same folder can arrive
-	/// as <c>USERNA~1</c> from one source and in full from another. Two names for one directory
+	/// This is the answer to the SHORT NAME among the things a string prefix gets
+	/// wrong, and it is not hypothetical here: the platform's own temporary folder is commonly
+	/// handed out in its eight-dot-three form, so the same folder can arrive as
+	/// <c>USERNA~1</c> from one source and in full from another. Two names for one directory
 	/// compare as different segments and the boundary would permit a write it must refuse.
 	/// Expanding them costs one directory lookup per component, once, at startup.
 	///

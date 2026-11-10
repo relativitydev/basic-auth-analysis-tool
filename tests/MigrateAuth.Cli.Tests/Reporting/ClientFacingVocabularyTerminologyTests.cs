@@ -3,13 +3,14 @@ using System.Collections.Immutable;
 using MigrateAuth.Cli.Reading;
 using MigrateAuth.Cli.Reporting;
 using MigrateAuth.Cli.Session;
+using MigrateAuth.Cli.Tests.Release;
 
 using Xunit;
 
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The base's counterpart of the CSharp catalog's
+/// The shared engine's counterpart of the CSharp catalog's
 /// <c>NoDeclaredUnsupportedConstructOrReasonContainsInternalTerminology</c>: the client-facing
 /// texts <see cref="ReportVocabulary"/> maps from engine vocabulary - one per skipped-item category
 /// and one per session-state rejection reason - are held to the same list of internal fragments,
@@ -21,9 +22,9 @@ public sealed class ClientFacingVocabularyTerminologyTests
 {
 	private static readonly ImmutableArray<string> _internalTerminologyFragments =
 	[
-		"per catalog", "catalog section", "Section ", "subsumption", "BCL", "CS-0", "catch", "rule loop",
-		"suspected but not proven", "truncation counter", "DR-", "ER-", "CA" + "-", "R-CS", "inc DR",
-		"lexical", "anchor", "match bound", "per-file", "profile", "ledger", "enum"
+		"subsumption", "BCL", "CS-0", "catch", "rule loop", "suspected but not proven", "truncation counter",
+		"lexical", "anchor", "match bound", "per-file", "profile", "ledger", "enum",
+		.. PublicSourceIdentifierTests.InternalClientFacingFragments()
 	];
 
 	[Fact]

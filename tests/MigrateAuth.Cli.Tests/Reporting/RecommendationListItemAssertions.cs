@@ -35,7 +35,7 @@ internal static class RecommendationListItemAssertions
 	private const string _TILDE_FENCE_MARKER = "~~~";
 
 	/// <summary>
-	/// One of the four labeled recommendation pieces, starting at <paramref name="bulletLineIndex"/>. Reads
+	/// One of the four labeled pieces, starting at <paramref name="bulletLineIndex"/>. Reads
 	/// either of its two forms: the label sharing its bullet with the value's first line, or -
 	/// when that first line opens a fence - the label alone, with the value starting on the item's
 	/// first continuation line.

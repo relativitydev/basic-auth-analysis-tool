@@ -1,8 +1,7 @@
 namespace MigrateAuth.Cli.Reading;
 
 /// <summary>
-/// THE READING CEILINGS, WITH THEIR BASIS, BECAUSE A CEILING WITHOUT A VALUE IS ONE
-/// NOBODY CHOSE. These are the ceilings that reach the walk and the decoder.
+/// THE CEILINGS ENFORCED BY THE WALK AND THE DECODER.
 /// </summary>
 public static class ReadingCeilings
 {
@@ -17,10 +16,8 @@ public static class ReadingCeilings
 	/// Ten thousand characters, counted in UTF-16 code units like every other position here.
 	///
 	/// A size ceiling does not bound line length, and line length is what drives catastrophic
-	/// backtracking: minified bundle output can hold a line of tens of thousands of characters in
-	/// a file far inside the size ceiling. The value is the point past which a line cannot plausibly
-	/// have been written by a person: style guides cap at 80 or 120, a pathological but human line
-	/// stays inside four figures, and ten thousand is an order of magnitude above any of that.
+	/// backtracking. The value is the point past which a line cannot plausibly have been written
+	/// by a person.
 	///
 	/// THE WHOLE FILE IS SKIPPED, NOT THE OFFENDING LINE. Skipping a line is not available: the
 	/// scanner is a state machine over the file, so a skipped line leaves the mask state

@@ -59,7 +59,7 @@ public enum SessionStateRejectionReason
 	/// A persisted finding is not one this engine could have produced: a missing or out-of-range
 	/// number, a path that escapes the repository root, a name outside a closed vocabulary, a
 	/// pattern class that does not carry a catalog identifier's shape, or a set whose indices are
-	/// not the assigned one-based sequence.
+	/// not the sequence the finding model assigns.
 	/// </summary>
 	FindingNotWellFormed = 11,
 
@@ -111,15 +111,15 @@ public enum SessionStateRejectionReason
 	/// The effective default flow and its origin are not ones Analysis could have produced: a
 	/// name outside the closed vocabulary, one member without the other, a built-in origin naming a
 	/// flow other than the built-in one, or a finding decided by the default under a different flow.
-	/// Also reached when they are absent and should not be, on the same terms
+	/// ALSO REACHED WHEN THEY ARE ABSENT AND SHOULD NOT BE, on the same terms
 	/// <see cref="ScanSummaryNotWellFormed"/> documents, for a completed <c>analyze</c>.
 	/// </summary>
 	DefaultFlowNotWellFormed = 17,
 
 	/// <summary>
 	/// The flow-signal evaluation counters are not ones Analysis could have produced:
-	/// a negative count, more timeouts than evaluations, or more evaluations than candidates. Also
-	/// reached when they are absent and should not be, for a completed <c>analyze</c>.
+	/// a negative count, more timeouts than evaluations, or more evaluations than candidates. ALSO
+	/// REACHED WHEN THEY ARE ABSENT AND SHOULD NOT BE, for a completed <c>analyze</c>.
 	/// </summary>
 	FlowEvaluationDiagnosticsNotWellFormed = 18
 }
@@ -138,7 +138,8 @@ public sealed record SessionStateLoad
 }
 
 /// <summary>
-/// The session state file. Each rule this class implements is here for a stated reason:
+/// The session state file. Every rule this class implements is binding and each one is
+/// here for a stated reason:
 ///
 /// it is written to a temporary and renamed, because a half-written state must read as absent;
 /// it is created with restrictive user permissions, because it is the one artifact nobody
@@ -169,16 +170,16 @@ public sealed class SessionStateStore
 	/// <summary>
 	/// The schema version this build writes and the only one it accepts.
 	///
-	/// A file at any other version starts a fresh session, with its reason shown, rather than being read
-	/// as a document whose fields it does not carry; a file at a newer version is refused by a build that
+	/// A state file of any other version starts a fresh session, with its reason shown, rather than
+	/// being read as a file of this version, and a file of a newer version is refused by a build that
 	/// cannot read it instead of failing on it.
 	/// </summary>
-	public const int CURRENT_SCHEMA_VERSION = 7;
+	public const int CURRENT_SCHEMA_VERSION = 8;
 
 	/// <summary>
-	/// The ceiling on a state file, in bytes, on both the write and the read side. A repository whose
-	/// state would exceed it meets the write-side check rather than producing a file it cannot load
-	/// later: default JSON escaping expands a non-ASCII path character up to six times.
+	/// The ceiling on a state file, in bytes, on both the write and the read side. A state past it
+	/// meets the write-side check rather than producing a file that cannot be loaded later: default
+	/// JSON escaping expands a non-ASCII path character up to six times.
 	/// </summary>
 	public const long MAXIMUM_STATE_FILE_LENGTH_IN_BYTES = _CEILING_IN_MEBIBYTES * BYTES_PER_MEBIBYTE;
 
@@ -289,10 +290,10 @@ public sealed class SessionStateStore
 	/// <summary>
 	/// Reads the state for a repository, or produces a fresh session and says why.
 	///
-	/// It takes the catalog rather than its version alone, because Section 2's persisted
+	/// IT TAKES THE CATALOG RATHER THAN ITS VERSION ALONE, because Section 2's persisted
 	/// language names (<see cref="ValidateInventoryLanguageName"/>) are checked against what this
 	/// build's catalog can actually declare - the eight assessed languages, the unrecognized bucket,
-	/// or a name this catalog's own analyzers declare. The version comparison reads
+	/// or a name this catalog's own analyzers declare - and the version comparison reads
 	/// <paramref name="catalog"/>'s own <see cref="Catalog.LanguageCatalog.Version"/>.
 	/// </summary>
 	public SessionStateLoad Load(RepositoryFolderPath repository, LanguageCatalog catalog)
@@ -438,7 +439,9 @@ public sealed class SessionStateStore
 			Rows = [.. scanSummary.Rows.Select(BuildLanguageInventoryRowDocument)],
 			FirstLineFallbackCount = scanSummary.FirstLineFallbackCount,
 			ExcludedFolderCount = scanSummary.ExcludedFolders.OccurrenceCount,
-			ExcludedFolderPaths = [.. scanSummary.ExcludedFolders.Paths.Select(path => path.Value)]
+			ExcludedFolderPaths = [.. scanSummary.ExcludedFolders.Paths.Select(path => path.Value)],
+			LegacyEncodedFileCount = scanSummary.LegacyEncodedFiles.OccurrenceCount,
+			LegacyEncodedFilePaths = [.. scanSummary.LegacyEncodedFiles.Paths.Select(path => path.Value)]
 		};
 
 	private static PersistedLanguageInventoryRowDocument BuildLanguageInventoryRowDocument(LanguageInventoryRow row) =>
@@ -459,7 +462,7 @@ public sealed class SessionStateStore
 			EnumeratedPaths = [.. tally.EnumeratedPaths.Select(path => path.Value)]
 		};
 
-	/// <summary>The truncation counter, flattened.</summary>
+	/// <summary>The findings-cap truncation counter, flattened.</summary>
 	private static PersistedFindingsCapOutcomeDocument BuildFindingsCapOutcomeDocument(FindingsCapOutcome outcome) =>
 		new()
 		{
@@ -518,18 +521,19 @@ public sealed class SessionStateStore
 			{
 				reason = SessionStateRejectionReason.FileAbsent;
 			}
-			else if (stateFile.Length > _maximumStateFileLengthInBytes)
-			{
-				reason = SessionStateRejectionReason.FileTooLarge;
-			}
 			else
 			{
-				document = DeserializeStreaming(statePath);
+				document = DeserializeStreaming(statePath, _maximumStateFileLengthInBytes);
 
 				reason = document is null
 					? SessionStateRejectionReason.DocumentMalformed
 					: SessionStateRejectionReason.None;
 			}
+		}
+		catch (ReadCeilingExceededException)
+		{
+			document = null;
+			reason = SessionStateRejectionReason.FileTooLarge;
 		}
 		catch (JsonException)
 		{
@@ -558,20 +562,24 @@ public sealed class SessionStateStore
 	/// <summary>
 	/// Reads the document by streaming over the file with the source-generated context, so the
 	/// text of a file the size of the ceiling is never held as one string beside the object graph it
-	/// produces.
+	/// produces. The ceiling is enforced on the opened stream and on the bytes it delivers, not on a
+	/// length read before the open, so a file that grows after the open cannot pass it.
 	/// </summary>
-	private static SessionStateDocument? DeserializeStreaming(string statePath)
+	/// <exception cref="ReadCeilingExceededException">The file holds more than the ceiling.</exception>
+	private static SessionStateDocument? DeserializeStreaming(string statePath, long ceilingInBytes)
 	{
 		using FileStream stateStream = new(statePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+		using ReadCeilingEnforcingStream boundedStream = ReadCeilingEnforcingStream.Wrap(stateStream, ceilingInBytes);
 
-		return JsonSerializer.Deserialize(stateStream, SessionStateJsonContext.Default.SessionStateDocument);
+		return JsonSerializer.Deserialize(boundedStream, SessionStateJsonContext.Default.SessionStateDocument);
 	}
 
 	/// <summary>
-	/// The orchestrator, kept to the four steps of the read path: identity, the core sections, the
-	/// outcome sections, and the outcome. Each step is its own method so this one stays short enough to
-	/// read as that list - see <see cref="ReadCoreSections"/> and <see cref="ReadOutcomeSections"/> for
-	/// what each checks.
+	/// THE ORCHESTRATOR, KEPT TO THE FOUR STEPS THE READ PATH ACTUALLY HAS: identity, the three
+	/// parts every schema version has carried, the three added later, and the outcome. Each step is
+	/// its own method precisely so this one stays short enough to read as that list - see
+	/// <see cref="ReadCoreSections"/> and <see cref="ReadOutcomeSections"/> for what "the three" and
+	/// "the three added later" actually check.
 	/// </summary>
 	private static SessionStateLoad ValidateDocument(
 		SessionStateDocument document,
@@ -611,9 +619,10 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// Each candidate's attribution, the effective default flow with its origin, and the flow-signal
-	/// counters. Read after the sections they are cross-checked against, and folded into
-	/// <paramref name="outcome"/> so the load path keeps its width.
+	/// SCHEMA VERSION 5'S ADDITIONS: each candidate's attribution, the effective default flow
+	/// with its origin, and the flow-signal counters. Read after the sections they are
+	/// cross-checked against, and folded into <paramref name="outcome"/> so the load path does
+	/// not widen.
 	/// </summary>
 	private static SessionStateRejectionReason ReadFlowSections(
 		SessionStateDocument document,
@@ -840,8 +849,8 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The comparison is by component and not by text, because the catalog version is a value rather
-	/// than a string.
+	/// The comparison is by component and not by text, because the catalog version is a value
+	/// rather than a string.
 	/// </summary>
 	private static bool MatchesCatalogVersion(SessionStateDocument document, CatalogVersion catalogVersion)
 	{
@@ -961,19 +970,23 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The persisted finding set, read as hostile input rather than as our own output.
+	/// THE THIRD PART OF THE STATE, READ AS HOSTILE INPUT RATHER THAN AS OUR OWN OUTPUT.
 	///
-	/// A finding that reaches <see cref="SessionState"/> is written verbatim into a Markdown report and a
-	/// data artifact that a client reads and acts on, so a readable but hostile state file must not be
-	/// able to inject fabricated findings.
+	/// This is the check the class comment names as the reason the whole file is treated as
+	/// untrusted: "the readable-and-hostile case is what would otherwise let someone inject
+	/// fabricated findings into a client's report." Everything below exists because a finding that
+	/// reaches <see cref="SessionState"/> is written verbatim into a Markdown report and a data
+	/// artifact that a client reads and acts on.
 	///
-	/// The whole set is refused when any one finding is malformed, never the malformed one alone.
+	/// THE WHOLE SET IS REFUSED WHEN ANY ONE FINDING IS MALFORMED, never the malformed one alone.
 	/// A partially accepted set would present as a complete analysis while silently missing
-	/// whatever was dropped, and identifiers are assigned over the whole set. A fresh session is the
-	/// honest outcome, and <c>analyze</c> simply runs again.
+	/// whatever was dropped, and the identifiers are assigned over the whole - so a set with a
+	/// hole in it is not a smaller finding set, it is a finding set that lies about its own
+	/// numbering. A fresh session is the honest outcome, and <c>analyze</c> simply runs again.
 	///
-	/// The index is checked against the position. The full ordered set is numbered from one with no gaps,
-	/// so the finding at position n must carry index n+1; an edited file that reorders, duplicates or
+	/// THE INDEX IS CHECKED AGAINST THE POSITION, which is the one structural check the per-field
+	/// validation cannot supply. The full ordered set is numbered from one with no gaps, so the
+	/// finding at position n must carry index n+1; an edited file that reorders, duplicates or
 	/// removes an entry fails here even when every individual field is well formed.
 	/// </summary>
 	private static SessionStateRejectionReason ReadFindings(
@@ -1171,7 +1184,14 @@ public sealed class SessionStateStore
 				persisted.ExcludedFolderPaths,
 				persisted.ExcludedFolderCount ?? 0,
 				repository,
-				out ImmutableArray<RepositoryRelativePath> excludedFolderPaths))
+				out ImmutableArray<RepositoryRelativePath> excludedFolderPaths)
+			&& (persisted.LegacyEncodedFileCount ?? 0) >= 0
+			&& (persisted.LegacyEncodedFileCount ?? 0) <= persisted.FileCount
+			&& TryReadEnumeratedPaths(
+				persisted.LegacyEncodedFilePaths,
+				persisted.LegacyEncodedFileCount ?? 0,
+				repository,
+				out ImmutableArray<RepositoryRelativePath> legacyEncodedFilePaths))
 		{
 			scanSummary = new ScanSummary
 			{
@@ -1184,6 +1204,11 @@ public sealed class SessionStateStore
 				{
 					OccurrenceCount = persisted.ExcludedFolderCount ?? 0,
 					Paths = excludedFolderPaths
+				},
+				LegacyEncodedFiles = new LegacyEncodedFileSummary
+				{
+					OccurrenceCount = persisted.LegacyEncodedFileCount ?? 0,
+					Paths = legacyEncodedFilePaths
 				}
 			};
 
@@ -1248,12 +1273,15 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The check is sound without being a closed list of eight: an inventory row's name is exactly one of
-	/// three shapes by construction - one of <see cref="AssessedLanguages.AllInDeclaredOrder"/>'s
-	/// canonical names, the <see cref="Scanning.LanguageAttribution.UNRECOGNIZED_LANGUAGE_NAME"/> bucket,
-	/// or a name <paramref name="catalog"/>'s own <see cref="LanguageCatalog.AnalyzersByLanguageName"/>
-	/// declares - and no fourth shape reaches <c>ReportInventory</c>. Checking membership in that union
-	/// accepts every name this build could have written while still refusing arbitrary text: a path, a
+	/// THE CHECK ITSELF IS SOUND WITHOUT BEING A CLOSED LIST OF EIGHT, which is what the
+	/// requirement asks for: an inventory row's name is exactly one of three shapes by construction
+	/// - one of <see cref="AssessedLanguages.AllInDeclaredOrder"/>'s canonical names, the
+	/// <see cref="Scanning.LanguageAttribution.UNRECOGNIZED_LANGUAGE_NAME"/> bucket, or a name
+	/// <paramref name="catalog"/>'s own <see cref="LanguageCatalog.AnalyzersByLanguageName"/> declares
+	/// - and no fourth shape reaches <c>ReportInventory</c> anywhere in this codebase. Checking
+	/// membership in that union is therefore sound for every language this build could ever have
+	/// written, including one not yet in the eight - a later language analyzer widens the third
+	/// branch on its own, with no change owed here - while still refusing arbitrary text: a path, a
 	/// line of source, or any other string an attacker might place matches none of the three.
 	/// </summary>
 	private static bool IsValidInventoryLanguageName(string? languageName, LanguageCatalog catalog)
@@ -1368,9 +1396,8 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The skipped-item path list's own bound, enforced on the read path exactly as
-	/// <see cref="ReadCandidateRelativePaths"/> already enforces containment: at most the count, at most
-	/// the ceiling, and every one contained.
+	/// The bound on enumerated paths, enforced on the read path exactly as <see cref="ReadCandidateRelativePaths"/>
+	/// already enforces containment: at most the count, at most the ceiling, and every one contained.
 	/// </summary>
 	private static bool TryReadEnumeratedPaths(
 		string[]? persistedPaths,
@@ -1409,7 +1436,7 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The truncation counter on the read path. Null is accepted only where
+	/// THE FINDINGS-CAP COUNTER ON THE READ PATH. Null is accepted only where
 	/// <paramref name="analyzeCompleted"/> is false, on the same terms <see cref="ReadScanSummary"/>
 	/// documents - rejected where it is true, for the same reason: a completed analysis
 	/// always snapshots its own truncation counter, empty or not.
@@ -1558,7 +1585,7 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// A finding's flow fields on the read path. A High or Medium finding carries all three,
+	/// A FINDING'S FLOW FIELDS ON THE READ PATH. A High or Medium finding carries all three,
 	/// each a declared name, and the three must agree: an interactive signal can only have decided the
 	/// authorization-code flow, a fixed one only client credentials, and a finding decided by the
 	/// default carries no evidence that overrode it. A Low finding carries none of the three, as it
@@ -1662,7 +1689,7 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// Each candidate's attribution on the read path. The array must be exactly as long as the
+	/// EACH CANDIDATE'S ATTRIBUTION ON THE READ PATH. The array must be exactly as long as the
 	/// candidate set, so a candidate cannot arrive without the language Scan attributed it to, and each
 	/// name must be one a registered analyzer of this catalog declares, since a candidate is by
 	/// definition a file some analyzer claimed. An absent array is an empty one, which is only ever
@@ -1703,7 +1730,7 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The effective default flow on the read path. Both members or neither. Null is accepted
+	/// THE EFFECTIVE DEFAULT FLOW ON THE READ PATH. Both members or neither. Null is accepted
 	/// only where <paramref name="analyzeCompleted"/> is false, on the same terms
 	/// <see cref="ReadScanSummary"/> documents: a completed analysis always records the default it
 	/// decided under. A finding decided by the default must carry exactly that flow - the persisted
@@ -1771,7 +1798,7 @@ public sealed class SessionStateStore
 	}
 
 	/// <summary>
-	/// The flow-signal counters on the read path. Null is accepted only where
+	/// THE FLOW-SIGNAL COUNTERS ON THE READ PATH. Null is accepted only where
 	/// <paramref name="analyzeCompleted"/> is false, on the same terms <see cref="ReadScanSummary"/>
 	/// documents. Neither count is negative, no more evaluations time out than were run, and no more
 	/// files are evaluated than the candidate set holds, since each candidate is evaluated at most once.
@@ -1854,7 +1881,7 @@ public sealed class SessionStateStore
 		Path.Combine(_destinationFolder.CanonicalPath, BuildStateFileName(repository));
 
 	/// <summary>
-	/// The write-side ceiling check: a write-only pass-through that counts the bytes it forwards and
+	/// THE WRITE-SIDE CHECK: a write-only pass-through that counts the bytes it forwards and
 	/// refuses the write that would take the total past the ceiling, before that write reaches the
 	/// file. The serializer flushes in small chunks, so the refusal comes at the ceiling and not after
 	/// a file of unbounded size has been produced.

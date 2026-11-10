@@ -191,7 +191,7 @@ internal sealed class PairedReadingTimeProvider : TimeProvider
 	private readonly long _stepWithinAttemptInTicks;
 
 	private long _value;
-	private bool _nextIncrementIsWithinAttempt = true;
+	private bool _nextStepIsWithinAttempt = true;
 
 	internal PairedReadingTimeProvider(TimeSpan stepBetweenAttempts)
 		: this(stepBetweenAttempts, TimeSpan.Zero)
@@ -210,8 +210,8 @@ internal sealed class PairedReadingTimeProvider : TimeProvider
 	{
 		long current = _value;
 
-		_value += _nextIncrementIsWithinAttempt ? _stepWithinAttemptInTicks : _stepBetweenAttemptsInTicks;
-		_nextIncrementIsWithinAttempt = !_nextIncrementIsWithinAttempt;
+		_value += _nextStepIsWithinAttempt ? _stepWithinAttemptInTicks : _stepBetweenAttemptsInTicks;
+		_nextStepIsWithinAttempt = !_nextStepIsWithinAttempt;
 
 		return current;
 	}

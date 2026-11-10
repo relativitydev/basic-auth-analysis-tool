@@ -8,7 +8,7 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
 /// The catalog version travels with the catalog type: a catalog version is a property of a
-/// catalog.
+/// catalog, not of its serialization.
 /// </summary>
 public sealed class CatalogIdentityTests
 {

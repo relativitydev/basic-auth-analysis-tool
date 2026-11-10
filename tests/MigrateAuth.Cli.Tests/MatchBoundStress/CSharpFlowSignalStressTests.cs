@@ -12,7 +12,7 @@ using MigrateAuth.Cli.Tests.Recognition;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace MigrateAuth.Cli.Tests.Calibration;
+namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
 /// THE SEVENTEEN `CSharp` FLOW SIGNALS AT THE SIZE CEILING, OVER TEXT BUILT TO MAKE EACH ONE DO ITS
@@ -28,11 +28,11 @@ namespace MigrateAuth.Cli.Tests.Calibration;
 /// source-generator defect that makes an enumeration stop advancing.
 ///
 /// The shapes are the flow-signal shapes of <see cref="MatchBoundStressSet"/>, so the match-bound
-/// calibration measures the same text. The elapsed times are written to the test output, never
+/// timing procedure measures the same text. The elapsed times are written to the test output, never
 /// asserted as thresholds beyond the bound. The test is in a serialized collection because the bound
-/// is charged in wall-clock time (see <see cref="TimingSensitiveCalibrationCollection"/>).
+/// is charged in wall-clock time (see <see cref="TimingSensitiveStressCollection"/>).
 /// </summary>
-[Collection(TimingSensitiveCalibrationCollection.NAME)]
+[Collection(TimingSensitiveStressCollection.NAME)]
 public sealed class CSharpFlowSignalStressTests
 {
 	private const int _MATCH_ENUMERATION_CAP = 2_000_000;

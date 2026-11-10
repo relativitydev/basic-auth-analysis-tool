@@ -50,7 +50,7 @@ public sealed class AsymmetricQuoteClosingTests
 
 	/// <summary>
 	/// The same asymmetric rule with a doubled-quote escape declared. The doubled closing inside
-	/// the body is consumed as a pair of body text - the doubled-close policy - and it is
+	/// the body is consumed as a pair of body text - the profile's doubled-close policy - and it is
 	/// the SINGLE closing afterward that ends the literal, which only happens at all once the
 	/// minimum closing length is read off the rule's closing rather than off the opening.
 	/// </summary>

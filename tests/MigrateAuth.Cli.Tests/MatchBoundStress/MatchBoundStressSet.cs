@@ -4,10 +4,10 @@ using System.Text;
 
 using MigrateAuth.Cli.Reading;
 
-namespace MigrateAuth.Cli.Tests.Calibration;
+namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
-/// One synthetic stress file of the match-bound calibration: a name that says which shape it is, and
+/// One synthetic stress file of the match-bound timing procedure: a name that says which shape it is, and
 /// the source text the recognition engine is timed against.
 /// </summary>
 internal sealed record MatchBoundStressShape
@@ -15,34 +15,40 @@ internal sealed record MatchBoundStressShape
 	internal required string Name { get; init; }
 
 	internal required string Text { get; init; }
+
+	/// <summary>
+	/// The extension the shape's file stands under, with its dot, or empty for an extensionless file. Left unset by a language whose every shape stands
+	/// under that language's own extension, which names it itself.
+	/// </summary>
+	internal string FileExtension { get; init; } = string.Empty;
 }
 
 /// <summary>
-/// THE SEPARATE SYNTHETIC STRESS SET OF THE MATCH-BOUND CALIBRATION. THE MATCH BOUND IS CALIBRATED
-/// HERE AND ONLY HERE: a bound tuned against the graded benchmark would be a bound chosen to
-/// let that benchmark through.
+/// THE SEPARATE SYNTHETIC STRESS SET OF THE MATCH-BOUND TIMING PROCEDURE.
 ///
 /// WHAT "BENIGN" MEANS HERE. Every shape is legal, ordinary-looking C# that a client repository
 /// could contain - nothing is built to make an expression backtrack catastrophically, because that
 /// is what the bound exists to STOP, not what it must let through. What the shapes do is push every
-/// honest cost to the ceilings the reader enforces: files at the size ceiling, lines at
-/// the line-length ceiling, anchors and matches at the densest a generated file plausibly carries,
-/// and the five-line proximity windows of CS-009, CS-013, CS-016, CS-007's direct assignment and
-/// CS-019's file-transfer request and directory entry, opened over and over - closed in the
-/// match-density shape, never closed in the open-window shape.
+/// honest cost to the ceilings the engine already enforces: files at the size ceiling, lines at
+/// its line-length ceiling, anchors and matches at the densest a generated file plausibly carries,
+/// and the five-line proximity windows of CS-009, CS-013 and CS-016 opened over and over without
+/// closing, which is this catalog's one
+/// bounded-but-multiplying region. The windows of CS-007's direct assignment and CS-019's
+/// file-transfer request and directory entry are in both the match-density shape, closed, and
+/// the open-window shape, never closed.
 ///
 /// Every shape is deterministic - the same text on every run and every machine - so two
-/// calibrations differ only by the machine that ran them.
+/// timing runs differ only by the machine that ran them.
 /// </summary>
 internal static class MatchBoundStressSet
 {
 	/// <summary>
-	/// Each shape is filled to just under the reader's per-file size ceiling. The margin keeps a shape
+	/// Each shape is filled to just under the per-file size ceiling. The margin keeps a shape
 	/// whose last repetition runs long from ever crossing the ceiling the reader would skip it at.
 	/// </summary>
 	internal const int TARGET_SIZE_IN_CHARACTERS = ReadingCeilings.MAXIMUM_FILE_SIZE_IN_BYTES - _SIZE_MARGIN_IN_CHARACTERS;
 
-	/// <summary>The long-line shape stays this far below the reader's line-length ceiling.</summary>
+	/// <summary>The long-line shape stays this far below the line-length ceiling.</summary>
 	internal const int LONG_LINE_LENGTH_IN_CHARACTERS = ReadingCeilings.MAXIMUM_LINE_LENGTH_IN_CHARACTERS - _LINE_MARGIN_IN_CHARACTERS;
 
 	private const int _SIZE_MARGIN_IN_CHARACTERS = 16 * 1024;
@@ -92,6 +98,39 @@ internal static class MatchBoundStressSet
 
 	/// <summary>The statements that close the sink-first mail-client window.</summary>
 	internal const string MAIL_SINK_WINDOW_CLOSER = "\n\t\tNetworkCredential sinkCredential = new NetworkCredential { UserName = userName };\n\t\tsinkCredential.Password = password;\n\t\tsinkFirstMailer.Credentials = sinkCredential;";
+
+	/// <summary>
+	/// The statement that opens the property-write window of a handler declared with the target-typed creation,
+	/// <c>HttpClientHandler handler = new();</c>, whose <c>Credentials</c> write may follow within five lines.
+	/// </summary>
+	internal const string TARGET_TYPED_HANDLER_WINDOW_OPENER = "\t\tHttpClientHandler targetHandler = new();";
+
+	/// <summary>The statement that closes the target-typed handler window.</summary>
+	internal const string TARGET_TYPED_HANDLER_WINDOW_CLOSER = "\n\t\ttargetHandler.Credentials = new NetworkCredential(userName, password);";
+
+	/// <summary>The statement that opens the binding window of a mail client declared with the target-typed creation.</summary>
+	internal const string TARGET_TYPED_MAIL_WINDOW_OPENER = "\t\tSmtpClient targetMailer = new(host, port);";
+
+	/// <summary>The statement that closes the target-typed mail-client binding window.</summary>
+	internal const string TARGET_TYPED_MAIL_WINDOW_CLOSER = "\n\t\ttargetMailer.Credentials = new NetworkCredential(userName, password);";
+
+	/// <summary>The statement that opens the sink-first window of a target-typed mail client with a credential assembled across statements.</summary>
+	internal const string TARGET_TYPED_SINK_FIRST_WINDOW_OPENER = "\t\tSmtpClient targetSinkFirst = new(host, port);";
+
+	/// <summary>The statements that close the target-typed sink-first window.</summary>
+	internal const string TARGET_TYPED_SINK_FIRST_WINDOW_CLOSER = "\n\t\tNetworkCredential targetSinkCredential = new NetworkCredential { UserName = userName };\n\t\ttargetSinkCredential.Password = password;\n\t\ttargetSinkFirst.Credentials = targetSinkCredential;";
+
+	/// <summary>The statement that opens the credential-first window whose sink is declared with the target-typed creation.</summary>
+	internal const string TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_OPENER = "\t\tNetworkCredential targetFirst = new NetworkCredential { UserName = userName };";
+
+	/// <summary>The statements that close the credential-first window whose sink is declared with the target-typed creation.</summary>
+	internal const string TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_CLOSER = "\n\t\ttargetFirst.Password = password;\n\t\tSmtpClient targetBound = new(host, port) { Credentials = targetFirst };";
+
+	/// <summary>The statement that opens the separate-statement pair of the identifier-rooted halves, whose encoder may follow within five lines.</summary>
+	internal const string ROOTED_PAIR_WINDOW_OPENER = "\t\tstring rootedPair = $\"{userBox.Text}:{Secrets.Read(index)[0]}\";";
+
+	/// <summary>The statement that closes the identifier-rooted pair window.</summary>
+	internal const string ROOTED_PAIR_WINDOW_CLOSER = "\n\t\tstring rootedEncoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(rootedPair));";
 
 	private const string _LINE_BREAK = "\n";
 	private const string _MEMBER_FORMAT = "\tinternal static void Member{0:D6}()\n\t{{\n{1}\t}}\n";
@@ -155,8 +194,43 @@ internal static class MatchBoundStressSet
 		"\t\tstring formattedPair = Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format(\"{0}:{1}\", userName, password)));",
 		"\t\tcache.Add(endpoint, \"Basic\", new NetworkCredential(userName, password));",
 		"\t\tcache.Add(host, port, \"Basic\", new NetworkCredential(userName, password));",
-		"\t\tvar inlineAddressClient = new RSAPIClient(new Uri(instanceUrl), new UsernamePasswordCredentials(userName, password));"
+		"\t\tvar inlineAddressClient = new RSAPIClient(new Uri(instanceUrl), new UsernamePasswordCredentials(userName, password));",
+		"\t\tvar qualifiedClient = new Sdk.Rsapi.RSAPIClient(rsapiUri, new Sdk.Security.UsernamePasswordCredentials(userName, password));",
+		"\t\tRSAPIClient targetClient = new(rsapiUri, new UsernamePasswordCredentials(userName, password));",
+		"\t\tcache.Add(new(instanceUrl), \"Basic\", new System.Net.NetworkCredential(userName, password));",
+		"\t\tHttpBasicAuthenticator targetAuthenticator = new(userName, password);",
+		"\t\tvar qualifiedHeader = new System.Net.Http.Headers.AuthenticationHeaderValue(\"Basic\", encodedCredentials);",
+		"\t\tAuthenticationHeaderValue targetHeader = new(\"Basic\", encodedCredentials);",
+		"\t\tvar parenthesizedHandler = new HttpClientHandler() { Credentials = new NetworkCredential(userName, password) };",
+		"\t\tHttpClientHandler targetInitializedHandler = new() { Credentials = new NetworkCredential(userName, password) };",
+		TARGET_TYPED_HANDLER_WINDOW_OPENER + TARGET_TYPED_HANDLER_WINDOW_CLOSER,
+		"\t\tNetworkCredential targetCredential = new(userName, password);",
+		"\t\tvar qualifiedCredential = new System.Net.NetworkCredential(userName, password);",
+		ROOTED_PAIR_WINDOW_OPENER + ROOTED_PAIR_WINDOW_CLOSER,
+		"\t\tstring inlineRooted = Convert.ToBase64String(Encoding.ASCII.GetBytes(userBox.Text + \":\" + Secrets.Read(index)[0]));",
+		"\t\trequest.Headers.Add(HttpRequestHeader.Authorization, AuthConstants.SCHEME + \" \" + encoded);",
+		"\t\trequest.Headers.Set(HttpRequestHeader.Authorization, $\"{SCHEME} {encoded}\");",
+		"\t\trequest.Headers[System.Net.HttpRequestHeader.Authorization] = \"Basic \" + encoded;",
+		"\t\tbinding.Security.Transport.ClientCredentialType = System.ServiceModel.HttpClientCredentialType.Basic;",
+		"\t\tImportAPI targetImport = new(userName, password, webServiceUrl);",
+		"\t\tvar qualifiedImport = new Vendor.ImportAPI(userName, password, webServiceUrl);",
+		"\t\tNetworkCredential parenthesizedCredential = new NetworkCredential() { UserName = userName };\n\t\tparenthesizedCredential.Password = password;",
+		"\t\tvar mailInitializer = new SmtpClient(host, port) { Credentials = new NetworkCredential(userName, password) };",
+		"\t\tSmtpClient targetMailInitializer = new(host, port) { Credentials = new NetworkCredential(userName, password) };",
+		TARGET_TYPED_MAIL_WINDOW_OPENER + TARGET_TYPED_MAIL_WINDOW_CLOSER,
+		TARGET_TYPED_SINK_FIRST_WINDOW_OPENER + TARGET_TYPED_SINK_FIRST_WINDOW_CLOSER,
+		TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_OPENER + TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_CLOSER
 	];
+
+	/// <summary>
+	/// A run of ordinary characters the encoder window of the inline pair reads in full and never closes: no
+	/// colon-joined pair and no statement end within the window. Declared before the open windows that read it:
+	/// a static field read before its initializer has run is null, which would leave the run empty.
+	/// </summary>
+	private static readonly string _ENCODER_FILLER_WITHOUT_A_PAIR = new string('x', 190);
+
+	/// <summary>A run the indexer suffix reads up to its length bound and never closes with a bracket. Declared before its readers, for the same reason.</summary>
+	private static readonly string _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET = new string('y', 130);
 
 	private static readonly ImmutableArray<string> _OPEN_PROXIMITY_WINDOWS =
 	[
@@ -170,17 +244,15 @@ internal static class MatchBoundStressSet
 		MAIL_CREDENTIAL_WINDOW_OPENER + "\n\t\tmailCredential.Password = password;",
 		MAIL_SINK_WINDOW_OPENER,
 		"\t\tstring openPair = Convert.ToBase64String(Encoding.ASCII.GetBytes(" + _ENCODER_FILLER_WITHOUT_A_PAIR,
-		"\t\tcache.Add(host, port, \"Basic\", keys[" + _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET
+		"\t\tcache.Add(host, port, \"Basic\", keys[" + _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET,
+		TARGET_TYPED_HANDLER_WINDOW_OPENER,
+		TARGET_TYPED_MAIL_WINDOW_OPENER,
+		TARGET_TYPED_SINK_FIRST_WINDOW_OPENER,
+		TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_OPENER + "\n\t\ttargetFirst.Password = password;",
+		ROOTED_PAIR_WINDOW_OPENER,
+		"\t\tstring openRooted = Convert.ToBase64String(Encoding.ASCII.GetBytes(ReadSecret(" + _ENCODER_FILLER_WITHOUT_A_PAIR,
+		"\t\tvar unclosedHandler = new HttpClientHandler(" + _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET
 	];
-
-	/// <summary>
-	/// A run of ordinary characters the encoder window of the inline pair reads in full and never closes: no
-	/// colon-joined pair and no statement end within the window.
-	/// </summary>
-	private static readonly string _ENCODER_FILLER_WITHOUT_A_PAIR = new string('x', 190);
-
-	/// <summary>A run the indexer suffix reads up to its length bound and never closes with a bracket.</summary>
-	private static readonly string _INDEXER_FILLER_WITHOUT_A_CLOSING_BRACKET = new string('y', 130);
 
 	/// <summary>
 	/// Near-miss lines for the indexer suffix and the inline pair: indexers inside indexers, a comma inside a
@@ -196,8 +268,33 @@ internal static class MatchBoundStressSet
 		"\t\tcache.Add(host[0], port[index][0], \"Basic\", factory.Create(userName, password));"
 	];
 
+	/// <summary>
+	/// Near-miss lines for the creation forms, the named-constant scheme and the pair halves: types that only
+	/// resemble a created type, long qualifier chains, a handler declaration that is not on the allow-list,
+	/// default credentials, a constant concatenated directly, another enumeration member, a pair with a
+	/// literal half or an arithmetic half, and an arity that does not match.
+	/// </summary>
+	private static readonly ImmutableArray<string> _CREATION_FORM_NEAR_MISSES =
+	[
+		"\t\tvar wrappedMailer = new Vendor.Net.Mail.SmtpClientWrapper(host, port) { Credentials = new Vendor.Net.NetworkCredentialFactory(userName, password) };",
+		"\t\tvar longQualifier = new A.B.C.D.E.F.G.H.I.J.K.L.M.N.O.P.NetworkCredentialHelper(userName, password);",
+		"\t\tHttpClientFactory notAHandler = new() { Credentials = CredentialCache.DefaultCredentials };",
+		"\t\tSmtpClient defaultMailer = new(host, port) { UseDefaultCredentials = true };",
+		"\t\tbinding.Security.Transport.ClientCredentialType = System.ServiceModel.HttpClientCredentialType.Windows;",
+		"\t\trequest.Headers.Add(HttpRequestHeader.Authorization, SCHEME_WITH_SPACE + encoded);",
+		"\t\trequest.Headers.Add(HttpRequestHeader.ContentType, AuthConstants.SCHEME + \" \" + encoded);",
+		"\t\tstring literalPair = string.Format(\"{0}:{1}\", \"operator\", secretBox.Entry); string literalEncoded = Convert.ToBase64String(literalBytes);",
+		"\t\tstring arithmeticPair = $\"{first + second}:{secretBox.Entry}\";\n\t\tstring arithmeticEncoded = Convert.ToBase64String(arithmeticBytes);",
+		"\t\tstring deepPair = $\"{Get(Wrap(Inner(1)))}:{secretBox.Entry}\";",
+		"\t\tImportAPI wrongArity = new(userName, webServiceUrl);",
+		"\t\tHttpBasicAuthenticator lonelyAuthenticator = new(userName);",
+		"\t\tvar unfinished = new HttpClientHandler(Build(Wrap(1)) { Credentials = new NetworkCredential(userName, password) };"
+	];
+
 	private static readonly ImmutableArray<string> _LONG_LINE_TOKENS =
 	[
+		"userBox.Text + \":\" + ",
+		"Console.ReadLine() + \":\" + ",
 		"credential.UserName + \":\" + ",
 		"Authorization + ",
 		"Convert.ToBase64String(bytes) + ",
@@ -235,7 +332,7 @@ internal static class MatchBoundStressSet
 	/// <summary>
 	/// Text built to make each flow signal do its most work: each shape repeats, up to the size
 	/// ceiling, the construct that opens one signal's window or alternation without ever completing
-	/// it. Every statement is invented, ordinary-looking C#; none comes from the graded benchmark.
+	/// it. Every statement is invented, ordinary-looking C#.
 	/// </summary>
 	private static readonly ImmutableArray<(string Name, string Statements)> _FLOW_SHAPE_STATEMENTS =
 	[
@@ -262,7 +359,7 @@ internal static class MatchBoundStressSet
 
 	/// <summary>
 	/// The six benign shapes followed by the flow-signal shapes, in a fixed order. Each name is what
-	/// the calibration table reports.
+	/// the timing table reports.
 	/// </summary>
 	internal static ImmutableArray<MatchBoundStressShape> Build()
 	{
@@ -275,6 +372,7 @@ internal static class MatchBoundStressSet
 			Shape("long-lines-at-line-ceiling", FillWithLongLines()),
 			Shape("literal-and-comment-heavy", FillWithMembers(_LITERAL_AND_COMMENT_LINES)),
 			Shape("indexer-and-inline-pair-near-misses", FillWithMembers(_INDEXER_AND_INLINE_PAIR_NEAR_MISSES)),
+			Shape("creation-form-near-misses", FillWithMembers(_CREATION_FORM_NEAR_MISSES)),
 			.. FlowShapes()
 		];
 	}

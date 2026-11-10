@@ -9,7 +9,7 @@ namespace MigrateAuth.Cli.Tests.Agent;
 /// <summary>
 /// THE ONE PATH THAT CROSSES THE BOUNDARY, AND WHAT IT REFUSES TO BE BUILT FROM.
 ///
-/// The launch operation takes a prompt pack path, and a path is the shape of the hole the pack's
+/// The launch operation takes a prompt pack path, and a path is the shape of the hole its
 /// content rule exists to close. The type accepts only the documentation destination plus a
 /// COMPLETED write, so a pack path cannot name a file that was never produced and cannot be aimed at
 /// the repository under assessment - the write boundary already refused to produce one there.

@@ -42,7 +42,8 @@ public enum AnalyzerContractViolationCode
 
 	/// <summary>
 	/// Two pattern classes of the same analyzer declare the same
-	/// <see cref="DetectionRule.DisplayName"/>, by ordinal comparison. The report renders this name in place of the identifier; two classes sharing one name would make that rendering
+	/// <see cref="DetectionRule.DisplayName"/>, by ordinal comparison. The report renders this
+	/// name in place of the identifier; two classes sharing one name would make that rendering
 	/// ambiguous exactly where the identifier still needs to disambiguate them.
 	/// </summary>
 	DisplayNameNotUnique = 21,
@@ -75,7 +76,7 @@ public enum AnalyzerContractViolationCode
 
 	/// <summary>
 	/// A value of <see cref="CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow"/> is
-	/// declared - not null - but empty or whitespace-only. The slot is optional;
+	/// declared - not null - but empty or whitespace-only (the per-flow fallback slot). The slot is optional;
 	/// declaring it and giving a flow nothing to say is not a state this contract allows, the same
 	/// rule already applied to a declared preselection anchor.
 	/// </summary>
@@ -157,7 +158,15 @@ public enum AnalyzerContractViolationCode
 	/// on the same terms as <see cref="HereDocumentOpeningMatchTimeoutNotLexicalBudget"/>. Language
 	/// attribution charges it to the file's lexical budget.
 	/// </summary>
-	FirstLineDetectionMatchTimeoutNotLexicalBudget = 37
+	FirstLineDetectionMatchTimeoutNotLexicalBudget = 37,
+
+	/// <summary>
+	/// A <see cref="QuoteRule.InterpolationNestingOpening"/> is declared without
+	/// an <see cref="QuoteRule.InterpolationClosing"/> to nest against, or is empty. Nesting is a
+	/// property of a bracketed hole only: an identifier-extent hole has no closing token to count
+	/// against, and an empty opener would match at every position.
+	/// </summary>
+	InterpolationNestingOpeningWithoutClosing = 38
 }
 
 /// <summary>One violation, naming its code and the subject it was found on.</summary>
@@ -290,6 +299,12 @@ public static class AnalyzerContractValidator
 		if (quoteRule.InterpolationOpening is null && (declaresBracketedHole || declaresIdentifierExtentHole))
 		{
 			Record(violations, AnalyzerContractViolationCode.InterpolationHoleKindNotDeclared, quoteRule.Opening);
+		}
+
+		if (quoteRule.InterpolationNestingOpening is not null
+			&& (string.IsNullOrEmpty(quoteRule.InterpolationNestingOpening) || !declaresBracketedHole))
+		{
+			Record(violations, AnalyzerContractViolationCode.InterpolationNestingOpeningWithoutClosing, quoteRule.Opening);
 		}
 	}
 
@@ -427,7 +442,7 @@ public static class AnalyzerContractValidator
 
 	/// <summary>
 	/// Non-empty, and unique within the analyzer - by ordinal comparison, the natural
-	/// choice for a field that stays stable while it is read, exactly like every
+	/// choice for a field that the report promises stays stable while it is read, exactly like every
 	/// other identity comparison this contract already makes ordinally (the language name index,
 	/// the pattern class dictionaries).
 	/// </summary>
@@ -508,7 +523,8 @@ public static class AnalyzerContractValidator
 		bool declaresResponse =
 			interpretation.WhenResolvedMatching != SymbolicVerdictResponse.NoEffect
 			|| interpretation.WhenResolvedNotMatching != SymbolicVerdictResponse.NoEffect
-			|| interpretation.WhenIndeterminate != SymbolicVerdictResponse.NoEffect;
+			|| interpretation.WhenIndeterminate != SymbolicVerdictResponse.NoEffect
+			|| interpretation.WhenSchemeArgumentDidNotParticipate is not null;
 
 		return declaresResponse;
 	}

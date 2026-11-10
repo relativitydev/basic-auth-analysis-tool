@@ -8,11 +8,11 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Findings;
 
 /// <summary>
-/// THE SEQUENTIAL IDENTIFIER, ITS PARALLEL NUMERIC INDEX, AND RUN STABILITY.
+/// THE SEQUENTIAL IDENTIFIER, ITS PARALLEL NUMERIC INDEX, AND THE RUN-STABILITY REQUIREMENT AS THE LANGUAGE-AGNOSTIC ENGINE CAN HOLD IT.
 ///
-/// Two runs over one repository must produce identical order and identifiers. These tests show that
-/// THE ORDERING PRIMITIVE AND THE IDENTITY SCHEME are stable and platform-independent, over a
-/// synthetic set; they are not evidence about a real scan and are not offered as any.
+/// The run-stability requirement - two runs over one repository produce identical order and identifiers - is
+/// shown here for THE ORDERING PRIMITIVE AND THE IDENTITY SCHEME, which are stable and
+/// platform-independent over a synthetic set. These tests do not run a real scan.
 /// </summary>
 public sealed class FindingIdentityTests
 {
@@ -43,7 +43,7 @@ public sealed class FindingIdentityTests
 	}
 
 	/// <summary>
-	/// The three-digit identifier, honoured, and its widening, which the three digits do not cover.
+	/// The three-digit identifier, honoured, and the widening, which the three digits do not cover.
 	///
 	/// A repository sized for more than 50,000 files exceeds 999 findings easily, and the two
 	/// failure modes a fixed width has are both worse than widening: wrapping reuses an identifier
@@ -67,8 +67,8 @@ public sealed class FindingIdentityTests
 	/// <summary>
 	/// THE REASON THE PARALLEL NUMERIC INDEX EXISTS, DEMONSTRATED RATHER THAN ASSERTED. Sorting on
 	/// the string identifier is lexicographic and places "1000" before "999"; sorting on the index
-	/// does not. A consumer of the data artifact needs the second, which is why the artifact carries
-	/// both.
+	/// does not. A consumer of the data artifact needs the second, which is why the
+	/// artifact must carry both.
 	/// </summary>
 	[Fact]
 	public void TheParallelNumericIndexOrdersNumericallyWhereTheIdentifierDoesNot()
@@ -89,9 +89,10 @@ public sealed class FindingIdentityTests
 	}
 
 	/// <summary>
-	/// THE INDEX IS CONTIGUOUS FROM ONE OVER THE FULL SET: numbering runs over the full ordered set.
-	/// Gaps appear only in the OUTPUT, after the confidence filter has removed rows; they cannot appear
-	/// here, because this component does not filter and must not be the place a gap comes from.
+	/// THE INDEX IS CONTIGUOUS FROM ONE OVER THE FULL SET, which is the rule "numbering runs over
+	/// the full ordered set" stated as a property. The accepted gaps appear in the OUTPUT
+	/// after the threshold filter has removed rows; they cannot appear here, because this component does
+	/// not filter and must not be the place a gap comes from.
 	/// </summary>
 	[Fact]
 	public void EveryFindingIsNumberedAndNothingIsFilteredOut()

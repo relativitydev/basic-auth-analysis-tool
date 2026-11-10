@@ -21,8 +21,8 @@ public enum CommandGroup
 /// <summary>
 /// The identity of every command the session accepts.
 ///
-/// It is an enumeration and not a string, which makes the agreement between the dispatcher and
-/// <c>help</c> structural rather than maintained. Two mechanisms hold it:
+/// It is an enumeration and not a string, and that is what makes the requirement that
+/// every command be listed structural rather than maintained. Two mechanisms hold it:
 ///
 /// the dispatcher switches over this type with no discard arm, so a value added here without
 /// a dispatch arm does not compile under warnings-as-errors; and <see cref="CommandRegistry"/>
@@ -60,8 +60,8 @@ public enum CommandId
 }
 
 /// <summary>
-/// One registry entry, with five fields: name, group, order within the group, one-line description,
-/// and gating predecessor.
+/// One registry entry. It has exactly five fields: name, group, order within the group,
+/// one-line description, and gating predecessor.
 /// </summary>
 public sealed record CommandDescriptor
 {
@@ -102,24 +102,25 @@ public sealed record CommandDescriptor
 
 /// <summary>
 /// The single command registry. Both the dispatcher and <c>help</c> read it, and neither
-/// carries a list of its own, so <c>help</c> lists every command with no omissions. A hand-written
-/// help text drifts from the dispatcher on the first command added; there is no help text here to
-/// drift.
+/// carries a list of its own - that is the whole mechanism by which <c>help</c> listing every
+/// command is structurally true instead of maintained. A hand-written help text drifts from
+/// the dispatcher on the first command added; there is no help text here to drift.
 /// </summary>
 public static class CommandRegistry
 {
 	/// <summary>
-	/// The gating message, held in one constant.
+	/// The gating message.
 	///
-	/// It names the missing stage and not the tool, because the message is only ever shown inside the
-	/// interactive session, where the tool is already running and naming it would instruct a separate
-	/// process invocation.
+	/// It names the missing stage and not the tool, because the message is only ever shown inside
+	/// the interactive session, where the tool is already running and naming it would instruct a
+	/// separate process invocation.
 	/// </summary>
 	public const string GATING_MESSAGE_FORMAT = "Run '{0}' first.";
 
 	/// <summary>
-	/// The message. An unrecognized command-line option is reported with this same
-	/// message rather than with a second vocabulary for the same mistake.
+	/// The message for a command the session does not recognize. An unrecognized command-line
+	/// option is reported with this same message rather than with a second vocabulary for the
+	/// same mistake.
 	/// </summary>
 	public const string NOT_RECOGNIZED_MESSAGE_FORMAT = "command not found: {0}";
 
@@ -256,7 +257,7 @@ public static class CommandRegistry
 				Name = "report",
 				Group = CommandGroup.Workflow,
 				OrderWithinGroup = 4,
-				Description = "Write the Markdown report and the findings data artifact.",
+				Description = "Write the Markdown report and the findings JSON file.",
 				GatingPredecessor = CommandId.Suggest
 			},
 			new CommandDescriptor

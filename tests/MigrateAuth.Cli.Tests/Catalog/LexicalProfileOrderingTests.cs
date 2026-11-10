@@ -9,9 +9,9 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The longest opening wins and the engine orders the rules, not the profile author. An author
-/// listing the single quote before the triple cannot break the scanner; these tests prove that
-/// outcome is unreachable rather than merely unlikely.
+/// The longest opening wins and the engine orders the rules, not the profile
+/// author: an author listing the single quote before the triple cannot break the
+/// scanner. These tests prove that outcome is unreachable rather than merely unlikely.
 /// </summary>
 public sealed class LexicalProfileOrderingTests
 {

@@ -1,12 +1,10 @@
 namespace MigrateAuth.Cli.Lexical;
 
 /// <summary>
-/// THE FOUR LEXICAL ZONES. ONE PER POSITION, NEVER TWO AND NEVER NONE.
+/// THE FOUR ZONES. ONE PER POSITION, NEVER TWO AND NEVER NONE.
 ///
-/// The backing type is a byte to keep the per-file memory small. Per file in flight
-/// there are three structures - the bytes read, the decoded text at two bytes per UTF-16 code
-/// unit, and this mask at one byte per code unit. A richer per-position record, or a compressed
-/// one that has to be decoded to be read, would grow that.
+/// The backing type is a byte. Per file in flight there are three structures - the bytes read, the
+/// decoded text at two bytes per UTF-16 code unit, and this mask at one byte per code unit.
 ///
 /// <see cref="Delimiter"/> IS LOAD-BEARING AND IS NOT COSMETIC. A rule recognizing a credential
 /// header written as a string literal necessarily anchors at the literal's own opening quote, and
@@ -43,7 +41,7 @@ public enum LexicalZone : byte
 public static class LexicalZones
 {
 	/// <summary>
-	/// Whether a position counts as code. It answers the question
+	/// Whether a position counts as code for the purpose the mask declares. It answers the question
 	/// the mask exists to answer and stops there: WHAT a later stage does with a
 	/// <see cref="LexicalZone.Comment"/> or a <see cref="LexicalZone.StringBody"/> position -
 	/// demote, never discard - is that stage's decision and is not pre-empted here.

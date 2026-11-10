@@ -32,6 +32,12 @@ public sealed record ArtifactWriteResult
 	/// <summary>The file name written. Empty when nothing was. Never a path.</summary>
 	public required string FileNameWritten { get; init; }
 
+	/// <summary>
+	/// The output folder's label (its own name), so the file named above can be found. Empty
+	/// when nothing was written.
+	/// </summary>
+	public string DestinationLabel { get; init; } = string.Empty;
+
 	/// <summary>Why nothing was written.</summary>
 	public required ArtifactWriteRefusal Refusal { get; init; }
 
@@ -40,26 +46,26 @@ public sealed record ArtifactWriteResult
 }
 
 /// <summary>
-/// Every file this product writes goes out through here.
+/// Every file this product writes goes out through here, and each rule it applies belongs to the write boundary.
 ///
-/// The boundary is checked immediately before the write. Pre-flight already ran the same
-/// primitive and that does not weaken this one: the destination can be supplied per invocation, and
-/// a security control's enforcement point belongs immediately before the act it controls. A refusal
-/// here is exit code 4.
+/// THE BOUNDARY IS CHECKED IMMEDIATELY BEFORE THE WRITE. Pre-flight already ran the same
+/// primitive (the containment rule) and that does not weaken this one: the destination can be supplied per
+/// invocation, and a security control's enforcement point belongs immediately before the act
+/// it controls. A refusal here is exit code 4.
 ///
-/// Every write is temporary-then-rename. A half-written state must read as absent, and the
+/// EVERY WRITE IS TEMPORARY-THEN-RENAME. A half-written state must read as absent, and the
 /// same reasoning applies with more force to the two files a human reads: a process killed
-/// during Report otherwise leaves a report truncated mid-section, and a truncated report does
-/// not announce itself - it reads as complete and shorter. The temporary is created in the
+/// during Report otherwise leaves a report truncated mid-section, and A TRUNCATED REPORT DOES
+/// NOT ANNOUNCE ITSELF - it reads as complete and shorter. The temporary is created in the
 /// destination folder so that the rename stays within one volume, which is what makes it
 /// atomic rather than a copy.
 ///
-/// The collision rule is exclusive creation in a loop and never check-then-create, which is a
+/// THE COLLISION RULE IS EXCLUSIVE CREATION IN A LOOP AND NEVER CHECK-THEN-CREATE, which is a
 /// race. The exclusive creation here is the rename itself: a rename that refuses to overwrite
 /// fails as one operation when the name is taken, so no window exists between deciding a name
 /// is free and taking it. An existing report is never overwritten and never deleted.
 ///
-/// There is no lock on the destination folder. Concurrent sessions are out of scope, and a process
+/// THERE IS NO LOCK ON THE DESTINATION FOLDER. Concurrent sessions are out of scope, and a process
 /// killed while holding a lock would leave an artifact that blocks the next run.
 /// </summary>
 public sealed class AtomicArtifactWriter
@@ -92,10 +98,10 @@ public sealed class AtomicArtifactWriter
 
 	/// <summary>
 	/// Writes one of the two shareable artifacts. The handling header is attached here rather
-	/// than left to the caller, because both artifacts must carry it and a header a caller may forget
-	/// is a header that will be forgotten. A Markdown document gets it as its first line; a
-	/// structured-data document carries it as a field its own serializer places, so the body is handed
-	/// on untouched.
+	/// than left to the caller, because BOTH artifacts are required to carry it and a header
+	/// a caller may forget is a header that will be forgotten. A Markdown document gets it as
+	/// its first line; a structured-data document carries it as a field its own serializer
+	/// places, so the body is handed on untouched.
 	/// </summary>
 	public ArtifactWriteResult WriteShareableArtifact(OutputArtifactKind kind, DateOnly artifactDate, string body)
 	{
@@ -111,16 +117,18 @@ public sealed class AtomicArtifactWriter
 	}
 
 	/// <summary>
-	/// The same write, with the body produced into the file rather than handed over as a string, so the
-	/// artifact is written streaming rather than serialized to a string in memory. The string overload
-	/// above remains the right shape for small content, where a delegate buys nothing.
+	/// The same write, with the body produced INTO the file rather than handed over as a string.
 	///
-	/// Everything else is the same mechanism: one boundary check, one temporary in the destination
-	/// folder, one handling header for Markdown, and the same exclusive-creation rename. The only
-	/// difference is where the bytes come from.
+	/// The artifact is written streaming, not serialized to a string in memory. The method above
+	/// remains the right shape for small content, where a delegate buys nothing.
 	///
-	/// The body delegate runs inside the temporary-file window, so a failure part-way through it
-	/// leaves the temporary and never a half-written report under a final name. An I/O failure raised
+	/// EVERYTHING ELSE IS THE SAME MECHANISM and deliberately so: one boundary check, one
+	/// temporary in the destination folder, one handling header for Markdown, and the same
+	/// exclusive-creation rename. The only difference is where the bytes come from.
+	///
+	/// The body delegate runs INSIDE the temporary-file window, so a failure part-way through it
+	/// leaves the temporary and never a half-written report under a final name - which is the
+	/// property a truncated report cannot announce for itself. An I/O failure raised
 	/// by the delegate is classified like any other write failure.
 	/// </summary>
 	public ArtifactWriteResult WriteShareableArtifactStreaming(
@@ -260,6 +268,7 @@ public sealed class AtomicArtifactWriter
 			{
 				Wrote = true,
 				FileNameWritten = fileNameWritten,
+				DestinationLabel = _destination.Label,
 				Refusal = ArtifactWriteRefusal.None,
 				RefusalMessage = string.Empty
 			};

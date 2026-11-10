@@ -12,15 +12,10 @@ namespace MigrateAuth.Cli.Reading;
 /// tool chose. What the exclusions cost is stated in the coverage statement instead, which is
 /// where a reader looks to find out what was not examined on purpose.
 ///
-/// DEPLOYMENT IS NOT ON THIS LIST. A folder of that name may hold minified bundle output, but it
-/// is also where DEPLOYMENT SCRIPTS live, in PowerShell and Shell. Excluding it by name would
-/// hide those scripts, so it is a demotion signal instead, which degrades minified output without
-/// hiding a script.
-///
 /// A NAME-BASED EXCLUSION LIST CANNOT BE COMPLETE, because deployment and vendoring folder names
-/// are project conventions, and the safe direction for an incomplete list is to demote rather than
-/// to exclude. Excluding trades a false positive for a silent false negative, and only one of those
-/// is visible in the output.
+/// are project conventions, and the safe direction for an incomplete list is to demote rather
+/// than to exclude. Excluding trades a false positive for a silent false negative, and only one
+/// of those is visible in the output.
 /// </summary>
 public static class WalkExclusions
 {
@@ -45,12 +40,17 @@ public static class WalkExclusions
 	/// <summary>
 	/// Whether a directory of this name is walked.
 	///
-	/// THE COMPARISON IS ORDINAL - case-SENSITIVE - ON EVERY PLATFORM. Ordinal comparison consults
-	/// no locale data and no platform API, so the same tree is excluded identically everywhere,
-	/// unlike deferring to the filesystem's own case rule, which is a property of the volume. Where
-	/// case folding would exclude a hand-written folder named Bin or Build, ordinal comparison walks
-	/// it, which is the safe direction; the tooling that creates every name on this list creates it
-	/// in lower case.
+	/// THE COMPARISON IS ORDINAL - case-SENSITIVE - ON EVERY PLATFORM. It must be identical on
+	/// every platform, which rules out deferring to the filesystem's own case rule, since that is a
+	/// property of the volume rather than of the operating system; ordinal comparison consults no
+	/// locale data and no platform API, so the same tree is excluded identically everywhere, which
+	/// keeps the SET of findings deterministic and not only their order.
+	///
+	/// Folding case would EXCLUDE MORE: a hand-written source folder named Bin or Build would vanish
+	/// silently. Comparing ordinally INCLUDES MORE: a build folder named BIN is walked and its
+	/// generated content becomes noise a demotion signal can handle. The safe direction for an
+	/// incomplete list is to exclude less, and the tooling that creates every name on this list
+	/// creates it in lower case.
 	/// </summary>
 	public static bool IsExcluded(string directoryName)
 	{

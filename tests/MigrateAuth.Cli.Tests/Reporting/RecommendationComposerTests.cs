@@ -15,7 +15,7 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// <summary>
 /// The recommendation is composed per (language, pattern class, flow) at one
 /// finding-free point, the template provider is asked per flow, and the generic route is per flow at
-/// both the language and the base level.
+/// both the language and the shared engine level.
 /// </summary>
 public sealed class RecommendationComposerTests
 {
@@ -72,7 +72,7 @@ public sealed class RecommendationComposerTests
 
 	/// <summary>
 	/// Markdown and JSON. A High finding with no template renders the language's per-flow text
-	/// when the language declares one for the flow, and the base's text for the flow when it does not.
+	/// when the language declares one for the flow, and the shared engine's text for the flow when it does not.
 	/// </summary>
 	[Fact]
 	public void AnUntemplatedFindingRendersTheLanguagesPerFlowTextWhenDeclaredAndTheBasesWhenNot()

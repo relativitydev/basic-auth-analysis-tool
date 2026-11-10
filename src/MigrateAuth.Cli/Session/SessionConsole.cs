@@ -15,7 +15,7 @@ public sealed class SessionConsole
 	/// start of a piped stream by default, and .NET's own text-mode decoding of that stream turns
 	/// it into this literal leading character rather than consuming it - so the first line this
 	/// session ever reads can arrive as this character followed by the command the user meant.
-	/// <c>string.Trim()</c> does not remove it: U+FEFF is a Unicode format character, not
+	/// <c>string.Trim()</c> does not remove it: U+FEFF is a Unicode FORMAT character, not
 	/// whitespace, so a mark left unstripped resolves the command it prefixes as "not found"
 	/// under its own visible name.
 	/// </summary>

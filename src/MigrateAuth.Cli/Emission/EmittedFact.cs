@@ -7,9 +7,10 @@ namespace MigrateAuth.Cli.Emission;
 /// What kind of thing is being emitted. It is the one field every emitted fact carries, which
 /// is what lets a sink decide where a fact belongs without inspecting anything else about it.
 ///
-/// This is NOT the skipped-item enumeration. That one is a closed list that says WHY an item was
-/// skipped rather than what kind of fact this is, and it travels as
-/// <see cref="EmittedFact.SkippedItem"/>, a separate field.
+/// This is NOT the skipped-item enumeration. That one is a closed list, owned by the reading
+/// stage, it says WHY an item was skipped rather than what kind of fact this is, and a
+/// component may not invent a member locally. It travels as <see cref="EmittedFact.SkippedItem"/>,
+/// a further field, and not as a widening of the list below.
 /// </summary>
 public enum EmissionCategory
 {
@@ -22,7 +23,7 @@ public enum EmissionCategory
 	/// <summary>A file selected for analysis.</summary>
 	Candidate = 2,
 
-	/// <summary>An item the scan did not cover. The skipped-item category says why.</summary>
+	/// <summary>An item the scan did not cover. The skipped-item enumeration owns why.</summary>
 	SkippedItem = 3,
 
 	/// <summary>What the assessment looked for and what it declares unsupported.</summary>
@@ -57,8 +58,9 @@ public enum EmissionCategory
 /// Emitting text from the analyzed file therefore requires ADDING A FIELD HERE, which is a
 /// signature change, which is visible in review and cannot happen by accident.
 ///
-/// <see cref="SkippedItem"/> is admitted because it is a closed enumeration that cannot express
-/// one character of an analyzed file, which is the standard any seventh field has to meet.
+/// THE SIXTH FIELD MEETS THE SAME STANDARD. <see cref="SkippedItem"/> is admitted because it is a
+/// closed enumeration that cannot express one character of an analyzed file, which is the
+/// standard any seventh field has to meet.
 ///
 /// IT DOES NOT MAKE VIOLATION IMPOSSIBLE and is not presented as doing so: a direct write to a
 /// stream bypasses it entirely. What it does is make the correct path the easy one and the
@@ -81,15 +83,15 @@ public sealed record EmittedFact
 	/// <summary>
 	/// The confidence the rubric assigned. Absent where confidence has no meaning.
 	/// It is the assigned level and never a threshold: configuration stays out of
-	/// assignment and only filters what appears in output.
+	/// assignment and lets it filter what appears in output.
 	/// </summary>
 	public ConfidenceLevel? Level { get; init; }
 
 	/// <summary>
-	/// WHY an item was skipped, from the closed skipped-item list. Present exactly when
+	/// WHY an item was skipped, from the closed list of eleven skipped-item categories. Present exactly when
 	/// <see cref="Category"/> is <see cref="EmissionCategory.SkippedItem"/>, and absent
 	/// otherwise - which <see cref="EmissionPoint.Emit"/> enforces rather than trusts, because a
-	/// skipped item with no reason is an aggregate count that says nothing useful.
+	/// skipped item with no reason is the aggregate count that is refused.
 	/// </summary>
 	public SkippedItemCategory? SkippedItem { get; init; }
 }

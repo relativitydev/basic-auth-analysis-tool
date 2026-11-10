@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
-/// The seventeen flow signals of the catalog:
+/// The seventeen flow signals of the catalog (its version is <see cref="LanguageCatalog.CurrentVersion"/>):
 /// ten <see cref="FlowSignalKind.InteractiveUser"/> and seven <see cref="FlowSignalKind.FixedCredential"/>.
 ///
 /// Every expression declares <c>matchTimeoutMilliseconds</c> equal to
@@ -158,10 +158,19 @@ internal static partial class CSharpFlowSignalExpressions
 	/// anchor is the type name. Beyond the declared, constructed and member-read forms, two more are
 	/// read: a cast or <c>as</c> expression whose password member is read directly, and a cast or
 	/// <c>as</c> result stored in a variable whose own password member is read within 400 characters
-	/// after it. The operand of the cast or <c>as</c> is an identifier chain, a call or an indexer, each
-	/// with an optional member chain after it, on one statement and with no nested parentheses or
-	/// brackets in the arguments. The variable is bound by name and the window is a lookahead, so the
-	/// match stays small.
+	/// after it. The variable is bound by name and the window is a lookahead, so the match stays small.
+	///
+	/// THE OPERAND OF THE CAST OR <c>as</c> MATTERS IN TWO FORMS ONLY: the direct cast,
+	/// <c>((PasswordBox)operand).Password</c>, and the stored <c>as</c>, <c>variable = operand as PasswordBox</c>
+	/// followed by that variable's member. The direct <c>as</c>, <c>(anything as PasswordBox).Password</c>, and
+	/// the stored cast, <c>variable = (PasswordBox)anything</c>, read no operand, so they accept any. The
+	/// operand accepted (<see cref="_CAST_OPERAND"/>) is an identifier chain of up to 81 characters and then up
+	/// to four call or indexer suffixes, each with argument text of at most 120 characters on one line that
+	/// holds no parenthesis, bracket or semicolon, each suffix optionally followed by a member chain. Three
+	/// operands are not read and are declared unsupported: a call whose argument holds a nested call, a
+	/// constructed operand (<c>new Type() as PasswordBox</c>) and a parenthesized operand before the stored
+	/// <c>as</c>. Each moves the finding toward the default flow and never assigns a flow the file does not
+	/// show.
 	/// </summary>
 	[GeneratedRegex(
 		_PASSWORD_BOX_DECLARED_OR_READ + "|" + _PASSWORD_BOX_CAST_READ_DIRECTLY + "|" + _PASSWORD_BOX_CAST_STORED_THEN_READ,

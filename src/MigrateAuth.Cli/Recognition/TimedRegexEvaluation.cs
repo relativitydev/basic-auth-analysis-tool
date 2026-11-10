@@ -3,21 +3,27 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Recognition;
 
 /// <summary>
-/// The one door every analyzer-declared expression's evaluation passes through to charge
-/// <see cref="MatchBoundWatch"/>'s per-file budget. <see cref="RecognitionEngine"/>'s detection-rule
-/// loop and its interpreted cross-check (<see cref="RecognitionEngine.InterpretedCrossCheckConfirmsTheMatch"/>),
-/// <see cref="FileSymbolTable.Collect"/> and <see cref="FileDemotionSignals"/> all evaluate through it,
-/// so no phase of recognition runs an expression untimed.
+/// THE ONE DOOR EVERY ANALYZER-DECLARED EXPRESSION'S EVALUATION PASSES THROUGH TO CHARGE
+/// <see cref="MatchBoundWatch"/>'S PER-FILE BUDGET.
+///
+/// Its callers include <see cref="RecognitionEngine"/>'s detection-rule loop and its interpreted
+/// cross-check (<see cref="RecognitionEngine.InterpretedCrossCheckConfirmsTheMatch"/>, which re-evaluates
+/// a rule's pattern through an interpreted <see cref="Regex"/> when a match's anchor group sits outside
+/// its own span), <see cref="FileSymbolTable.Collect"/>'s constant-declaration expression and
+/// <see cref="FileDemotionSignals"/>'s generation-marker and content-marker expressions, all over the
+/// same <c>normalizedText</c> a detection rule scans.
 ///
 /// The lexical scan (<c>Lexical.LexicalScanner</c>) and the first-line language attribution
 /// (<c>Scanning.LanguageAttribution</c>) evaluate analyzer-declared expressions before
 /// <see cref="RecognitionEngine.Recognize"/> opens the file's budget
-/// (<see cref="MatchBoundWatch.BeginFile"/>), so they cannot share this door's budget. They are charged
-/// instead to <c>Lexical.LexicalBudgetWatch</c>, a budget of their own, one per file per stage, which
-/// each of those expressions also declares as its own regex timeout. A trip is mapped to the
-/// <c>LexicalAnomaly</c> skipped-item category in the lexical scan and to a counted extension fallback
-/// in attribution, never to the match-bound category. A structural test asserts that every
-/// analyzer-declared expression evaluated in <c>src/</c> is charged to this door or to the lexical budget.
+/// (<see cref="MatchBoundWatch.BeginFile"/>), so they are charged instead to
+/// <c>Lexical.LexicalBudgetWatch</c>: the here-document-opening and interpolation-identifier-extent
+/// expressions (<c>LexicalScanner.MatchAnchored</c>) and the first-line detection expression
+/// (<c>LanguageAttribution.MatchFirstLine</c>) share a budget of their own, one per file per stage,
+/// which each also declares as its own regex timeout. A trip there maps to the <c>LexicalAnomaly</c>
+/// skipped-item category in the lexical scan and to a counted extension fallback in attribution, never
+/// to the match-bound category. Every analyzer-declared expression evaluated in <c>src/</c> is
+/// therefore charged either to this door or to the lexical budget.
 /// </summary>
 internal static class TimedRegexEvaluation
 {

@@ -7,7 +7,7 @@ namespace MigrateAuth.Cli.Catalog;
 /// it: reading one back from a file, and deciding which of two reports more.
 ///
 /// It lives beside the level rather than in the configuration set because the vocabulary is the
-/// rubric's. The threshold does not enter the rubric - the level a finding
+/// rubric's. The threshold is explicitly not part of the rubric: the level a finding
 /// receives is assigned by the rubric alone and the threshold decides only which assigned levels
 /// appear - so what configuration owns is the comparison, not the scale.
 ///
@@ -19,7 +19,7 @@ public static class ConfidenceLevels
 {
 	/// <summary>
 	/// The widest threshold there is, and the built-in default. Reporting every level is the
-	/// configuration that hides nothing.
+	/// configuration that hides nothing, which is the side the invariant that the threshold never changes assigned levels leans to.
 	/// </summary>
 	public const ConfidenceLevel WIDEST = ConfidenceLevel.Low;
 

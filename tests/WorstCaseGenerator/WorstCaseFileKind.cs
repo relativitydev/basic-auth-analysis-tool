@@ -22,5 +22,11 @@ public enum WorstCaseFileKind
 	OverLongLine = 5,
 
 	/// <summary>A C# file above the file-size ceiling, skipped without being read.</summary>
-	Oversize = 6
+	Oversize = 6,
+
+	/// <summary>A PowerShell script with the <c>.ps1</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a PowerShell share holds any.</summary>
+	PowerShellScript = 7,
+
+	/// <summary>An extensionless PowerShell script whose first line is a <c>pwsh</c> shebang, so only its first line attributes it. Only a tree asked for a PowerShell share holds any.</summary>
+	PowerShellShebangScript = 8
 }

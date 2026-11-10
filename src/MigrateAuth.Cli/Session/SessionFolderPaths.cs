@@ -5,11 +5,13 @@ namespace MigrateAuth.Cli.Session;
 /// <summary>
 /// Canonicalization shared by the session's two folder paths. It is one implementation used
 /// twice rather than two, so that the repository and the destination are canonicalized by the
-/// same rule - which is what lets the write boundary compare them for containment.
+/// same rule - which is what lets the write boundary compare them for containment without
+/// arguing about whose normalization was applied.
 ///
-/// The rule itself lives in <see cref="CanonicalPath"/>, which resolves links at every component of
-/// the path, so a destination reached through a directory link anywhere above it is compared in its
-/// resolved form.
+/// The rule itself belongs to the write boundary and lives in <see cref="CanonicalPath"/>, which is the
+/// type that owns it. This one delegates rather than keeping a second version, so a link is resolved at
+/// every component of the path: a destination reached through a directory link named anywhere above it
+/// is compared in its resolved form rather than as separate from the repository.
 /// </summary>
 internal static class SessionFolderPath
 {
@@ -23,11 +25,41 @@ internal static class SessionFolderPath
 	/// </summary>
 	internal static string Canonicalize(string suppliedText)
 	{
-		return CanonicalPath.Resolve(suppliedText);
+		string canonicalPath = CanonicalPath.Resolve(suppliedText);
+
+		RefuseAPathThePlatformRejectsForItsLength(canonicalPath);
+
+		return canonicalPath;
 	}
 
 	/// <summary>
-	/// The label used in output in place of the path. It is the folder's own name and
+	/// Throws <see cref="PathTooLongException"/> when the platform refuses the path for its length,
+	/// and does nothing for every other outcome, which the caller's own usability check reports.
+	///
+	/// THE PLATFORMS REFUSE A LONG PATH AT DIFFERENT MOMENTS. On Windows, making the path absolute
+	/// already throws. On Linux and macOS it does not: the path is only text until the system is
+	/// asked about it, and the existence checks that follow answer "not there" for a path the system
+	/// would not even look up - which tells the user their folder is missing when the real problem is
+	/// that the path cannot be used at all. Asking the system for the path's attributes once, here,
+	/// surfaces the refusal as the same exception on every platform, and leaves the limit to the
+	/// system that enforces it rather than to a number copied into this code.
+	/// </summary>
+	private static void RefuseAPathThePlatformRejectsForItsLength(string canonicalPath)
+	{
+		try
+		{
+			File.GetAttributes(canonicalPath);
+		}
+		catch (IOException exception) when (exception is not PathTooLongException)
+		{
+		}
+		catch (UnauthorizedAccessException)
+		{
+		}
+	}
+
+	/// <summary>
+	/// The label that is permitted in output in place of the path. It is the folder's own name and
 	/// carries no route to it, and it is stripped of anything that would act on a renderer
 	/// because the name comes from the filesystem rather than from us.
 	/// </summary>
@@ -45,9 +77,13 @@ internal static class SessionFolderPath
 /// The folder the session audits, supplied by the named option
 /// <c>--repositoryFolderPath</c>.
 ///
-/// It is a distinct type from <see cref="DocumentationDestinationFolderPath"/>, so no call site can
-/// pass one where the other is expected and still compile. Together with named options on the
-/// command line, this makes transposing the two paths unrepresentable.
+/// It is a distinct type from <see cref="DocumentationDestinationFolderPath"/> and that is the
+/// point. The two paths must arrive as named options because transposing two
+/// positional ones aims the output at the audited repository, and the write boundary
+/// catching that afterwards is a last line of defence rather than a first. Naming them makes
+/// the transposition unrepresentable on the command line; giving each its own type makes it
+/// unrepresentable in the code as well, because no call site can pass one where the other is
+/// expected and still compile.
 /// </summary>
 public readonly record struct RepositoryFolderPath
 {
@@ -59,8 +95,8 @@ public readonly record struct RepositoryFolderPath
 
 	/// <summary>
 	/// The absolute, link-resolved path. Working data only: it is what opens files and what
-	/// keys the session state file, and it is never emitted, because no absolute path appears in
-	/// anything the product writes.
+	/// keys the session state file, and it is never emitted, because no absolute
+	/// path may appear in anything the product writes.
 	/// </summary>
 	public string CanonicalPath { get; }
 
@@ -81,7 +117,8 @@ public readonly record struct RepositoryFolderPath
 /// <summary>
 /// The folder the session writes to, supplied by the named option
 /// <c>--documentationDestinationFolderPath</c> and defaulting to the working directory at
-/// launch. It holds the session state file, the report and the data artifact.
+/// launch. It holds the session state file, and later the
+/// report and the data artifact.
 /// </summary>
 public readonly record struct DocumentationDestinationFolderPath
 {

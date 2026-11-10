@@ -107,7 +107,7 @@ internal static class PublicDocumentChecks
 	}
 
 	/// <summary>Everything a registered class lacks in Part A: its heading, or any of the four labelled elements.</summary>
-	public static ImmutableArray<string> PartAClassProblems(string partA, IReadOnlyDictionary<string, DetectionRule> rulesByPatternClass)
+	public static ImmutableArray<string> PartAClassProblems(string partA, IReadOnlyDictionary<string, DetectionRule> rulesByPatternClass, string exampleFence = EXAMPLE_FENCE)
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 
@@ -121,7 +121,7 @@ internal static class PublicDocumentChecks
 			}
 			else
 			{
-				problems.AddRange(MissingElementsOf(patternClassIdentifier, section));
+				problems.AddRange(MissingElementsOf(patternClassIdentifier, section, exampleFence));
 			}
 		}
 
@@ -277,15 +277,15 @@ internal static class PublicDocumentChecks
 		}
 	}
 
-	private static ImmutableArray<string> MissingElementsOf(string patternClassIdentifier, string section)
+	private static ImmutableArray<string> MissingElementsOf(string patternClassIdentifier, string section, string exampleFence)
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 		int exampleAt = section.IndexOf(EXAMPLE_LABEL, StringComparison.Ordinal);
 		int searchAt = section.IndexOf(HOW_TO_SEARCH_LABEL, StringComparison.Ordinal);
 
-		if (exampleAt < 0 || section.IndexOf(EXAMPLE_FENCE, Math.Max(exampleAt, 0), StringComparison.Ordinal) < 0)
+		if (exampleAt < 0 || section.IndexOf(exampleFence, Math.Max(exampleAt, 0), StringComparison.Ordinal) < 0)
 		{
-			problems.Add($"{patternClassIdentifier} has no placeholder example ('{EXAMPLE_LABEL}' followed by a {EXAMPLE_FENCE} block).");
+			problems.Add($"{patternClassIdentifier} has no placeholder example ('{EXAMPLE_LABEL}' followed by a {exampleFence} block).");
 		}
 
 		if (searchAt < 0 || section.IndexOf(SEARCH_FENCE, Math.Max(searchAt, 0), StringComparison.Ordinal) < 0)

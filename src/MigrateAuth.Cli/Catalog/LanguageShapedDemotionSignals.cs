@@ -13,8 +13,9 @@ public enum FileNameMatch
 }
 
 /// <summary>
-/// How a folder name signal is compared against a path segment: the whole segment, or a suffix on the
-/// whole segment, as in the .NET project-folder convention - a segment such as <c>Product.Core.Tests</c>.
+/// How a folder name signal is compared against a path segment. A suffix match reaches the
+/// .NET project-folder convention - a segment such as <c>Product.Core.Tests</c> - which is a
+/// suffix on the whole segment rather than the whole segment itself.
 /// </summary>
 public enum FolderNameMatch
 {
@@ -69,11 +70,9 @@ public enum ContentMarkerZone
 }
 
 /// <summary>
-/// One content-shaped demotion signal:
-/// an expression the engine evaluates over the file's decoded text, never the analyzer, and the
-/// zone it is permitted to fire in. Every marker declares a zone - there is no default - because a
-/// generated-code header and a test attribute are not the same kind of claim about where the text
-/// sits.
+/// One content-shaped demotion signal: an expression the engine evaluates over the file's
+/// decoded text, never the analyzer, and the zone it is permitted to fire in. Every marker
+/// declares a zone; there is no default.
 /// </summary>
 public sealed record ContentMarker
 {
@@ -83,21 +82,18 @@ public sealed record ContentMarker
 }
 
 /// <summary>
-/// File demotion signals, language-shaped only: the language's own name,
+/// Contract element 4. File demotion signals, language-shaped only: the language's own name,
 /// folder, generation-marker and content rules.
 ///
-/// The path-shaped, language-neutral signals - a repository's <c>Deployment/</c> folder, a
-/// universal generated-file marker - belong to the base and are not suppliable here.
+/// The path-shaped, language-neutral signals belong to the shared engine and are not suppliable here.
 ///
 /// <see cref="FileNameSignals"/>, <see cref="FolderNameSignals"/> and
 /// <see cref="GenerationMarkerExpressions"/> are name-based data and not predicates: an analyzer
 /// cannot be handed a path to inspect, and nothing here can see an absolute path, because the
 /// engine evaluates these against a file name and its folder segments alone.
-/// <see cref="GenerationMarkerExpressions"/> is evaluated against the file name and folder
-/// segments, never against content.
 ///
 /// <see cref="ContentMarkers"/> is the one field evaluated against the file's decoded text. The
-/// analyzer still never receives the file: it hands over an already-constructed expression and a
+/// analyzer never receives the file: it hands over an already-constructed expression and a
 /// declared zone, and only the engine - <see cref="MigrateAuth.Cli.Recognition.FileDemotionSignals"/>,
 /// inside its caller's existing match-bound try - ever calls that expression against content.
 /// </summary>
@@ -124,11 +120,9 @@ public sealed class LanguageShapedDemotionSignals
 	public required ImmutableArray<Regex> GenerationMarkerExpressions { get; init; }
 
 	/// <summary>
-	/// Content-shaped demotion signals. Evaluated as a disjunction over
-	/// the file's decoded text, one <see cref="ContentMarkerZone"/> per marker, with no short
-	/// circuit among them: an analyzer's declared order must never decide whether a later
-	/// marker gets a chance to run, because that would make whether a pathological expression ever
-	/// trips its own match-bound timeout depend on where in this array it happens to sit.
+	/// Content-shaped demotion signals. Evaluated as a disjunction over the file's decoded text,
+	/// one <see cref="ContentMarkerZone"/> per marker, with no short circuit among them: every
+	/// marker runs whatever its position in this array.
 	/// </summary>
 	public required ImmutableArray<ContentMarker> ContentMarkers { get; init; }
 }

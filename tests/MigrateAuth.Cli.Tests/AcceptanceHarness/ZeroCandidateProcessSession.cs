@@ -14,8 +14,8 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// would grade four different runs and would still not establish that any one of them satisfied all
 /// four clauses at the same time.
 ///
-/// ONE ENVIRONMENTAL DEPENDENCY, DECLARED RATHER THAN DEFENDED AGAINST. The effective configuration
-/// is resolved from the user profile as well as the repository, and a process cannot be
+/// ONE ENVIRONMENTAL DEPENDENCY, DECLARED RATHER THAN DEFENDED AGAINST. The tool resolves the
+/// effective configuration from the user profile as well as the repository, and a process cannot be
 /// told to look elsewhere without a mechanism this fixture has no reason to build. A developer whose
 /// profile holds a <c>.migrate-auth.json</c> that disables every language would see these tests fail
 /// with exit code 6 - correctly, because that configuration refuses a session. Nothing else in a
@@ -25,7 +25,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// THE REPOSITORY IS ZERO-CANDIDATE RATHER THAN EMPTY. It holds a source file the embedded catalog
 /// attributes to nothing and a <c>CSharp</c> file carrying no anchor, so
 /// the walk enumerates, the inventory counts and attributes, and preselection admits neither. That
-/// is the condition proper; the emptier form - a repository with no files at all - is graded
+/// is the condition proper; the emptier form - a repository with no files at all - is checked
 /// separately, because the two exercise different code.
 /// </summary>
 public sealed class ZeroCandidateProcessSession : IDisposable

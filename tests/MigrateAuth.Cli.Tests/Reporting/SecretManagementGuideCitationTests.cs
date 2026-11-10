@@ -9,13 +9,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// Every base-owned place that points a reader at the Secret Management material names
+/// Every engine-owned place that points a reader at the Secret Management material names
 /// it through <see cref="SecretManagementPointer.PART_B_NAME"/>: "Secret Management (Part B of the
 /// Migration Documentation)". None says the material is delivered separately from the report, none
 /// calls it a guide, and none carries a location - the tool is offline and a citation that guessed a
 /// path or a URL would be a promise this build cannot keep.
 ///
-/// The base-owned texts are the literal-credential security note, both generic texts, the Analysis
+/// The engine-owned texts are the literal-credential security note, both generic texts, the Analysis
 /// stage's secret warning and both OAuth2 Client blocks. The `CSharp` language-owned texts are asserted
 /// too: every composed recommendation of every class under both flows, and both generic
 /// fallback texts, never say the material is delivered separately or call it a guide, and every High
@@ -30,6 +30,9 @@ public sealed class SecretManagementGuideCitationTests
 
 	/// <summary>Sixteen classes and one generic text, for each of the two flows.</summary>
 	private const int _EXPECTED_COMPOSED_TEXT_COUNT = 34;
+
+	/// <summary>Eleven classes and one generic text, for each of the two flows.</summary>
+	private const int _EXPECTED_POWERSHELL_COMPOSED_TEXT_COUNT = 24;
 
 	private static readonly string[] _citations =
 	[
@@ -104,6 +107,39 @@ public sealed class SecretManagementGuideCitationTests
 	{
 		Assert.All(
 			CSharpRenderedTexts.AllComposedTexts(),
+			text => Assert.Contains(_EXACT_NAME, text, StringComparison.Ordinal));
+	}
+
+	/// <summary>No composed `PowerShell` recommendation and no generic fallback text says the material is delivered separately or calls it a guide.</summary>
+	[Fact]
+	public void NoComposedPowerShellTextSaysDeliveredSeparatelyOrCallsItAGuide()
+	{
+		ImmutableArray<string> texts = PowerShellRenderedTexts.AllComposedTexts();
+
+		Assert.Equal(_EXPECTED_POWERSHELL_COMPOSED_TEXT_COUNT, texts.Length);
+
+		foreach (CredentialFlow flow in PowerShellRenderedTexts.Flows)
+		{
+			string fallback = PowerShellRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow];
+
+			Assert.DoesNotContain(_RETIRED_DELIVERY_PHRASE, fallback, StringComparison.OrdinalIgnoreCase);
+			Assert.DoesNotContain(_RETIRED_GUIDE_PHRASE, fallback, StringComparison.OrdinalIgnoreCase);
+			Assert.Contains(_EXACT_NAME, fallback, StringComparison.Ordinal);
+		}
+
+		foreach (string text in texts)
+		{
+			Assert.DoesNotContain(_RETIRED_DELIVERY_PHRASE, text, StringComparison.OrdinalIgnoreCase);
+			Assert.DoesNotContain(_RETIRED_GUIDE_PHRASE, text, StringComparison.OrdinalIgnoreCase);
+		}
+	}
+
+	/// <summary>Every High and Medium `PowerShell` recommendation, template or generic, names Part B.</summary>
+	[Fact]
+	public void EveryComposedPowerShellTextNamesPartBOfTheMigrationDocumentation()
+	{
+		Assert.All(
+			PowerShellRenderedTexts.AllComposedTexts(),
 			text => Assert.Contains(_EXACT_NAME, text, StringComparison.Ordinal));
 	}
 

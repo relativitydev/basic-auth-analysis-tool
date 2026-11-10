@@ -8,25 +8,31 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The findings table, the confidence summary and the credential warnings, all three owned by
-/// <c>analyze</c> rather than <c>report</c>. <see cref="Pipeline.AnalyzeStage"/> calls this type once,
-/// at the end of a completed run.
+/// THE FINDINGS TABLE, THE CONFIDENCE SUMMARY AND THE CREDENTIAL WARNINGS, ALL THREE OWNED BY <c>analyze</c> RATHER THAN
+/// <c>report</c>.
 ///
-/// The table is rendered over the same confidence threshold the report applies, through
-/// <see cref="ThresholdFilter"/>, so the console table and the report cannot disagree. Composition's
-/// full, unfiltered set still reaches <see cref="Session.SessionState"/>.
+/// <see cref="Pipeline.AnalyzeStage"/> calls this type once, at the end of a completed run.
 ///
-/// The table and the warning list are each bounded at
-/// <see cref="ConsoleFindingsTable.MAXIMUM_CONSOLE_TABLE_ROWS"/> rows. The report carries every row
-/// without a bound, and both surfaces say so when they truncate.
+/// THE TABLE IS RENDERED OVER THE CONFIGURED THRESHOLD, THE SAME ONE THE REPORT APPLIES. This type
+/// calls <see cref="ThresholdFilter"/> rather than filtering on its own terms, so the console table
+/// and the report cannot disagree about which findings they show. Composition's full, unfiltered
+/// set still reaches <see cref="Session.SessionState"/> unfiltered; this type only ever reads what
+/// composition already produced.
 ///
-/// The warning list walks the full set, never the filtered one: a credential written into source is a
-/// risk at every confidence level, and a warning that names a finding the threshold hides from the
-/// table says so.
+/// THE TABLE AND THE WARNING LIST ARE EACH BOUNDED AT
+/// <see cref="ConsoleFindingsTable.MAXIMUM_CONSOLE_TABLE_ROWS"/> ROWS. A console is read by a
+/// person watching a terminal scroll, not by a parser, and a hundred-thousand-finding
+/// volume would otherwise turn one `analyze` run into that many lines of unreadable output.
+/// The report carries every row without a bound, and both surfaces say so when they truncate.
 ///
-/// Neither surface prints the secret itself. The warning line carries the finding's location and
-/// pattern class only, and the path is escaped through <see cref="EmittedPathText"/>, the same way
-/// <see cref="ConsoleFindingsTable"/> escapes it.
+/// THE WARNING LIST WALKS THE FULL SET, NEVER THE FILTERED ONE. A credential written into source
+/// is a risk at every confidence level, so a warning can name a finding the threshold hides from
+/// the table right above it - that warning says so, so "the report lists them all" is never
+/// claimed of a set the report does not hold.
+///
+/// NEITHER SURFACE PRINTS THE SECRET ITSELF. The warning line carries the finding's location and
+/// pattern class only. The path is escaped the same way <see cref="ConsoleFindingsTable"/> escapes
+/// it, through <see cref="EmittedPathText"/>.
 /// </summary>
 public static class AnalyzeConsoleReport
 {
@@ -34,7 +40,7 @@ public static class AnalyzeConsoleReport
 	public const string FINDINGS_BY_CONFIDENCE_MESSAGE_FORMAT =
 		"By confidence: High {0:N0}, Medium {1:N0}, Low {2:N0}.";
 
-	/// <summary>Said only when the confidence threshold actually hides at least one finding from the table.</summary>
+	/// <summary>Said only when the configured threshold actually hides at least one finding from the table.</summary>
 	public const string THRESHOLD_HIDES_FINDINGS_MESSAGE_FORMAT =
 		"Showing {0:N0} of {1:N0} findings at minimum confidence level {2}.";
 
@@ -50,14 +56,14 @@ public static class AnalyzeConsoleReport
 	public const string FURTHER_FINDINGS_NOT_SHOWN_MESSAGE_FORMAT =
 		"... {0:N0} further findings are not shown here; the report lists every finding.";
 
-	/// <summary>The warning, one per literal-credential finding, in the total finding order.</summary>
+	/// <summary>The warning, one per literal-credential finding, in the report's own order.</summary>
 	public const string LITERAL_CREDENTIAL_WARNING_MESSAGE_FORMAT =
 		"Warning: {0} {1} {2}: a credential appears to be written into the source code. Treat it as compromised and rotate it. See " + SecretManagementPointer.PART_B_NAME + ".";
 
 	/// <summary>
 	/// Appended to a warning line whose finding falls below the
-	/// configured minimum confidence level: the warning walks the full set and the confidence threshold
-	/// does not apply to it, so a reader who compares this list against the report needs to know which
+	/// configured minimum confidence level: the warning walks the full set and the threshold does
+	/// not apply to it, so a reader who compares this list against the report needs to know which
 	/// warnings name a finding the report does not list.
 	/// </summary>
 	public const string BELOW_REPORTING_THRESHOLD_SUFFIX = " (below the reporting threshold; not in the report)";
@@ -188,7 +194,7 @@ public static class AnalyzeConsoleReport
 		int omittedCount = credentialFindings.Length - ConsoleFindingsTable.MAXIMUM_CONSOLE_TABLE_ROWS;
 		int omittedInReportCount = credentialFindings
 			.Skip(ConsoleFindingsTable.MAXIMUM_CONSOLE_TABLE_ROWS)
-			.Count(finding => finding.Level >= minimumConfidenceLevel);
+			.Count(finding => ThresholdFilter.IsReported(finding, minimumConfidenceLevel));
 
 		writer.WriteLine(string.Format(
 			CultureInfo.InvariantCulture,
@@ -212,6 +218,6 @@ public static class AnalyzeConsoleReport
 			location,
 			ReportVocabulary.PatternClassText(catalog, finding));
 
-		return finding.Level < minimumConfidenceLevel ? $"{warningLine}{BELOW_REPORTING_THRESHOLD_SUFFIX}" : warningLine;
+		return ThresholdFilter.IsReported(finding, minimumConfidenceLevel) ? warningLine : $"{warningLine}{BELOW_REPORTING_THRESHOLD_SUFFIX}";
 	}
 }

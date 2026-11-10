@@ -8,7 +8,7 @@ namespace MigrateAuth.Cli.Configuration;
 /// <summary>
 /// The configuration this session runs under, resolved once and never again.
 ///
-/// It is a SESSION-SCOPED CONSTANT and that is a behavioural guarantee rather than an
+/// This is a SESSION-SCOPED CONSTANT and that is a behavioural guarantee rather than an
 /// implementation convenience. Pre-flight Validation runs once, before <c>scan</c> becomes
 /// available, and is not repeated per stage invocation - so the two checks
 /// it performs are performed against this value, and every later stage reads this same value
@@ -20,7 +20,7 @@ namespace MigrateAuth.Cli.Configuration;
 /// it is passed down rather than looked up.
 ///
 /// WHAT IT DOES NOT DO: it does not filter anything. <see cref="MinimumConfidenceLevel"/> is the
-/// effective value and its provenance; applying it is the report's, because the filter runs
+/// effective value and its provenance; applying it is the report's, because the filter comes
 /// after the rubric has assigned every level and after every finding has been numbered.
 /// There is no rubric in this type to filter.
 /// </summary>
@@ -45,7 +45,8 @@ public sealed record EffectiveConfiguration
 	/// neither did. Null resolves to the working directory captured at launch,
 	/// which <see cref="Session.SessionStartup"/> owns - the fallback is not re-derived here.
 	///
-	/// It is never read from the repository's own file.
+	/// It is never read from the repository's own file, so the audited repository cannot decide
+	/// where its audit lands.
 	/// </summary>
 	public string? OutputPathText { get; init; }
 
@@ -94,9 +95,10 @@ public sealed record EffectiveConfiguration
 
 	/// <summary>
 	/// The same set as <see cref="EnabledLanguagesInDeclaredOrder"/>, as a set rather
-	/// than an ordered sequence - built once per caller and held, never recomputed per file, which is
-	/// what makes it safe to use as Scan's own per-file candidate-selection gate over a repository at
-	/// volume.
+	/// than an ordered sequence. IT IS BUILT ON EVERY ACCESS and not cached: this is a record, and a
+	/// copy made with a <c>with</c> expression would carry a cached set that no longer matches its
+	/// changed <see cref="LanguageEnablement"/>. A caller that consults it per file reads the
+	/// property once and holds the result, as Scan does for its per-file candidate-selection gate.
 	/// </summary>
 	public IReadOnlySet<AssessedLanguage> EnabledLanguageSet => EnabledLanguagesInDeclaredOrder.ToHashSet();
 }

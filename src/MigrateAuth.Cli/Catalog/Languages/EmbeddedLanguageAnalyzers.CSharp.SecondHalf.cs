@@ -3,13 +3,13 @@ using System.Text.RegularExpressions;
 namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
-/// The second half of the <c>CSharp</c> pattern expressions, CS-011..CS-018, declared as a second
-/// partial declaration of <see cref="CSharpPatternExpressions"/>. <c>CSharpAnalyzer</c> is declared
-/// <c>file</c>-scoped in the first file and therefore cannot be split: every <c>BuildCS011</c>..<c>BuildCS018</c>
-/// <see cref="DetectionRule"/> builder stays there, beside the ten registered by the first half.
+/// The second half of the C# analyzer's expressions: the eight expressions CS-011..CS-018, in a second
+/// partial declaration of <see cref="CSharpPatternExpressions"/>. <c>CSharpAnalyzer</c> itself is declared
+/// <c>file</c>-scoped in the first file, so every <c>BuildCS011</c>..<c>BuildCS018</c> <see cref="DetectionRule"/>
+/// builder stays there, beside the ten registered by the first half.
 ///
 /// Every expression here declares <c>matchTimeoutMilliseconds</c> equal to
-/// <see cref="RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS"/>, exactly like the ten before them.
+/// <see cref="RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS"/>.
 /// </summary>
 internal static partial class CSharpPatternExpressions
 {
@@ -39,55 +39,104 @@ internal static partial class CSharpPatternExpressions
 	private const string _HEADER_ENUM_MEMBER = @"HttpRequestHeader\.Authorization";
 
 	/// <summary>
+	/// A scheme held in a named constant, written bare (<c>SCHEME</c>) or qualified by a type or namespace path
+	/// with an optional <c>global::</c> before it (<c>AuthConstants.SCHEME</c>). The scheme group captures the
+	/// whole spelling, qualifier included, so a qualified constant is looked up under that full name, which
+	/// the file's own declarations never carry: it is indeterminate, never resolved by its last segment, and
+	/// the finding lands at Medium where composition already puts it. A bare constant the file declares is
+	/// resolved. The identifier loop and the final identifier cannot overlap, because the loop's
+	/// items end in a dot. A qualified spelling is read only when it passes
+	/// <see cref="_QUALIFIED_SCHEME_BOUND"/>; a bare constant never meets the bound.
+	/// </summary>
+	private const string _QUALIFIED_NAMED_CONSTANT = _QUALIFIED_SCHEME_BOUND + _TYPE_QUALIFIER + _IDENTIFIER;
+
+	/// <summary>
+	/// The bound on a qualified named constant: a qualified spelling does not match when
+	/// any segment of it, the last included, contains <c>Bearer</c>, <c>Negotiate</c>, <c>Digest</c>,
+	/// <c>Ntlm</c> or <c>Kerberos</c>, compared without regard to case, because a qualified constant is never
+	/// resolved and would otherwise be reported at Medium for another scheme. It is a negative lookahead at the
+	/// start of the spelling that walks the spelling's own dotted segments, and it opens on nothing new: the
+	/// header write that precedes the constant is the anchor. It applies to a spelling that has a qualifier
+	/// (<c>global::</c> or a segment and a dot) only, which the inner positive lookahead tests, so a bare
+	/// constant is not bounded.
+	/// </summary>
+	private const string _QUALIFIED_SCHEME_BOUND =
+		@"(?!(?i:(?=(?:global::|" + _IDENTIFIER + @"\.))(?:global::)?(?:" + _IDENTIFIER + @"\.)*[A-Za-z0-9_]*(?:" + _OTHER_SCHEME_WORDS + @")))";
+
+	/// <summary>The scheme words that bound a qualified named constant, as an alternation.</summary>
+	private const string _OTHER_SCHEME_WORDS = @"Bearer|Negotiate|Digest|Ntlm|Kerberos";
+
+	/// <summary>
+	/// A header value that holds the scheme constant in an interpolation hole and the credential in a second
+	/// hole, <c>$"{SCHEME} {credential}"</c>, the shape the header-literal class reads for a bare constant. The
+	/// alternative opens on its own literal, and the text between the two holes holds no brace or quote. The
+	/// scheme group takes the qualified spelling (<see cref="_QUALIFIED_NAMED_CONSTANT"/>), bounded as the
+	/// concatenated spelling is.
+	/// </summary>
+	private const string _INTERPOLATED_NAMED_CONSTANT_SCHEME_VALUE =
+		@"\$""\{\s*(?<scheme>" + _QUALIFIED_NAMED_CONSTANT + @")\s*\}[^{}""]*\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}""";
+
+	/// <summary>
 	/// The two writes CS-012 reads on the header collection besides the indexer assignment: <c>Add</c> and the
 	/// replacing <c>Set</c>, each taking the enumeration member and then the value.
 	/// </summary>
 	private const string _ENUM_HEADER_WRITE_METHOD_NAMES = @"(?:Add|Set)";
 
 	/// <summary>
-	/// CS-012. Anchored on the <c>HttpRequestHeader.Authorization</c> enum member. The rule requires
-	/// an assignment TO the indexer - <c>=</c> immediately after the closing bracket - never a read:
-	/// a read has the indexer on the right of an assignment, never followed by one. Four value shapes,
-	/// mirroring CS-006's own so the shared <see cref="RecognitionEnginePolicy"/> scheme verdict
-	/// machinery applies: a literal-prefix scheme concatenation and a named-constant scheme concatenation,
-	/// each ending in a credential accepting <see cref="_ARGUMENT_EXPRESSION"/>, so a member-access chain
-	/// or a single invocation is captured whole; a FULLY LITERAL single string carrying both the scheme and
-	/// the credential with no concatenation at all (e.g. <c>"Basic ZGVtbzpodW50ZXIy"</c>), optionally
-	/// opened with a leading <c>$</c>, since <c>{</c> is excluded from
-	/// <see cref="_FULLY_LITERAL_CREDENTIAL_TOKEN"/>; and a PARTLY LITERAL single string, also optionally
-	/// opened with <c>$</c>, followed by a concatenated expression (e.g. <c>"Basic abc" + suffix</c>), whose
-	/// credential group spans into the appended expression, so the literal-credential signal reads false
-	/// even though the finding still fires. A verbatim, raw or interpolated-raw literal is not reached - see
-	/// <see cref="LanguageIdentification.DeclaredUnsupportedCoverage"/>. The fully literal shape's credential
-	/// cannot be mistaken for the literal-prefix concatenation shape because that shape requires a closing
-	/// quote immediately after the scheme word (optionally preceded by whitespace) where this shape requires
-	/// a non-quote, non-whitespace token character instead.
-	///
-	/// A fifth value shape is the value produced by a call to a helper named for the scheme
-	/// (<see cref="_SCHEME_NAMED_HELPER_CALL"/>): the assignment then carries no literal scheme word,
-	/// so the match has no <c>scheme</c> group and no <c>credential</c> group, the scheme verdict reads as
-	/// indeterminate and the literal-credential signal as false.
+	/// CS-012. Anchored on the <c>HttpRequestHeader.Authorization</c> enum member, in an assignment TO the
+	/// indexer - <c>=</c> immediately after the closing bracket - never a read. The value takes these shapes, all
+	/// read by the shared <see cref="RecognitionEnginePolicy"/> scheme verdict: a literal-prefix scheme
+	/// concatenation and a named-constant scheme concatenation, each ending in a credential of
+	/// <see cref="_ARGUMENT_EXPRESSION"/>; a fully literal single string carrying both the scheme and the
+	/// credential, <c>"Basic ZGVtbzpodW50ZXIy"</c>, optionally opened with <c>$</c>, whose credential is
+	/// <see cref="_FULLY_LITERAL_CREDENTIAL_TOKEN"/>; a partly literal string followed by a concatenated
+	/// expression, <c>"Basic abc" + suffix</c>, optionally opened with <c>$</c>, whose credential group crosses
+	/// into code, so the literal-credential signal reads false; and a call to a helper named for the scheme
+	/// (<see cref="_SCHEME_NAMED_HELPER_CALL"/>), which has no <c>scheme</c> group and no <c>credential</c> group,
+	/// so the scheme verdict reads as indeterminate and the literal-credential signal as false. A verbatim, raw
+	/// or interpolated-raw literal is not reached (see <see cref="LanguageIdentification.DeclaredUnsupportedCoverage"/>).
+	/// The enumeration member may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>); the anchor group is the member itself after the qualifier. The scheme held
+	/// in a named constant takes three spellings, each ending in a credential of the shared argument form: the
+	/// bare constant, <c>SCHEME + " " + credential</c>; the constant written qualified, in the concatenated
+	/// spelling (<see cref="_QUALIFIED_NAMED_CONSTANT"/>); and the constant in an interpolation hole,
+	/// <c>$"{SCHEME} {credential}"</c>, bare or qualified (<see cref="_INTERPOLATED_NAMED_CONSTANT_SCHEME_VALUE"/>).
+	/// A qualified spelling that names another scheme in any segment is declined by
+	/// <see cref="_QUALIFIED_SCHEME_BOUND"/>. The value may also be an interpolated string with the scheme word
+	/// literal and one hole for the credential, <c>$"Basic {credential}"</c>, which mirrors the header-literal
+	/// class's first alternative; the scheme verdict resolves its literal word directly. A constant
+	/// the file declares is resolved, and a resolved scheme other than Basic suppresses the finding; a
+	/// constant it does not declare, a qualified spelling included, is indeterminate and the class lands at
+	/// Medium. Two spellings are declared unsupported, and no alternative reads them: a constant that carries
+	/// the scheme and the space and is concatenated directly with the credential, and
+	/// <c>string.Format("{0} {1}", SCHEME, credential)</c>. The member reached through a <c>using static</c>
+	/// directive without its type is declared unsupported too.
 	/// </summary>
 	[GeneratedRegex(
-		@"\.Headers\s*(?:\[\s*(?<construct>" + _HEADER_ENUM_MEMBER + @")\s*\]\s*=|\.\s*" + _ENUM_HEADER_WRITE_METHOD_NAMES + @"\s*\(\s*(?<construct>" + _HEADER_ENUM_MEMBER + @")\s*,)\s*(?:""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*""\s*\+\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @")""(?!\s*\+)|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @"""\s*\+\s*(?:" + _ARGUMENT_EXPRESSION + @"))|(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*\+\s*""\s*""\s*\+\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")|" + _SCHEME_NAMED_HELPER_CALL + @")",
+		@"\.Headers\s*(?:\[\s*" + _TYPE_QUALIFIER + @"(?<construct>" + _HEADER_ENUM_MEMBER + @")\s*\]\s*=|\.\s*" + _ENUM_HEADER_WRITE_METHOD_NAMES + @"\s*\(\s*" + _TYPE_QUALIFIER + @"(?<construct>" + _HEADER_ENUM_MEMBER + @")\s*,)\s*(?:""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*""\s*\+\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")|\$""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s*\{\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\}""|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @")""(?!\s*\+)|\$?""(?<scheme>[A-Za-z_][A-Za-z0-9_]*)\s+(?<credential>" + _FULLY_LITERAL_CREDENTIAL_TOKEN + @"""\s*\+\s*(?:" + _ARGUMENT_EXPRESSION + @"))|(?<scheme>" + _QUALIFIED_NAMED_CONSTANT + @")\s*\+\s*""\s*""\s*\+\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")|" + _INTERPOLATED_NAMED_CONSTANT_SCHEME_VALUE + @"|" + _SCHEME_NAMED_HELPER_CALL + @")",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex HttpRequestHeaderEnumAuthorizationConstruction();
 
 	/// <summary>
-	/// CS-013. The required part is the binding assignment
-	/// <c>ClientCredentialType = HttpClientCredentialType.Basic;</c>, anchored on the credential-type
+	/// CS-013. The required part is the binding assignment the catalog shows -
+	/// <c>ClientCredentialType = HttpClientCredentialType.Basic;</c> - anchored on the credential-type
 	/// member. The credential capture is OPTIONAL, reaching for the
-	/// <c>ClientCredentials.UserName.Password</c> assignment in a DIFFERENT statement, within the same
-	/// five-line proximity bound as CS-016, CS-017 and CS-019.
+	/// <c>ClientCredentials.UserName.Password</c> assignment this class's own definition places in a
+	/// DIFFERENT statement, within the same five-line proximity bound as CS-016, CS-017 and CS-019.
 	///
 	/// The five-line window is written as nested alternations rather than as a lazy bounded loop under an
 	/// optional group, because the <c>[GeneratedRegex]</c> source generator does not terminate on that shape
 	/// (every <see cref="Match.NextMatch"/> returns the same match). Every exit of the outer group is "password
 	/// now" or "try one more line", never "loop exhausted, credential absent". Keep it unrolled.
+	///
+	/// The enumeration member may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>); the anchor group is the member itself after the qualifier. The member
+	/// reached through a <c>using static</c> directive without its type names no enumeration to anchor on and is
+	/// declared unsupported.
 	/// </summary>
 	private const string _CS_013_BINDING_ANCHOR =
-		@"\bClientCredentialType\s*=\s*(?<construct>HttpClientCredentialType\.Basic)\s*;";
+		@"\bClientCredentialType\s*=\s*" + _TYPE_QUALIFIER + @"(?<construct>HttpClientCredentialType\.Basic)\s*;";
 
 	/// <summary>One window line, consumed whole - the same shape CS-009/CS-016/CS-017/CS-018/CS-019 use.</summary>
 	private const string _CS_013_WINDOW_LINE = @"[^\n]*\n";
@@ -111,7 +160,7 @@ internal static partial class CSharpPatternExpressions
 
 	/// <summary>
 	/// The outer, OPTIONAL exit: password on the binding's own line, or up to four further lines
-	/// before it - five lines total - and absent otherwise. The only optional
+	/// before it - five lines total, matching that bound - and absent otherwise. The only optional
 	/// group in this expression; everything nested inside it is a required alternation, never a loop.
 	/// </summary>
 	private const string _CS_013_OPTIONAL_PASSWORD_UP_TO_FIVE_LINES_LATER =
@@ -124,7 +173,7 @@ internal static partial class CSharpPatternExpressions
 	public static partial Regex WcfBasicTransportCredentialConstruction();
 
 	/// <summary>
-	/// CS-014. A method whose name names the scheme, taking two credential arguments, anchored on the
+	/// CS-014. A method named for the scheme taking two credential arguments, anchored on the archetype
 	/// spelling <c>WithBasicAuth</c>.
 	/// </summary>
 	[GeneratedRegex(
@@ -142,9 +191,16 @@ internal static partial class CSharpPatternExpressions
 	/// A line comment or a block comment may sit between any two tokens of the argument list
 	/// (<see cref="_ARGUMENT_LIST_GAP"/>), and the third argument accepts any expression with no comma at its
 	/// top level (<see cref="_LOOSE_ARGUMENT_EXPRESSION"/>). The first two stay on <see cref="_ARGUMENT_EXPRESSION"/>.
+	///
+	/// The type may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>), and may be declared with the target-typed creation,
+	/// <c>ImportAPI importApi = new(user, password, url)</c>, at the same arity, where the declared type stands
+	/// directly in front of the variable. The static factory that takes no credential pair is not a creation and
+	/// is still not read. Declared unsupported: a type renamed by a <c>using</c> alias, and a target-typed
+	/// creation where the type name is not in front of the variable.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+(?<construct>ImportAPI)\b\s*\(" + _ARGUMENT_LIST_GAP + @"(?<user>" + _ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"," + _ARGUMENT_LIST_GAP + @"(?<credential>" + _ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"," + _ARGUMENT_LIST_GAP + @"(?<url>" + _LOOSE_ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"\)",
+		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>ImportAPI)|\b(?<construct>ImportAPI)" + _TARGET_TYPED_CREATION_SUFFIX + @")\b\s*\(" + _ARGUMENT_LIST_GAP + @"(?<user>" + _ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"," + _ARGUMENT_LIST_GAP + @"(?<credential>" + _ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"," + _ARGUMENT_LIST_GAP + @"(?<url>" + _LOOSE_ARGUMENT_EXPRESSION + @")" + _ARGUMENT_LIST_GAP + @"\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex SdkConstructorWithUserAndPasswordConstruction();
@@ -153,9 +209,14 @@ internal static partial class CSharpPatternExpressions
 	/// CS-016. An object initializer carrying one half (<c>UserName</c>, anchored as <c>construct</c>) and the
 	/// other half arriving by a later <c>.Password</c> property assignment, within five lines. The window is
 	/// required: a match without the second statement is not an instance of the class.
+	///
+	/// The type may be written qualified, with <c>global::</c> or with a partial namespace, and constructor
+	/// parentheses may stand before the initializer, <c>new NetworkCredential() { UserName = user }</c>
+	/// (<see cref="_NETWORK_CREDENTIAL_INITIALIZER_OPENING"/>). Declared unsupported: a type renamed by a
+	/// <c>using</c> alias, and the target-typed <c>NetworkCredential credential = new() { UserName = user }</c>.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+NetworkCredential\s*\{[^{}]*?(?<construct>UserName)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")[^{}]*?\}(?:[^\n]*\n){0,5}?[^\n]*?\.Password\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
+		@"\bnew\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?(?<construct>UserName)\s*=\s*(?<user>" + _ARGUMENT_EXPRESSION + @")[^{}]*?\}(?:[^\n]*\n){0,5}?[^\n]*?\.Password\s*=\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex CredentialAssembledAcrossStatementsConstruction();

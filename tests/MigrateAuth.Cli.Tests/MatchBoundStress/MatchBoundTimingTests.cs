@@ -10,23 +10,24 @@ using MigrateAuth.Cli.Tests.Recognition;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace MigrateAuth.Cli.Tests.Calibration;
+namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
-/// The match-bound calibration run as part of the suite, so that the property it
+/// The match-bound timing procedure run as part of the suite, so that the property it
 /// guarantees is re-checked on every run and the table it produces can be regenerated on demand.
 ///
 /// WHAT THIS ASSERTS, AND WHAT IT DELIBERATELY DOES NOT. It asserts that every shape respects the
 /// reader's ceilings, that no expression's own timeout fired, that no terminating shape's worst
-/// per-file time reaches the bound in force - the property the calibration guarantees, which
+/// per-file time reaches the bound in force - the property this procedure guarantees, which
 /// the volume proofs already assert over their own fixtures - and that the enumerations which do
 /// not terminate are exactly the ones listed in this fixture, so that a new one
-/// fails here and a fixed one fails here too and forces this shape back into the calibration. It
+/// fails here and a fixed one fails here too and forces this shape back into the procedure. It
 /// does not assert the safety multiple: that is a statement about a DIFFERENT, slower machine, and
-/// a test that failed on a fast one for it would be asserting nothing.
+/// a test that failed on a fast one for it would be asserting nothing. The multiple, the figures and
+/// the value derived from them are recorded with the timing table, which states the basis.
 /// </summary>
-[Collection(TimingSensitiveCalibrationCollection.NAME)]
-public sealed class MatchBoundCalibrationTests
+[Collection(TimingSensitiveStressCollection.NAME)]
+public sealed class MatchBoundTimingTests
 {
 	/// <summary>
 	/// The multiple of the worst benign per-file time the bound is set at.
@@ -37,17 +38,17 @@ public sealed class MatchBoundCalibrationTests
 	internal const int ROUNDING_STEP_IN_MILLISECONDS = 250;
 
 	/// <summary>
-	/// When set, names the file the calibration table is also written to, so a calibration run
+	/// When set, names the file the timing table is also written to, so a timing run
 	/// leaves a record outside the test log. Unset, the table goes to the test output only.
 	/// </summary>
-	internal const string REPORT_PATH_VARIABLE_NAME = "MIGRATE_AUTH_CALIBRATION_REPORT";
+	internal const string REPORT_PATH_VARIABLE_NAME = "MIGRATE_AUTH_MATCH_BOUND_REPORT";
 
 	/// <summary>
 	/// When set, names a folder the stress shapes are also written into as source files, so the
 	/// published Native AOT binary can be run over the same set as a real process and its artifact
 	/// read for match-bound trips at the value in force.
 	/// </summary>
-	internal const string STRESS_FOLDER_VARIABLE_NAME = "MIGRATE_AUTH_CALIBRATION_STRESS_FOLDER";
+	internal const string STRESS_FOLDER_VARIABLE_NAME = "MIGRATE_AUTH_MATCH_BOUND_STRESS_FOLDER";
 
 	private const string _STRESS_FILE_NAME_FORMAT = "{0}.cs";
 
@@ -57,6 +58,8 @@ public sealed class MatchBoundCalibrationTests
 
 	private const string _CS_007 = "CS-007";
 
+	private const string _CS_009 = "CS-009";
+
 	private const string _CS_019 = "CS-019";
 
 	private const string _MATCH_DENSITY_SHAPE_NAME = "every-class-at-match-density";
@@ -64,14 +67,15 @@ public sealed class MatchBoundCalibrationTests
 	private const string _OPEN_WINDOW_SHAPE_NAME = "open-proximity-windows";
 
 	/// <summary>
-	/// The (shape, rule) enumerations that do not terminate. Empty. Recorded rather than tolerated: the
-	/// set must match exactly, so a new non-terminating pair fails here.
+	/// The (shape, rule) enumerations that do not terminate. Empty: every rule's enumeration terminates
+	/// on every shape. Recorded rather than tolerated: the set must match exactly, so a new
+	/// non-terminating pair fails here.
 	/// </summary>
-	private static readonly ImmutableArray<string> _NON_TERMINATING_ENUMERATIONS_RAISED_ON_REL_31 = [];
+	private static readonly ImmutableArray<string> _KNOWN_NON_TERMINATING_ENUMERATIONS = [];
 
 	private readonly ITestOutputHelper _output;
 
-	public MatchBoundCalibrationTests(ITestOutputHelper output)
+	public MatchBoundTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}
@@ -82,10 +86,10 @@ public sealed class MatchBoundCalibrationTests
 		CSharpRecognitionHarness harness = new();
 		ImmutableArray<MatchBoundShapeTiming> timings =
 		[
-			.. MatchBoundStressSet.Build().Select(shape => MatchBoundCalibration.Measure(harness, shape))
+			.. MatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(harness, shape))
 		];
 
-		string report = MatchBoundCalibration.Describe(timings, DECLARED_SAFETY_MULTIPLE, ROUNDING_STEP_IN_MILLISECONDS);
+		string report = MatchBoundTimingHarness.Describe(timings, DECLARED_SAFETY_MULTIPLE, ROUNDING_STEP_IN_MILLISECONDS);
 		_output.WriteLine(report);
 		WriteTheReportWhereRequested(report);
 		WriteTheStressSetWhereRequested();
@@ -100,7 +104,7 @@ public sealed class MatchBoundCalibrationTests
 			timing => Assert.True(
 				timing.WorstFileMilliseconds < RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS,
 				timing.ShapeName));
-		Assert.Equal(_NON_TERMINATING_ENUMERATIONS_RAISED_ON_REL_31.ToArray(), NonTerminatingEnumerations(timings).ToArray());
+		Assert.Equal(_KNOWN_NON_TERMINATING_ENUMERATIONS.ToArray(), NonTerminatingEnumerations(timings).ToArray());
 	}
 
 	/// <summary>
@@ -118,6 +122,22 @@ public sealed class MatchBoundCalibrationTests
 	}
 
 	/// <summary>
+	/// The windows added by the target-typed declarations and by the identifier-rooted pair halves, each as its
+	/// rule, the statement that opens it and the statement that closes it.
+	/// </summary>
+	public static IEnumerable<object[]> WindowsAddedByTheTargetTypedAndRootedForms()
+	{
+		return
+		[
+			[_CS_007, MatchBoundStressSet.TARGET_TYPED_HANDLER_WINDOW_OPENER, MatchBoundStressSet.TARGET_TYPED_HANDLER_WINDOW_CLOSER],
+			[_CS_019, MatchBoundStressSet.TARGET_TYPED_MAIL_WINDOW_OPENER, MatchBoundStressSet.TARGET_TYPED_MAIL_WINDOW_CLOSER],
+			[_CS_019, MatchBoundStressSet.TARGET_TYPED_SINK_FIRST_WINDOW_OPENER, MatchBoundStressSet.TARGET_TYPED_SINK_FIRST_WINDOW_CLOSER],
+			[_CS_019, MatchBoundStressSet.TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_OPENER, MatchBoundStressSet.TARGET_TYPED_CREDENTIAL_FIRST_WINDOW_CLOSER],
+			[_CS_009, MatchBoundStressSet.ROOTED_PAIR_WINDOW_OPENER, MatchBoundStressSet.ROOTED_PAIR_WINDOW_CLOSER]
+		];
+	}
+
+	/// <summary>
 	/// EACH NEW WINDOW IS REGISTERED AS TERMINATING. The window sits in the match-density shape
 	/// closed and in the open-window shape never closed, its rule recognizes the closed form, and its
 	/// rule's enumeration advances over both shapes - so a regression that made one of these windows
@@ -125,6 +145,7 @@ public sealed class MatchBoundCalibrationTests
 	/// </summary>
 	[Theory]
 	[MemberData(nameof(AddedStressWindows))]
+	[MemberData(nameof(WindowsAddedByTheTargetTypedAndRootedForms))]
 	public void AnAddedStressWindowIsInTheStressSetAndItsRuleTerminatesThere(string patternClass, string opener, string closer)
 	{
 		CSharpRecognitionHarness harness = new();
@@ -139,7 +160,7 @@ public sealed class MatchBoundCalibrationTests
 		Assert.All(
 			new[] { closedShape, openShape },
 			shape => Assert.True(
-				MatchBoundCalibration.EnumerationAdvances(expression, RecognitionHarness.Normalize(shape.Text)),
+				MatchBoundTimingHarness.EnumerationAdvances(expression, RecognitionHarness.Normalize(shape.Text)),
 				patternClass + _PAIR_SEPARATOR + shape.Name));
 	}
 

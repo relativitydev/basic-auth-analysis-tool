@@ -7,7 +7,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Session;
 
 /// <summary>
-/// The state file is written atomically with restrictive
+/// The state file is the sharp part of the data invariant: it is written atomically with restrictive
 /// permissions, named by a keyed hash of the repository path, carries the root as a label
 /// rather than as a path, and is read back as untrusted input where any anomaly starts a fresh
 /// session instead of failing.
@@ -26,7 +26,7 @@ public sealed class SessionStateStoreTests
 
 	private const int _MANY_CANDIDATES = 500;
 
-	/// <summary>An oversize description that is not true, which the store must no longer emit.</summary>
+	/// <summary>A text the oversize description must not carry, because it is not true.</summary>
 	private const string _RETIRED_OVERSIZE_TEXT = "larger than any session this tool writes";
 	/// <summary>
 	/// The schema version is a placeholder rather than a literal, so that these fixtures follow
@@ -248,10 +248,11 @@ public sealed class SessionStateStoreTests
 	}
 
 	/// <summary>
-	/// A document written by an older schema without persisted findings must start a fresh session
-	/// rather than read as a current document with no findings. The two are different claims - an
-	/// analysis that produced nothing versus an analysis whose results this build cannot see - and a
-	/// report must never present the second as the first.
+	/// The reason for the version existing at all: a document written at the schema
+	/// before findings were persisted must start a fresh session rather than read as a
+	/// current document with no findings. The two are different claims - an analysis that produced
+	/// nothing versus an analysis whose results this build cannot see - and a report must never
+	/// present the second as the first.
 	/// </summary>
 	[Fact]
 	public void DocumentAtThePreviousSchemaVersionStartsAFreshSession()
@@ -282,9 +283,9 @@ public sealed class SessionStateStoreTests
 	}
 
 	/// <summary>
-	/// Over an actual version boundary rather than a synthetic offset: a session persisted under
-	/// catalog version 1.0.0 starts fresh once the catalog carries
-	/// <see cref="LanguageCatalog.CurrentVersion"/>.
+	/// The concrete case the catalog version in the state exists for, over an actual version boundary
+	/// rather than a synthetic offset: a session persisted under catalog version 1.0.0 starts fresh
+	/// under the version <see cref="LanguageCatalog.CurrentVersion"/> carries.
 	/// </summary>
 	[Fact]
 	public void DocumentPersistedUnderTheBaseVersionOneZeroZeroStartsAFreshSessionUnderTheBumpedVersion()

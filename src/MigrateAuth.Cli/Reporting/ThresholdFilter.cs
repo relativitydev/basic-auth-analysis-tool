@@ -7,22 +7,24 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The confidence threshold, applied here and nowhere earlier.
+/// THE CONFIGURED THRESHOLD, APPLIED HERE AND NOWHERE EARLIER.
 ///
-/// The threshold does not enter the rubric: the rubric assigns the same level to the same construct
-/// whatever the configuration says, and configuration decides only which assigned levels appear. That
-/// is why this component sits at the render boundary rather than inside recognition, classification
-/// or composition - <see cref="FindingComposition"/> does not read the configuration at all.
+/// The rubric assigns the same level to the same construct whatever the configuration says, and
+/// configuration decides only WHICH ASSIGNED LEVELS APPEAR. That is why this component exists at
+/// the render boundary rather than inside recognition, inside classification, or inside
+/// composition - <see cref="FindingComposition"/> does not read the configuration at all.
 ///
-/// It removes rows and never renumbers them. Identifiers are assigned over the full ordered set
-/// before anything is filtered, so a filtered report shows gaps in its sequence; a finding's
-/// identifier is never a function of the reader's configuration file. Nothing here touches
+/// IT REMOVES ROWS AND NEVER RENUMBERS THEM. Identifiers are assigned over the FULL ordered set
+/// before anything is filtered, so a filtered report shows gaps in its sequence. Renumbering would
+/// make a finding's identifier a function of the reader's configuration file and move the key a
+/// comparison runs against. Nothing here touches
 /// <see cref="Finding.Identifier"/> or <see cref="Finding.SequentialIndex"/>, and there is no
 /// overload that could.
 ///
-/// It is lazy. The renderers stream, and a filtered set materialized into a second array before
-/// writing would hold a second copy of every finding. The sequence is enumerated once per group and
-/// never collected.
+/// IT IS LAZY, AND THAT IS NOT A MICRO-OPTIMIZATION. The renderers stream: a filtered set
+/// materialized into a second array before writing would hold a second copy of up to a hundred
+/// thousand findings at the exact moment the write is meant to stay incremental. The
+/// sequence is enumerated once per group and never collected.
 /// </summary>
 public static class ThresholdFilter
 {
@@ -32,7 +34,17 @@ public static class ThresholdFilter
 	/// </summary>
 	public static IEnumerable<Finding> Apply(ImmutableArray<Finding> findings, ConfidenceLevel minimumLevel)
 	{
-		return findings.Where(finding => finding.Level >= minimumLevel);
+		return findings.Where(finding => IsReported(finding, minimumLevel));
+	}
+
+	/// <summary>
+	/// Whether one finding appears in output at the configured minimum - the single place the
+	/// comparison is written, so a caller that tests findings one at a time cannot come out
+	/// differently from <see cref="Apply"/>.
+	/// </summary>
+	public static bool IsReported(Finding finding, ConfidenceLevel minimumLevel)
+	{
+		return finding.Level >= minimumLevel;
 	}
 
 	/// <summary>
@@ -60,7 +72,7 @@ public static class ThresholdFilter
 	}
 
 	/// <summary>
-	/// One destination-certainty group of the reported set, in the total finding order.
+	/// One destination-certainty group of the reported set, in the report's total order.
 	/// Filtering never reorders: the sequence is walked, not sorted.
 	/// </summary>
 	public static IEnumerable<Finding> InGroup(

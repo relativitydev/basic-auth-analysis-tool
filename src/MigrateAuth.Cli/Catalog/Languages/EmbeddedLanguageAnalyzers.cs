@@ -3,16 +3,12 @@ using System.Collections.Immutable;
 namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
-/// Every language catalog ends up embedded in the same binary, so the registration
-/// shape matters: one partial file per language, and one line here to register it. An
-/// expression error in one language is then confined to that language's file instead of
-/// sitting in a file all eight have to share.
+/// One partial file per language, and one line here to register it.
 ///
 /// The declarations below are partial methods with no body of their own. A language whose
-/// file has not been written yet simply contributes nothing, and the registration list does
-/// not have to be edited twice to add one.
+/// file does not implement one contributes nothing.
 ///
-/// The embedded catalog is exactly <c>CSharp</c> in every build: the shipped binary is the
+/// The embedded catalog is exactly <c>CSharp</c> and <c>PowerShell</c> in every build: the shipped binary is the
 /// tested binary, and no reference language is registered here.
 /// </summary>
 public static partial class EmbeddedLanguageAnalyzers
@@ -23,9 +19,12 @@ public static partial class EmbeddedLanguageAnalyzers
 		List<ILanguageAnalyzer> analyzers = [];
 
 		AddCSharpAnalyzer(analyzers);
+		AddPowerShellAnalyzer(analyzers);
 
 		return [.. analyzers];
 	}
 
 	static partial void AddCSharpAnalyzer(ICollection<ILanguageAnalyzer> analyzers);
+
+	static partial void AddPowerShellAnalyzer(ICollection<ILanguageAnalyzer> analyzers);
 }

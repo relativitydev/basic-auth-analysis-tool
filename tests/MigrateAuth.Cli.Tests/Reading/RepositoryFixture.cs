@@ -15,9 +15,9 @@ namespace MigrateAuth.Cli.Tests.Reading;
 ///
 /// The walk's whole reason for existing is that a denial behaves differently from a success, and
 /// a mocked filesystem would be a model of the behaviour under test rather than the behaviour.
-/// So the fixture plants the conditions - a denied file, a denied directory, a link, an oversize
+/// So the fixture seeds the conditions - a denied file, a denied directory, a link, an oversize
 /// file, an over-long line, a two-byte encoding, an excluded folder name, a clean file - and the
-/// tests reconcile what the walk reported against what was planted.
+/// tests reconcile what the walk reported against what was seeded.
 /// </summary>
 internal sealed class RepositoryFixture : IDisposable
 {
@@ -92,21 +92,21 @@ internal sealed class RepositoryFixture : IDisposable
 		return new RepositoryFixture(CanonicalPath.Resolve(rootPath));
 	}
 
-	/// <summary>Every planted condition, in one tree.</summary>
+	/// <summary>Every seeded condition, in one tree.</summary>
 	internal static RepositoryFixture CreateWithEveryCondition()
 	{
 		RepositoryFixture fixture = CreateEmpty();
 
 		fixture.WriteText(CLEAN_FILE_NAME, CLEAN_FILE_CONTENT);
 		fixture.WriteText(CARRIAGE_RETURN_FILE_NAME, "first\r\nsecond\rthird\n");
-		fixture.PlantOversizeFile();
-		fixture.PlantOverLongLine();
-		fixture.PlantMarklessTwoByteFile();
-		fixture.PlantBinaryFile();
-		fixture.PlantExcludedDirectory();
-		fixture.PlantLinkedDirectory();
-		fixture.PlantDeniedFile();
-		fixture.PlantDeniedDirectory();
+		fixture.SeedOversizeFile();
+		fixture.SeedOverLongLine();
+		fixture.SeedMarklessTwoByteFile();
+		fixture.SeedBinaryFile();
+		fixture.SeedExcludedDirectory();
+		fixture.SeedLinkedDirectory();
+		fixture.SeedDeniedFile();
+		fixture.SeedDeniedDirectory();
 
 		return fixture;
 	}
@@ -199,7 +199,7 @@ internal sealed class RepositoryFixture : IDisposable
 		}
 	}
 
-	private void PlantOversizeFile()
+	private void SeedOversizeFile()
 	{
 		WriteBytes(
 			OVERSIZE_FILE_NAME,
@@ -211,7 +211,7 @@ internal sealed class RepositoryFixture : IDisposable
 	/// is the LAST one - the ceiling has to catch a file it only breaches near the end, which is
 	/// the case a check that gave up early would miss.
 	/// </summary>
-	private void PlantOverLongLine()
+	private void SeedOverLongLine()
 	{
 		string overLongLine = new(
 			_FILLER_CHARACTER,
@@ -224,14 +224,14 @@ internal sealed class RepositoryFixture : IDisposable
 	/// Two bytes per character, low byte first, and NO byte order mark - which is the case the
 	/// retry exists for and the case strict UTF-8 silently accepts.
 	/// </summary>
-	private void PlantMarklessTwoByteFile()
+	private void SeedMarklessTwoByteFile()
 	{
 		WriteBytes(TWO_BYTE_FILE_NAME, new UnicodeEncoding(bigEndian: false, byteOrderMark: false)
 			.GetBytes(TWO_BYTE_FILE_CONTENT));
 	}
 
 	/// <summary>Nulls in a shape no two-byte encoding produces: dense, but of no single parity.</summary>
-	private void PlantBinaryFile()
+	private void SeedBinaryFile()
 	{
 		byte[] bytes = new byte[512];
 
@@ -243,23 +243,23 @@ internal sealed class RepositoryFixture : IDisposable
 		WriteBytes(BINARY_FILE_NAME, bytes);
 	}
 
-	private void PlantExcludedDirectory()
+	private void SeedExcludedDirectory()
 	{
 		WriteText(Path.Combine(EXCLUDED_DIRECTORY_NAME, EXCLUDED_FILE_NAME), "var generated = 1;\n");
 	}
 
-	private void PlantLinkedDirectory()
+	private void SeedLinkedDirectory()
 	{
 		WriteText(Path.Combine(TARGET_DIRECTORY_NAME, TARGET_FILE_NAME), CLEAN_FILE_CONTENT);
 		DirectoryLink.Create(Path.Combine(RootPath, LINKED_DIRECTORY_NAME), Path.Combine(RootPath, TARGET_DIRECTORY_NAME));
 	}
 
-	private void PlantDeniedFile()
+	private void SeedDeniedFile()
 	{
 		Deny(WriteText(DENIED_FILE_NAME, CLEAN_FILE_CONTENT));
 	}
 
-	private void PlantDeniedDirectory()
+	private void SeedDeniedDirectory()
 	{
 		WriteText(Path.Combine(DENIED_DIRECTORY_NAME, CLEAN_FILE_NAME), CLEAN_FILE_CONTENT);
 		Deny(Path.Combine(RootPath, DENIED_DIRECTORY_NAME));

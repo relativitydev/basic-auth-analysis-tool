@@ -38,6 +38,13 @@ public sealed record WorstCaseTreeOptions
 	/// <summary>How many files above the file-size ceiling are written; each costs more than 2 MiB of disk.</summary>
 	public int OversizeFileCount { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are PowerShell scripts instead, half with the <c>.ps1</c> extension and half
+	/// extensionless with a <c>pwsh</c> shebang. Zero, the default, writes no PowerShell file, so a tree asked for nothing else is
+	/// byte for byte the tree without this share.
+	/// </summary>
+	public int PowerShellScriptBasisPoints { get; init; }
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 

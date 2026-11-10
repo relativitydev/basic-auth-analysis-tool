@@ -13,31 +13,33 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
-/// Two consecutive runs, identical output.
+/// TWO CONSECUTIVE RUNS, IDENTICAL OUTPUT - AND AN HONEST ACCOUNT OF WHAT THAT PROVES HERE.
 ///
-/// The process-level run is over the shipped catalog. The embedded catalog holds a real analyzer, so
-/// the first claim below runs the real process over files that analyzer recognizes: section 4 of both
-/// artifacts holds findings, and the comparison is not degenerate.
+/// THE PROCESS-LEVEL RUN IS OVER THE SHIPPED CATALOG. The embedded catalog is exactly <c>CSharp</c>,
+/// so the first claim below runs the real process over files the real <c>CSharp</c> analyzer
+/// recognizes: section 4 of both artifacts holds findings, and the comparison is not degenerate.
 ///
-/// The claim is made twice, at two different strengths.
+/// SO THE CLAIM IS MADE TWICE, AT TWO DIFFERENT STRENGTHS, AND BOTH ARE STATED.
 ///
 /// The first is over the real process: two independent sessions over one repository, each with its
 /// own destination and therefore its own fresh session state, producing byte-identical artifacts.
-/// That establishes that the coverage statement, the scan summary's counts, the skipped tallies, the
-/// provenance record, the ordering of every language row and the findings themselves are stable
-/// between processes.
+/// What that establishes is that the coverage statement, the scan summary's counts, the skipped
+/// tallies, the provenance record, the ordering of every language row and the findings themselves
+/// are stable between processes.
 ///
 /// The second is over the in-process composition with an analyzer that declares a real language. It
-/// runs the whole workflow twice over a repository holding several findings across several files, and
-/// compares both the artifacts and the composed finding sets: the total finding order and the
-/// numbering are what that checks.
+/// runs the whole workflow twice over a repository holding several findings across several files, and compares both the artifacts and the composed finding
+/// sets. The total order and the sequential numbering are what that checks, and they are what the determinism claim is
+/// about once there are findings to order.
 ///
-/// The one value excluded from the comparison is the file name. The date is in the file name and every
-/// clock-derived value is kept out of the content, so the content is compared in full, with nothing
-/// masked. Two runs into one destination differ by the collision ordinal; two runs spanning midnight
-/// would differ by the date. Neither is a content difference: the second test below runs into one
-/// destination so the collision path is the one exercised, and it identifies the second run's file by
-/// which name is new rather than by assuming one.
+/// THE ONE VALUE EXCLUDED FROM THE COMPARISON, AND WHY IT IS LEGITIMATE. The report's file-naming rule puts the date
+/// in the FILE NAME, and the determinism rule keeps every clock-derived value out of the CONTENT - so the content
+/// is compared in full, with nothing masked, and the name is compared only where the rule makes it
+/// comparable. Two runs into one destination differ by the collision ordinal the requirement
+/// mandates; two runs spanning midnight would differ by the date. Neither is a content difference
+/// and neither is hidden: the second test below runs into one destination precisely so the collision
+/// path is the one exercised, and it identifies the second run's file by which name is new rather
+/// than by assuming one.
 /// </summary>
 public sealed class DeterminismTests
 {
@@ -122,13 +124,13 @@ public sealed class DeterminismTests
 	}
 
 	/// <summary>
-	/// The run that actually has findings to order. Six findings over three files in two folders,
-	/// planted so that the walk's own order is not the reported order - the deepest file sorts first
+	/// THE RUN THAT ACTUALLY HAS FINDINGS TO ORDER. Six findings over three files in two folders,
+	/// generated so that the walk's own order is not the reported order - the deepest file sorts first
 	/// by path and the file with three constructs has to keep them in line order within itself.
 	///
-	/// Both artifacts are compared, not just the report: the order and the identifiers reach the data
-	/// artifact through a different renderer, and a determinism claim that checked only one of them
-	/// would leave the other free to disagree.
+	/// Both artifacts are compared, not just the report: the total order and the sequential identifiers reach
+	/// the data artifact through a different renderer, and a determinism claim that checked only one
+	/// of them would leave the other free to disagree.
 	/// </summary>
 	[Fact]
 	public void TwoConsecutiveRunsWithFindingsProduceIdenticalArtifactsAndIdenticalFindings()
@@ -148,7 +150,8 @@ public sealed class DeterminismTests
 
 		Finding[] secondRunFindings = [.. harness.State.Findings];
 
-		// The proof must not pass by producing nothing twice.
+		// The proof must not pass by producing nothing twice, which is the exact way a
+		// degenerate run would pass it.
 		Assert.NotEmpty(firstRunFindings);
 		Assert.Equal(firstRunFindings, secondRunFindings);
 
@@ -157,8 +160,8 @@ public sealed class DeterminismTests
 	}
 
 	/// <summary>
-	/// The identifiers the second run assigned are the one-based sequence over the whole set, which is
-	/// the property a stable order exists to protect: an identifier that moved between two runs would
+	/// The identifiers the second run assigned are the sequential numbering over the whole set, which is the
+	/// property a stable order exists to protect: an identifier that moved between two runs would
 	/// make every reference to a finding in a client's report worthless a week later.
 	/// </summary>
 	[Fact]

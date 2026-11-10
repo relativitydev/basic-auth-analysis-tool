@@ -91,8 +91,8 @@ internal sealed class PipelineHarness : IDisposable
 
 	/// <summary>
 	/// A harness over the pipeline analyzer, which declares a real language name.
-	/// <paramref name="languageFallbackText"/> is optional and defaults to null, which keeps the
-	/// base's language-neutral fallback in play.
+	/// <paramref name="languageFallbackText"/> is optional and defaults to null, which keeps the harness
+	/// exercising the shared engine's language-neutral fallback.
 	/// </summary>
 	internal static PipelineHarness Create(
 		ConfidenceLevel minimumLevel = ConfidenceLevels.WIDEST,
@@ -143,7 +143,7 @@ internal sealed class PipelineHarness : IDisposable
 
 	/// <summary>
 	/// A harness over the EMBEDDED catalog, for the tests that are about what this build actually
-	/// ships.
+	/// ships rather than about what a language analyzer will do.
 	/// </summary>
 	internal static PipelineHarness CreateOverTheEmbeddedCatalog()
 	{
@@ -231,6 +231,12 @@ internal sealed class PipelineHarness : IDisposable
 	internal void WriteSourceFile(string relativePath, string text)
 	{
 		_fixture.WriteText(relativePath, text);
+	}
+
+	/// <summary>Writes a source file as the exact bytes given, for a file in an encoding the text writer does not produce.</summary>
+	internal void WriteSourceBytes(string relativePath, byte[] bytes)
+	{
+		_fixture.WriteBytes(relativePath, bytes);
 	}
 
 	/// <summary>Deletes a file from the tree, for the candidate that vanishes between two stages.</summary>

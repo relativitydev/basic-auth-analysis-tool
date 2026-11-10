@@ -164,7 +164,7 @@ public sealed class FindingsCapTests
 	}
 
 	/// <summary>
-	/// <see cref="FindingComposition.Compose"/> without caps: a set this small is nowhere near either
+	/// <see cref="FindingComposition.Compose"/> WITHOUT A CAP: a set this small is nowhere near either
 	/// provisional value, so the simpler overload returns every construct as a finding.
 	/// </summary>
 	[Fact]

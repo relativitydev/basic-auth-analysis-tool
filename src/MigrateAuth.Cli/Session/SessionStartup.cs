@@ -2,20 +2,25 @@ using System.Globalization;
 
 using MigrateAuth.Cli.Configuration;
 using MigrateAuth.Cli.Reporting;
+using MigrateAuth.Cli.Writing;
 
 namespace MigrateAuth.Cli.Session;
 
 /// <summary>
 /// Everything that has to hold before the prompt exists.
 ///
-/// Two exit codes are established here and nowhere else, because both describe a session that cannot
-/// start: an unusable repository path terminates with <see cref="ExitCode.UnusableRepositoryPath"/>,
-/// and a destination that cannot be written terminates with
-/// <see cref="ExitCode.OutputDestinationNotWritable"/>. A destination that becomes unwritable
-/// mid-session returns to the prompt instead, in <see cref="SessionShell"/>.
+/// Two of the exit codes are established here and nowhere else, because both describe a
+/// session that cannot start: an unusable repository path terminates with
+/// <see cref="ExitCode.UnusableRepositoryPath"/> (stop immediately, say clearly
+/// what is wrong, do not continue), and a destination that cannot be written terminates with
+/// <see cref="ExitCode.OutputDestinationNotWritable"/>. The second one is the half of the
+/// split between startup and mid-session failures that has nothing to salvage; the mid-session half returns to the prompt and lives in
+/// <see cref="SessionShell"/>.
 ///
-/// Every message here names a folder by its label: no absolute path appears in anything the product
-/// emits, including a failure message.
+/// A message about the destination names the folder by its label, because no absolute path may appear in
+/// anything the product emits. A message about a repository path that cannot be used echoes the text
+/// the user supplied, exactly as given, because the user typed it and needs to see which path was
+/// refused - the label alone is only its last segment.
 /// </summary>
 public static class SessionStartup
 {
@@ -53,14 +58,22 @@ public static class SessionStartup
 	/// <summary>Names the stages a resumed session already holds, so gating is no surprise.</summary>
 	public const string COMPLETED_STAGES_MESSAGE_FORMAT = "Completed stages: {0}.";
 
+	/// <summary>
+	/// Said once, at resume or else at <c>analyze</c>, when the configuration now enables a different set of
+	/// languages than the one the completed scan used. The analysis works on the candidates the scan
+	/// selected, so the earlier set is the one still in effect until <c>scan</c> runs again.
+	/// </summary>
+	public const string SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE =
+		"The configuration enables a different set of languages than the saved scan used. Analysis covers the languages the scan selected; re-run 'scan' to apply the current configuration.";
+
 	/// <summary>Said when the session starts with nothing completed.</summary>
 	public const string SESSION_FRESH_MESSAGE_FORMAT = "Starting a fresh session for {0}.";
 
 	/// <summary>
-	/// Said when a state file existed and was not used. The reason is reported as a code: the file is
-	/// untrusted, so nothing out of it is echoed back. The code is never the raw
-	/// <see cref="SessionStateRejectionReason"/> name - <see cref="ReportVocabulary.DescriptionOf"/> is
-	/// what fills this format's argument.
+	/// Said when a state file existed and was not used. The reason is
+	/// reported, and it is reported as a code: the file is untrusted, so nothing out of it is
+	/// echoed back. The code is never the raw <see cref="SessionStateRejectionReason"/>
+	/// name - <see cref="ReportVocabulary.DescriptionOf"/> is what fills this format's argument.
 	/// </summary>
 	public const string SESSION_STATE_DISCARDED_MESSAGE_FORMAT = "The saved session state was not used: {0}.";
 
@@ -68,7 +81,7 @@ public static class SessionStartup
 	private const string _STAGE_NAME_SEPARATOR = ", ";
 
 	/// <summary>
-	/// The check, run before the prompt exists. Denial is established by attempting
+	/// The repository check, run before the prompt exists. Denial is established by attempting
 	/// rather than by inspecting, so the folder is actually enumerated: a folder that
 	/// exists and refuses to open is exactly the "cannot be opened at all" case.
 	/// </summary>
@@ -87,13 +100,18 @@ public static class SessionStartup
 		if (string.IsNullOrWhiteSpace(suppliedText))
 		{
 			outputWriter.WriteLine(REPOSITORY_FOLDER_NOT_SUPPLIED_MESSAGE);
-			outputWriter.WriteLine(CommandLineParser.UsageLine);
+
+			// The rejected-arguments report has already printed the usage line for this launch.
+			if (!HasRejectedArguments(parsedCommandLine))
+			{
+				outputWriter.WriteLine(CommandLineParser.UsageLine);
+			}
 		}
 		else if (!TryCanonicalizeRepositoryFolder(suppliedText, outputWriter, out RepositoryFolderPath candidate))
 		{
 			repositoryFolder = default;
 		}
-		else if (DescribeRepositoryProblem(candidate) is string problemMessage)
+		else if (DescribeRepositoryProblem(candidate, suppliedText) is string problemMessage)
 		{
 			outputWriter.WriteLine(problemMessage);
 		}
@@ -108,15 +126,17 @@ public static class SessionStartup
 
 	/// <summary>
 	/// Canonicalizes the destination, and does nothing else. The value comes from the effective
-	/// configuration - the command line, then the user profile - and the fallback when neither supplied
-	/// one is the working directory at launch, captured once here so that a session changing directory
-	/// later does not move its own output. The repository's own configuration file is not one of the
+	/// configuration, which has already applied its order - the command line, then the user
+	/// profile - and the fallback when neither supplied one is the working directory at launch,
+	/// captured once here so that a session changing directory later
+	/// does not move its own output. The repository's own configuration file is not one of the
 	/// candidates and never reaches this method.
 	///
-	/// Writability is a separate step. Establishing that a folder can be written to means writing to it,
-	/// and the destination may be the repository under audit - so probing before the containment
-	/// comparison would put a file inside the repository. Pre-flight therefore runs between the two:
-	/// canonicalize, compare, then probe.
+	/// WRITABILITY IS A SEPARATE STEP ON PURPOSE, and the split is what the containment rule costs. Establishing
+	/// that a folder can be written to means writing to it, and the most natural invocation of
+	/// this tool makes that folder the repository under audit - so probing before the containment
+	/// comparison would put a file inside the repository that this tool never
+	/// writes to. Pre-flight therefore runs between the two: canonicalize, compare, then probe.
 	/// </summary>
 	public static bool TryCanonicalizeDestinationFolder(
 		EffectiveConfiguration configuration,
@@ -140,6 +160,10 @@ public static class SessionStartup
 			outputWriter.WriteLine(DESTINATION_FOLDER_PATH_MALFORMED_MESSAGE);
 		}
 		catch (NotSupportedException)
+		{
+			outputWriter.WriteLine(DESTINATION_FOLDER_PATH_MALFORMED_MESSAGE);
+		}
+		catch (PathTooLongException)
 		{
 			outputWriter.WriteLine(DESTINATION_FOLDER_PATH_MALFORMED_MESSAGE);
 		}
@@ -183,10 +207,15 @@ public static class SessionStartup
 			outputWriter.WriteLine(CommandLineParser.FormatMissingOptionValueMessage(optionName));
 		}
 
-		if (parsedCommandLine.UnrecognizedTokens.Length > 0 || parsedCommandLine.OptionsMissingValue.Length > 0)
+		if (HasRejectedArguments(parsedCommandLine))
 		{
 			outputWriter.WriteLine(CommandLineParser.UsageLine);
 		}
+	}
+
+	private static bool HasRejectedArguments(CommandLineParseResult parsedCommandLine)
+	{
+		return parsedCommandLine.UnrecognizedTokens.Length > 0 || parsedCommandLine.OptionsMissingValue.Length > 0;
 	}
 
 	/// <summary>
@@ -231,6 +260,27 @@ public static class SessionStartup
 		}
 	}
 
+	/// <summary>
+	/// Says, once a session resumes, that the configuration changed since the saved scan, where the user
+	/// can still act on it rather than at <c>report</c>, which is the last stage. It says it ONCE per
+	/// session: <c>analyze</c> and <c>report</c> call it too, and stay silent when it was already said.
+	/// </summary>
+	public static void ReportScanConfigurationChange(
+		SessionState state,
+		EffectiveConfiguration configuration,
+		TextWriter outputWriter)
+	{
+		ArgumentNullException.ThrowIfNull(state);
+		ArgumentNullException.ThrowIfNull(configuration);
+		ArgumentNullException.ThrowIfNull(outputWriter);
+
+		if (state.ScanUsedDifferentLanguagesThan(configuration.EnabledLanguagesInDeclaredOrder)
+			&& state.TryMarkScanConfigurationChangeAnnounced())
+		{
+			outputWriter.WriteLine(SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE);
+		}
+	}
+
 	private static bool TryCanonicalizeRepositoryFolder(
 		string suppliedText,
 		TextWriter outputWriter,
@@ -252,25 +302,29 @@ public static class SessionStartup
 		{
 			outputWriter.WriteLine(REPOSITORY_FOLDER_PATH_MALFORMED_MESSAGE);
 		}
+		catch (PathTooLongException)
+		{
+			outputWriter.WriteLine(REPOSITORY_FOLDER_PATH_MALFORMED_MESSAGE);
+		}
 
 		return canonicalized;
 	}
 
-	private static string? DescribeRepositoryProblem(RepositoryFolderPath repositoryFolder)
+	private static string? DescribeRepositoryProblem(RepositoryFolderPath repositoryFolder, string suppliedText)
 	{
 		string? problemMessage = null;
 
 		if (File.Exists(repositoryFolder.CanonicalPath))
 		{
-			problemMessage = Format(REPOSITORY_PATH_NOT_A_FOLDER_MESSAGE_FORMAT, repositoryFolder.Label);
+			problemMessage = Format(REPOSITORY_PATH_NOT_A_FOLDER_MESSAGE_FORMAT, suppliedText);
 		}
 		else if (!Directory.Exists(repositoryFolder.CanonicalPath))
 		{
-			problemMessage = Format(REPOSITORY_FOLDER_NOT_FOUND_MESSAGE_FORMAT, repositoryFolder.Label);
+			problemMessage = Format(REPOSITORY_FOLDER_NOT_FOUND_MESSAGE_FORMAT, suppliedText);
 		}
 		else if (!IsEnumerable(repositoryFolder))
 		{
-			problemMessage = Format(REPOSITORY_FOLDER_NOT_READABLE_MESSAGE_FORMAT, repositoryFolder.Label);
+			problemMessage = Format(REPOSITORY_FOLDER_NOT_READABLE_MESSAGE_FORMAT, suppliedText);
 		}
 
 		return problemMessage;
@@ -313,7 +367,7 @@ public static class SessionStartup
 		{
 			Directory.CreateDirectory(destinationFolder.CanonicalPath);
 
-			using (FileStream probeStream = new(probePath, FileMode.Create, FileAccess.Write, FileShare.None))
+			using (FileStream probeStream = RestrictiveFileCreation.CreateStream(probePath, FileMode.Create))
 			{
 				writable = true;
 			}

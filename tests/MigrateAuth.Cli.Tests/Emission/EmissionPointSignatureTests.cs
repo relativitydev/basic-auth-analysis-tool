@@ -9,15 +9,21 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Emission;
 
 /// <summary>
-/// THE HARDCODED-CREDENTIAL REQUIREMENT BY CONSTRUCTION.
+/// THE HARDCODED-CREDENTIAL REQUIREMENT BY CONSTRUCTION, WHICH IS ALL THAT IS EXERCISABLE HERE.
 ///
-/// The emission point STRUCTURALLY cannot carry text from the analyzed file: the record that crosses
-/// it has six fields, five of them incapable of holding text at all, and the sixth reachable only
-/// through the write boundary's containment primitive. Adding a seventh breaks these tests, which is
-/// the point - emitting file text must require changing this signature, and this is the test
-/// that notices when someone does. The skipped-item category is admitted because a closed
-/// enumeration of nine values cannot express one character of an analyzed file. Raising the number
-/// for anything that CAN is the change to refuse.
+/// That requirement wants a repository with known hardcoded credentials, a finding that recognizes one,
+/// and a report that names the location without the value. The shared engine has no analyzers, so it
+/// detects nothing and there is no finding to inspect. Faking one would test the fake.
+///
+/// What IS testable, and what these assertions are, is that the emission point STRUCTURALLY
+/// cannot carry text from the analyzed file: the record that crosses it has six fields, five
+/// of them incapable of holding text at all, and the sixth reachable only through the write
+/// boundary's containment primitive. Adding a seventh breaks these tests, which is the point -
+/// the data invariant asks that emitting file text require changing this signature, and this is the test
+/// that notices when someone does.
+///
+/// One of the five fields that cannot hold text is the skipped-item category: a closed enumeration of
+/// nine values cannot express one character of an analyzed file.
 /// </summary>
 public sealed class EmissionPointSignatureTests
 {

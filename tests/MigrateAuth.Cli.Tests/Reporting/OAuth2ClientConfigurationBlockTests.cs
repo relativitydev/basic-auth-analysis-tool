@@ -12,7 +12,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The base-owned OAuth2 Client block for each flow, the fifth piece of
+/// The engine-owned OAuth2 Client block for each flow, the fifth piece of
 /// every composed recommendation. The wording is asserted by the ideas it must carry and the claims it
 /// must not make, not by an exact comparison of prose.
 /// </summary>

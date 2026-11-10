@@ -3,11 +3,11 @@ using MigrateAuth.Cli.Session;
 namespace MigrateAuth.Cli.Pipeline;
 
 /// <summary>
-/// THE OUTERMOST WRAP, AND THE EMPTY RUNNER IS STILL UNDERNEATH IT.
+/// THE OUTERMOST WRAP, WITH THE EMPTY RUNNER UNDERNEATH IT.
 ///
-/// Four of the five workflow stages do real work. <c>ai-assist</c> does not, and it
-/// resolves through <c>AiAssistNotAvailableStageRunner</c> at the bottom of this chain, which is
-/// the one and only place <c>ai-assist</c> is handled.
+/// Four of the five workflow stages do real work. <c>ai-assist</c> does not: it resolves
+/// through <c>AiAssistNotAvailableStageRunner</c> at the bottom of this chain, which is the one
+/// and only place <c>ai-assist</c> is handled.
 /// </summary>
 public sealed class ReportWiredStageRunner : IWorkflowStageRunner
 {

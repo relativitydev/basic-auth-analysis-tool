@@ -81,7 +81,7 @@ public sealed class ArtifactContractPipelineTests
 		AssertLowFindingCarriesNoRecommendationAndASecurityNote(low);
 	}
 
-	/// <summary>The contract's seven fields, and the extension fields beside them.</summary>
+	/// <summary>The contract's seven fields, and the shape the finding model adds beside them.</summary>
 	private static void AssertContractShape(ArtifactFindingDocument finding)
 	{
 		Assert.Matches(_threeDigitIdentifier, finding.Id);

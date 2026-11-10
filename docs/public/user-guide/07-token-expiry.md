@@ -28,4 +28,4 @@ A call made with an expired token is rejected for authentication. A token that w
 - **Keep the token out of logs and error messages.**
 - **In an Authorization Code application, decide in advance what a user sees** when the refresh token is missing, expired or rejected: send the user through sign-in again.
 
-[Part C](../migration/part-c-csharp.md) gives the same guidance, with the requests, for each pattern class and each flow.
+Part C gives the same guidance, with the requests, for each pattern class and each flow: [Part C for C#](../migration/part-c-csharp.md) and [Part C for PowerShell](../migration/part-c-powershell.md).

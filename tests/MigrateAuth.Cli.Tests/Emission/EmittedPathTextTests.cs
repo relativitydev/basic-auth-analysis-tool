@@ -106,7 +106,7 @@ public sealed class EmittedPathTextTests
 
 	/// <summary>
 	/// The data artifact relies on its own encoder, so escaping before it would double-escape
-	/// and produce a path a grader could not match against the repository.
+	/// and produce a path a consumer could not match against the repository.
 	/// </summary>
 	[Fact]
 	public void TheDataArtifactReceivesThePathUnescaped()

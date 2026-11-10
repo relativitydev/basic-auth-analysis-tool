@@ -5,31 +5,37 @@ using MigrateAuth.Cli.Findings;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The base-owned OAuth2 Client block for each flow, the fifth piece of every composed
-/// recommendation.
+/// THE ENGINE-OWNED OAUTH2 CLIENT BLOCK FOR EACH FLOW, THE FIFTH PIECE OF EVERY COMPOSED
+/// RECOMMENDATION.
 ///
 /// A recommendation for a High or Medium finding must tell the developer which OAuth2 Client to create
 /// or confirm and how to configure it. That text does not depend on the language or the construct, so
-/// it is owned here once rather than repeated inside every template of every language.
-/// <see cref="RecommendationComposer"/> appends the block to the composed text as a labelled piece.
+/// it is owned here once rather than repeated inside every template of every language: a change to
+/// what the tool says about a field is one edit, and a language analyzer cannot forget it.
+/// <see cref="RecommendationComposer"/> appends the block to the composed text as a labelled piece,
+/// in addition to the label set <see cref="RecommendationRenderer"/> documents.
 ///
-/// Every claim carries its source, and the three sources are never blended into one voice. A fact the
-/// vendor documents is labelled <see cref="RELATIVITY_DOCUMENTATION_LABEL"/>; a fact checked against a
-/// running instance that the vendor does not document is labelled <see cref="NSERIO_VERIFIED_LABEL"/>;
-/// and a choice that is guidance rather than fact is labelled <see cref="NSERIO_RECOMMENDATION_LABEL"/>.
+/// EVERY CLAIM CARRIES ITS SOURCE, and the three sources are never blended into one voice. A fact the
+/// vendor documents is labelled <see cref="RELATIVITY_DOCUMENTATION_LABEL"/>; a fact the tool's
+/// authors checked against a running instance and the vendor does not document is labelled
+/// <see cref="NSERIO_VERIFIED_LABEL"/>; and a choice that is guidance rather than fact is labelled
+/// <see cref="NSERIO_RECOMMENDATION_LABEL"/>. A reader deciding whether to depart from a line can then
+/// tell whether they would be departing from the vendor, from an observation, or from advice.
 ///
-/// No block claims that a field is mandatory. The blocks describe settings and recommend values and
-/// leave what the form enforces to the form.
+/// NO BLOCK CLAIMS THAT A FIELD IS MANDATORY. The vendor's documentation marks the fields its form
+/// enforces and states a recommended value for the token lifetime without stating that it must be
+/// filled in, so the blocks describe settings and recommend values and leave what the form enforces
+/// to the form.
 ///
-/// The lifetime number comes from <see cref="RECOMMENDED_ACCESS_TOKEN_LIFETIME_IN_MINUTES"/> and from
-/// nowhere else, in either block and in every generic text the base carries. It is stated in minutes
-/// because that is the unit of the field it configures.
+/// THE LIFETIME NUMBER COMES FROM <see cref="RECOMMENDED_ACCESS_TOKEN_LIFETIME_IN_MINUTES"/> AND FROM
+/// NOWHERE ELSE, in either block and in every generic text the shared engine carries.
+/// The number is stated in minutes because that is the unit of the field it configures.
 /// </summary>
 public static class OAuth2ClientConfigurationBlocks
 {
 	/// <summary>
 	/// The one access-token lifetime this product recommends, in minutes. It matches the value the
-	/// vendor's documentation recommends for both flows; it is the only lifetime literal in the base.
+	/// vendor's documentation recommends for both flows; it is the only lifetime literal in the shared engine.
 	/// </summary>
 	public const int RECOMMENDED_ACCESS_TOKEN_LIFETIME_IN_MINUTES = 60;
 
@@ -116,7 +122,7 @@ public static class OAuth2ClientConfigurationBlocks
 		+ "which travels in the request header and is valid from anywhere until it expires.";
 
 	private const string _REFRESH_NOT_USED_VALUE =
-		"not used by this flow. The recommended code requests a new access token when the current one expires.";
+		"not used by this flow. The integration requests a new access token when the current one expires.";
 
 	private const string _REFRESH_OPTIONAL_VALUE =
 		NSERIO_RECOMMENDATION_LABEL + ": leave it off unless the application must keep a user session active beyond the access token lifetime without asking the user to sign in again. "

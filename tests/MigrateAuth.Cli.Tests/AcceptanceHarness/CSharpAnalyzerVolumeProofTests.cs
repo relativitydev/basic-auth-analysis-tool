@@ -15,36 +15,42 @@ using Xunit.Abstractions;
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
-/// The volume proof, through the real embedded `CSharp` analyzer and the real analysis path - all
-/// eighteen detection rules registered, never a hand-built `RecognizedConstruct`.
+/// THE VOLUME PROOF, THROUGH THE REAL EMBEDDED `CSharp` ANALYZER AND THE REAL
+/// ANALYSIS PATH - ALL EIGHTEEN DETECTION RULES REGISTERED, NEVER A
+/// HAND-BUILT `RecognizedConstruct`.
 ///
-/// Five thousand candidate files, generated at run time into a temporary directory outside the
-/// repository and deleted afterwards. <see cref="PipelineHarness.CreateOverTheEmbeddedCatalog"/>'s
-/// own fixture already plants under <see cref="Path.GetTempPath"/> (see
+/// FIVE THOUSAND CANDIDATE FILES, GENERATED AT RUN TIME INTO A TEMPORARY DIRECTORY OUTSIDE THE
+/// REPOSITORY AND DELETED AFTERWARDS. <see cref="PipelineHarness.CreateOverTheEmbeddedCatalog"/>'s
+/// own fixture already writes files under <see cref="Path.GetTempPath"/> (see
 /// <c>MigrateAuth.Cli.Tests.Reading.RepositoryFixture</c>) and disposes recursively; nothing here
-/// is committed. Every planted file carries a preselection anchor, so every one is a real candidate
+/// is committed. Every generated file carries a preselection anchor, so every one is a real candidate
 /// - never a file the walk enumerates but Scan declines to open.
 ///
-/// Three planted shapes. Most files carry exactly one of the eighteen classes' own canonical
+/// THREE FILE SHAPES. Most files carry exactly one of the eighteen classes' own canonical
 /// construct, cycled so every class is exercised at volume. A small set carry an anchor in prose
 /// only - a real candidate that must yield no finding, proving the anchor alone does not manufacture
-/// one. And a minority prepend a verbatim string literal that the lexical scanner's known
-/// limitation (<c>LexicalScanner.Literals.cs</c>'s <c>MatchAConstantOpening</c>) never closes, so
-/// their scan is abandoned mid-file and <see cref="SkippedItemCategory.LexicalAnomaly"/> counts them.
+/// one. And a deliberate minority prepend a verbatim string literal that the shared engine's own known
+/// defect (<c>LexicalScanner.Literals.cs</c>'s <c>MatchAConstantOpening</c>, out of this
+/// test's declared scope) never closes, so their scan is abandoned mid-file and the skipped-item list's
+/// <see cref="SkippedItemCategory.LexicalAnomaly"/> counts them - the number this proof records
+/// rather than works around.
 ///
-/// One canonical construct is not self-contained, and the expected counts say so. CS-011's own
-/// construct co-fires CS-001 (no subsumption between a helper's declaration and the credential
-/// construction inside it); the addition is folded into the expected per-class tallies as it is
-/// planted. CS-003 subsumes CS-008, so a planted cache entry is one finding.
+/// ONE CANONICAL CONSTRUCT IS NOT SELF-CONTAINED, AND THE EXPECTED COUNTS SAY SO RATHER THAN
+/// ASSUME OTHERWISE. CS-011's own construct co-fires CS-001 (the catalog's declared "three
+/// absences": no subsumption between a helper's declaration and the credential construction inside
+/// it). The addition is folded into the expected per-class tallies as it is generated, never asserted
+/// as an afterthought. CS-003's own construct does not co-fire CS-008: the catalog declares CS-003
+/// as subsuming it, so a cache entry in the generated files is one finding.
 ///
-/// Flow-signal evaluation at the same volume. Every positive file also carries one of three signal
-/// shapes, cycled by its index: an interactive-user signal, a fixed-credential signal, or none. Every
-/// candidate file holding a surviving High or Medium construct triggers the flow signals, so the count
-/// of files evaluated must equal the number of files with such a finding - taken before the global
-/// cap, which nothing here reaches - and no evaluation may trip its bound. The evidence each retained
-/// High or Medium finding carries must be the one its file's shape planted.
+/// FLOW-SIGNAL EVALUATION AT THE SAME VOLUME. Every positive file also carries
+/// one of three signal shapes, cycled by its index: an interactive-user signal, a fixed-credential
+/// signal, or none. Every candidate file holding a surviving High or Medium construct triggers the
+/// seventeen signals, so the count of files evaluated must equal the number of files with such a
+/// finding - taken before the global cap, which nothing here reaches - and no evaluation may trip its
+/// bound. The evidence each retained High or Medium finding carries must be the one its file's shape
+/// generated.
 ///
-/// Only robust properties are asserted - zero match-bound trips, every file analysed, the exact
+/// ONLY ROBUST PROPERTIES ARE ASSERTED - zero match-bound trips, every file analysed, the exact
 /// lexical-anomaly count, exact or lower-bound per-class finding counts, and the flow-signal counts
 /// above. Never a timing threshold: elapsed time and the peak working set of the sampled process are
 /// recorded to the test output, not asserted.
@@ -84,8 +90,8 @@ public sealed class CSharpAnalyzerVolumeProofTests
 		("CS-004", "var authenticator = new HttpBasicAuthenticator(userName, password);"),
 		("CS-005", "client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(\"Basic\", encodedCredentials);"),
 		// The interpolated form ($"Basic {credential}") is deliberately NOT used here: it is the
-		// asymmetric-opening shape the known base scanner defect never closes (see this class's own
-		// header note), and at the volume this fixture plants it would flag every one of ~270 files
+		// asymmetric-opening shape the known scanner defect never closes (see this class's own
+		// header note), and at the volume this fixture generates it would flag every one of ~270 files
 		// as a lexical anomaly. The named-constant CONCATENATION form matches the same class (see
 		// `CSharpAnalyzerTests.CS006MatchesTheNamedConstantConcatenationForm`) using only
 		// single-character, symmetric `"..."` literals, which the defect does not reach.
@@ -148,7 +154,7 @@ public sealed class CSharpAnalyzerVolumeProofTests
 	/// <summary>
 	/// The files-evaluated counter equals the number of files holding a High or Medium finding, no
 	/// evaluation tripped, and the retained High and Medium findings carry the evidence their file's
-	/// signal shape planted - all three kinds of evidence occur.
+	/// signal shape generated - all three kinds of evidence occur.
 	/// </summary>
 	private static void AssertEveryHighOrMediumFileWasEvaluatedForFlowSignals(PipelineHarness harness)
 	{
@@ -197,7 +203,7 @@ public sealed class CSharpAnalyzerVolumeProofTests
 	}
 
 	/// <summary>
-	/// Plants all three shapes and returns the MINIMUM finding count each of the eighteen classes
+	/// Generates all three shapes and returns the MINIMUM finding count each of the eighteen classes
 	/// must reach - exact for every class except <see cref="_CS_001"/>, whose fixtures also arrive as a
 	/// side effect of the fifty unterminated-literal files.
 	/// </summary>
@@ -342,7 +348,7 @@ public sealed class CSharpAnalyzerVolumeProofTests
 			finding => finding.PatternClass.Value,
 			StringComparer.Ordinal);
 
-		_output.WriteLine("CSharp analyzer volume proof (band V2, all eighteen rules)");
+		_output.WriteLine("CSharp analyzer volume proof (largest supported size, all eighteen rules)");
 		_output.WriteLine(FormattedLine("Candidate file count", harness.State.ScanOutcome.CandidateFileCount));
 		_output.WriteLine(FormattedLine("Total file count", harness.State.ScanOutcome.FileCount));
 		_output.WriteLine($"Elapsed (Analyze stage, wall clock): {elapsed.TotalSeconds:N3} s");

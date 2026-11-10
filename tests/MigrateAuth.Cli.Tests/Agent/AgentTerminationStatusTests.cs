@@ -5,10 +5,11 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Agent;
 
 /// <summary>
-/// THE FIVE AGENT TERMINATION CASES, EACH REPRESENTABLE AND EACH DISTINGUISHABLE FROM THE OTHER FOUR.
+/// THE AGENT'S FIVE TERMINATION CASES, EACH REPRESENTABLE AND EACH DISTINGUISHABLE FROM THE OTHER FOUR.
 ///
-/// What is exercised is the vocabulary the launch contract answers in. A type that cannot tell an
-/// agent that hung (timeout) from an agent that ran and lost cannot report either one correctly.
+/// What is exercisable here is the vocabulary the contract answers in, and every case has to be
+/// distinguishable: a type that cannot tell an agent that hung from an agent that ran
+/// and lost cannot report either one correctly.
 ///
 /// The exit-code case is the one worth stating twice. Zero is a real exit code meaning success, so a
 /// status that published a plain integer would read as success for the four cases that never
@@ -104,8 +105,8 @@ public sealed class AgentTerminationStatusTests
 	}
 
 	/// <summary>
-	/// The enumeration is closed at five. A sixth case should read as a deliberate change in a diff
-	/// rather than arriving with an implementation.
+	/// The enumeration is closed at five. A sixth is a change to the list and should read as one
+	/// in a diff rather than arriving with an implementation.
 	/// </summary>
 	[Fact]
 	public void TheOutcomeEnumerationDeclaresFiveCasesAndNoMore()

@@ -14,7 +14,7 @@ public sealed record CommandLineParseResult
 
 	/// <summary>
 	/// Tokens the parser does not recognize, in the order they appeared. A bare positional
-	/// token lands here too, which is how a transposition of the two paths stops being
+	/// token lands here too, which is how the transposition this parser exists to prevent stops being
 	/// expressible: there is no position that means anything.
 	/// </summary>
 	public ImmutableArray<string> UnrecognizedTokens { get; init; } = [];
@@ -28,9 +28,12 @@ public sealed record CommandLineParseResult
 /// <c>--repositoryFolderPath</c> and <c>--documentationDestinationFolderPath</c>, in either
 /// order, written either as two arguments or as <c>--name=value</c>.
 ///
-/// Positional arguments are not accepted at all. Transposing two positional paths would silently aim
-/// the output at the audited repository; with no positional form there is nothing to transpose, and
-/// the write boundary remains a last line of defence.
+/// Positional arguments are not accepted at all, and that is the whole decision rather than a
+/// convenience. The failure mode of two positional paths is silent and specific - transposing
+/// them aims the output at the audited repository - and the write boundary catching it
+/// afterwards is a last line of defence, not a first. With no positional form there is nothing
+/// to transpose; a transposed invocation names the folders the other way round explicitly,
+/// which is no longer a slip.
 /// </summary>
 public static class CommandLineParser
 {
@@ -126,7 +129,7 @@ public static class CommandLineParser
 	/// <summary>
 	/// Whether any launch argument is exactly <see cref="HELP_OPTION"/> or
 	/// <see cref="HELP_OPTION_SHORT_FORM"/>, outside a position <see cref="Parse"/> would consume
-	/// as the value of one of the two named options - see <see cref="ContainsFlagOutsideOptionValues"/>.
+	/// as the VALUE of one of the two named options - see <see cref="ContainsFlagOutsideOptionValues"/>.
 	/// Checked independently of <see cref="Parse"/>'s result, because a launch flag answered before
 	/// a session exists is not one of the two named options and must not depend on how they are
 	/// read; it is, however, position-sensitive on the same terms <see cref="Parse"/> itself reads

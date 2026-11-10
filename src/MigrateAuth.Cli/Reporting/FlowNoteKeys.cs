@@ -8,13 +8,14 @@ namespace MigrateAuth.Cli.Reporting;
 public readonly record struct FlowNoteLegendEntry(string Key, string Note);
 
 /// <summary>
-/// The short keys the Suggest console uses so that each flow note is printed once, in a legend, and
-/// every finding row carries only the key.
+/// THE SHORT KEYS THE SUGGEST CONSOLE USES SO THAT EACH FLOW NOTE IS PRINTED
+/// ONCE, IN A LEGEND, AND EVERY FINDING ROW CARRIES ONLY THE KEY.
 ///
-/// The report and the JSON artifact are not affected: they carry the full note beside every finding
-/// (<see cref="FlowNotes"/>).
+/// Fifty thousand rows that each spelled out a note would print the same four paragraphs fifty
+/// thousand times; a legend gives each note once and a key resolves a row to it. The report and the
+/// JSON artifact are not affected: they carry the full note beside every finding (<see cref="FlowNotes"/>).
 ///
-/// There is one key per note text, not per pair. <see cref="FlowNotes.NoteFor"/> is total over the
+/// THERE IS ONE KEY PER NOTE TEXT, NOT PER PAIR. <see cref="FlowNotes.NoteFor"/> is total over the
 /// (decision, flow) pairs but only four distinct texts exist, so the key is derived by asking that
 /// function and looking the text up here: a key can never resolve to a note other than the one the
 /// pair's own constant holds, and a fifth note added there without a key here fails loudly instead of

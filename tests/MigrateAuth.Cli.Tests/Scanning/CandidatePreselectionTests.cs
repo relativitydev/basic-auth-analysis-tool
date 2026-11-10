@@ -29,7 +29,7 @@ public sealed class CandidatePreselectionTests
 	/// <summary>
 	/// The case rule is the ANCHOR's, not the profile's. This anchor is declared sensitive, so a
 	/// differently cased occurrence is not one - and the profile it sits in declares its keywords
-	/// case-insensitive, which is exactly the confusion keeping the two fields separate avoids.
+	/// case-insensitive, which is exactly the confusion the design avoids by keeping the two fields separate.
 	/// </summary>
 	[Fact]
 	public void ACaseSensitiveAnchorDoesNotMatchAnotherCasing()
@@ -57,7 +57,7 @@ public sealed class CandidatePreselectionTests
 	}
 
 	/// <summary>
-	/// THE FAILURE DECODING BEFORE PRESELECTION PREVENTS, REPRODUCED.
+	/// THE FAILURE THE DESIGN EXISTS TO PREVENT, REPRODUCED.
 	///
 	/// The same file is presented twice: once as the byte buffer transliterated one byte per
 	/// character - which is what a preselection over raw bytes sees - and once as the decoded

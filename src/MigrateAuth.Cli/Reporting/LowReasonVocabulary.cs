@@ -27,6 +27,19 @@ public static class LowReasonVocabulary
 	private const string _DEMOTED_FILE_VALUE = "demotedFile";
 	private const string _DEMOTED_VENDORED_FILE_VALUE = "demotedVendoredFile";
 	private const string _SENTENCE_SEPARATOR = "; ";
+	private const string _DEMOTED_FILE_WITH_DEPLOYMENT_SENTENCE =
+		"the file's name, folder or content marks it as a test, sample, generated or deployment file";
+	private const string _DEMOTED_FILE_WITHOUT_DEPLOYMENT_SENTENCE =
+		"the file's name, folder or content marks it as a test, sample or generated file";
+	private const string _HELPER_DEFINITION_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "it is a definition that builds a credential or an authentication header, not a call, so the migration belongs in the helper and its callers show no credential";
+	private const string _NON_HTTP_SINK_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "the credential goes to a sink that is not an HTTP client, such as remoting, mail, file transfer, a directory or a proxy; that is live code, but not Basic Authentication towards RelativityOne";
+	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named, so as written the call does not send it as Basic to RelativityOne";
+
+	/// <summary>How the sentence for a class that is Low by definition starts; the clause after it says why for that class.</summary>
+	public const string PATTERN_CLASS_SENTENCE_LEAD = "this pattern class is Low by definition: ";
 
 	private static readonly ImmutableArray<LowConfidenceReasons> _reasonsInDeclaredOrder =
 	[
@@ -52,14 +65,24 @@ public static class LowReasonVocabulary
 		new Dictionary<LowConfidenceReasons, string>
 		{
 			[LowConfidenceReasons.PatternClass] =
-				"this pattern class is Low by definition: it recognizes a construct that is rarely live authenticating code",
+				PATTERN_CLASS_SENTENCE_LEAD + "as written it does not establish Basic Authentication towards RelativityOne",
 			[LowConfidenceReasons.CommentOrStringLiteral] =
 				"the match sits in a comment or a string literal, so it is not executable code",
 			[LowConfidenceReasons.DemotedFile] =
-				"the file's name, folder or content marks it as a test, sample, generated or deployment file",
+				_DEMOTED_FILE_WITH_DEPLOYMENT_SENTENCE,
 			[LowConfidenceReasons.DemotedVendoredFile] =
 				"the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own"
 		}.ToFrozenDictionary();
+
+	private static readonly FrozenDictionary<string, string> _patternClassSentencesByIdentifier =
+		new Dictionary<string, string>(StringComparer.Ordinal)
+		{
+			["CS-011"] = _HELPER_DEFINITION_SENTENCE,
+			["CS-019"] = _NON_HTTP_SINK_SENTENCE,
+			["PS-012"] = _UNSCHEMED_WEB_CREDENTIAL_SENTENCE,
+			["PS-013"] = _NON_HTTP_SINK_SENTENCE,
+			["PS-014"] = _HELPER_DEFINITION_SENTENCE
+		}.ToFrozenDictionary(StringComparer.Ordinal);
 
 	/// <summary>The stable values of the reasons that apply, in the declared order. Empty when none do.</summary>
 	public static string[] ValuesOf(LowConfidenceReasons reasons)
@@ -94,15 +117,38 @@ public static class LowReasonVocabulary
 
 	/// <summary>
 	/// The sentence the report prints for a Low finding: every reason that applies, joined, or the
-	/// statement that none was recorded.
+	/// statement that none was recorded. When the class itself is Low and the finding's class is named,
+	/// the sentence says why for that class rather than for Low classes in general.
 	/// </summary>
-	public static string SentenceOf(LowConfidenceReasons reasons)
+	public static string SentenceOf(
+		LowConfidenceReasons reasons,
+		string? patternClassIdentifier = null,
+		AssessedLanguage language = AssessedLanguage.CSharp)
 	{
 		string[] sentences =
 		[
-			.. _reasonsInDeclaredOrder.Where(reason => reasons.HasFlag(reason)).Select(reason => _sentencesByReason[reason])
+			.. _reasonsInDeclaredOrder.Where(reason => reasons.HasFlag(reason)).Select(reason => SentenceFor(reason, patternClassIdentifier, language))
 		];
 
 		return sentences.Length == 0 ? REASON_NOT_RECORDED_TEXT : string.Join(_SENTENCE_SEPARATOR, sentences);
+	}
+
+	private static string SentenceFor(LowConfidenceReasons reason, string? patternClassIdentifier, AssessedLanguage language)
+	{
+		string sentence = _sentencesByReason[reason];
+
+		if (reason == LowConfidenceReasons.DemotedFile && language != AssessedLanguage.CSharp)
+		{
+			sentence = _DEMOTED_FILE_WITHOUT_DEPLOYMENT_SENTENCE;
+		}
+
+		if (reason == LowConfidenceReasons.PatternClass
+			&& patternClassIdentifier is not null
+			&& _patternClassSentencesByIdentifier.TryGetValue(patternClassIdentifier, out string? classSentence))
+		{
+			sentence = classSentence;
+		}
+
+		return sentence;
 	}
 }

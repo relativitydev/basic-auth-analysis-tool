@@ -36,7 +36,7 @@ public sealed class SuggestConsoleTests
 	}
 
 	/// <summary>
-	/// Suggest console. Each note text that occurs appears exactly once, in
+	/// The Suggest console legend and rows: each note text that occurs appears exactly once, in
 	/// the legend, and every finding row carries a key that resolves to the constant for the row's
 	/// (decision, flow).
 	/// </summary>

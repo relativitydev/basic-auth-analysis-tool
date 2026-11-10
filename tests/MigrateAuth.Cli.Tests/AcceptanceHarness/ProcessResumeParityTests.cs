@@ -30,7 +30,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// four stages then <c>exit</c> against its own destination. The two reports must be byte for byte
 /// identical: a resumed process is not permitted to see anything a single process would not have.
 ///
-/// THE FIXTURE PLANTS THREE REAL FINDINGS through the embedded <c>CSharp</c> analyzer and its own flow
+/// THE FIXTURE CREATES THREE REAL FINDINGS through the embedded <c>CSharp</c> analyzer and its own flow
 /// signals - one decided by an interactive-user signal, one by a fixed-credential signal and one
 /// defaulted for lack of any - so the comparison exercises a report holding both flows, both signal
 /// notes and the default note, and not only the empty-repository case <see cref="ProcessAcceptanceTests"/>
@@ -77,7 +77,7 @@ public sealed class ProcessResumeParityTests
 	}
 
 	/// <summary>
-	/// OVER THE REAL `CSharp` ANALYZER AND A REAL PROCESS. A repository with one file
+	/// THE FLOW NOTES, OVER THE REAL `CSharp` ANALYZER AND A REAL PROCESS. A repository with one file
 	/// holding an interactive-user signal and one holding none is run through all four stages: the first
 	/// finding carries the "confirm the flow" note and the second the default note in the report, and in
 	/// the Suggest console the legend carries both notes and each row ends with its own note's key.
@@ -119,7 +119,7 @@ public sealed class ProcessResumeParityTests
 	/// finding is saved and loaded, and the restored session carries the same flows, decisions, notes
 	/// and counts, the same default flow with its origin, and the same flow-signal counters. The
 	/// two-process form of the claim is the test above; this one runs over a fixture in the test
-	/// project so it can plant every kind of evidence.
+	/// project so it can create every kind of evidence.
 	/// </summary>
 	[Fact]
 	public void AnInteractiveAFixedAndADefaultedFindingKeepTheirFlowsNotesAndCountsAcrossASaveAndALoad()

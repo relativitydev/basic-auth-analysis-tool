@@ -27,6 +27,11 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	private const string _EXCLUDED_FIRST = "bin";
 	private const string _EXCLUDED_SECOND = "src/obj";
 	private const string _REASON_VALUE = "commentOrStringLiteral";
+	private const string _LEGACY_ENCODED_FILE = "src/Legacy.cs";
+	private const string _LEGACY_COUNT_FIELD = "\"legacyEncodedFileCount\":1";
+	private const string _LEGACY_COUNT_ZERO = "\"legacyEncodedFileCount\":0";
+	private const string _LEGACY_COUNT_ABOVE_THE_FILE_COUNT = "\"legacyEncodedFileCount\":2";
+	private const string _LEGACY_COUNT_NEGATIVE = "\"legacyEncodedFileCount\":-1";
 	private const string _EXCLUDED_COUNT_FIELD = "\"excludedFolderCount\":2";
 	private const string _EXCLUDED_COUNT_TOO_SMALL = "\"excludedFolderCount\":1";
 	private const string _EXCLUDED_COUNT_NEGATIVE = "\"excludedFolderCount\":-1";
@@ -51,19 +56,79 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	}
 
 	[Fact]
-	public void TheFileIsWrittenAtSchemaVersionSeven()
+	public void TheWindows1252FilesSurviveASaveAndLoad()
 	{
 		using SavedSession saved = SavedSession.Create();
 
-		Assert.Equal(7, SessionStateStore.CURRENT_SCHEMA_VERSION);
-		Assert.Contains("\"schemaVersion\":7", saved.Text(), StringComparison.Ordinal);
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.True(reloaded.WasResumed);
+		Assert.Equal(1, reloaded.State.ScanOutcome.LegacyEncodedFiles.OccurrenceCount);
+		Assert.Equal([_LEGACY_ENCODED_FILE], reloaded.State.ScanOutcome.LegacyEncodedFiles.Paths.Select(path => path.Value));
+	}
+
+	[Fact]
+	public void AWindows1252CountAboveTheFileCountRefusesTheDocument()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit(_LEGACY_COUNT_FIELD, _LEGACY_COUNT_ABOVE_THE_FILE_COUNT);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.ScanSummaryNotWellFormed, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void MoreListedWindows1252FilesThanTheCountRefusesTheDocument()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit(_LEGACY_COUNT_FIELD, _LEGACY_COUNT_ZERO);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.ScanSummaryNotWellFormed, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void ANegativeWindows1252CountRefusesTheDocument()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit(_LEGACY_COUNT_FIELD, _LEGACY_COUNT_NEGATIVE);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.ScanSummaryNotWellFormed, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void AWindows1252PathThatEscapesTheRepositoryRefusesTheDocument()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit($"\"{_LEGACY_ENCODED_FILE}\"", $"\"{_ESCAPING_EXCLUDED_PATH}\"");
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.ScanSummaryNotWellFormed, reloaded.RejectionReason);
+	}
+
+	[Fact]
+	public void TheFileIsWrittenAtSchemaVersionEight()
+	{
+		using SavedSession saved = SavedSession.Create();
+
+		Assert.Equal(8, SessionStateStore.CURRENT_SCHEMA_VERSION);
+		Assert.Contains("\"schemaVersion\":8", saved.Text(), StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void AFileOfTheEarlierSchemaStartsAFreshSession()
 	{
 		using SavedSession saved = SavedSession.Create();
-		saved.Edit("\"schemaVersion\":7", "\"schemaVersion\":6");
+		saved.Edit("\"schemaVersion\":8", "\"schemaVersion\":7");
 
 		SessionStateLoad reloaded = saved.Load();
 
@@ -217,6 +282,11 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 					{
 						OccurrenceCount = 2,
 						Paths = [PathOf(_EXCLUDED_FIRST), PathOf(_EXCLUDED_SECOND)]
+					},
+					LegacyEncodedFiles = new LegacyEncodedFileSummary
+					{
+						OccurrenceCount = 1,
+						Paths = [PathOf(_LEGACY_ENCODED_FILE)]
 					}
 				},
 				SkippedItemTallies.Empty,

@@ -66,7 +66,7 @@ public sealed class LiteralCredentialSignalTests
 		""";
 
 	/// <summary>
-	/// The credential construction sits after a raw literal that opens and never closes. The scanner
+	/// The credential construction sits after a raw literal that opens and never closes. The lexical scanner
 	/// abandons the mask at the literal's opening position and fills everything past it
 	/// <see cref="LexicalZone.StringBody"/> in the demoting direction - so the entire second line,
 	/// credential argument included, lies in the untrustworthy region the scanner does not vouch
@@ -83,8 +83,9 @@ public sealed class LiteralCredentialSignalTests
 		""";
 
 	/// <summary>
-	/// The hand-assembled header class, which declares NO credential position at all - the field is
-	/// optional and none is the honest answer for a class where no argument is the credential.
+	/// The hand-assembled header class, which declares NO credential position at all - the analyzer contract makes
+	/// the field optional and none is the honest answer for a class where no argument is the
+	/// credential.
 	/// </summary>
 	private const string _HEADER_WITH_NO_CREDENTIAL_POSITION_DECLARED = """
 		const AUTH_SCHEME = "Basic"
@@ -118,8 +119,8 @@ public sealed class LiteralCredentialSignalTests
 	}
 
 	/// <summary>
-	/// FALSE, AND NOT AN ERROR, WHERE THE RULE DECLARES NO CREDENTIAL POSITION. The field is
-	/// optional with none as the default, so the common case - a class where no argument is
+	/// FALSE, AND NOT AN ERROR, WHERE THE RULE DECLARES NO CREDENTIAL POSITION. THE ANALYZER CONTRACT MAKES THE
+	/// field optional with none as the default, so the common case - a class where no argument is
 	/// the credential - must pass through recognition without an exception and without a claim.
 	/// </summary>
 	[Fact]
@@ -133,13 +134,14 @@ public sealed class LiteralCredentialSignalTests
 	}
 
 	/// <summary>
-	/// A CAPTURE THAT INCLUDES ITS OWN DELIMITERS SIGNALS TRUE. The opening and closing tokens of a
-	/// literal are in the <see cref="LexicalZone.Delimiter"/> zone, and the delimiter COUNTS AS CODE -
-	/// but the signal reads the credential group's WHOLE captured extent rather than one offset, and
-	/// accepts <see cref="LexicalZone.Delimiter"/> alongside <see cref="LexicalZone.StringBody"/>
-	/// across that extent. The reference profile declares its credential group as
-	/// <c>(?&lt;credential&gt;"..."|identifier)</c> - INCLUDING the quotes - so this is the ordinary
-	/// case of a credential written as a string literal in code, and it signals true.
+	/// A CAPTURE THAT INCLUDES ITS OWN DELIMITERS SIGNALS TRUE. The lexical scanner gives the opening
+	/// and closing tokens of a literal the <see cref="LexicalZone.Delimiter"/> zone, and states that
+	/// the delimiter COUNTS AS CODE - but the C# analyzer reads the credential group's WHOLE captured
+	/// extent rather than one offset, and accepts <see cref="LexicalZone.Delimiter"/> alongside
+	/// <see cref="LexicalZone.StringBody"/> across that extent. The reference profile declares its
+	/// credential group as <c>(?&lt;credential&gt;"..."|identifier)</c> - INCLUDING the quotes - so
+	/// this is the ordinary case of a credential written as a string literal in code, and it signals
+	/// true.
 	/// </summary>
 	[Fact]
 	public void TheSignalIsTrueWhereTheCredentialCaptureIncludesItsOwnDelimiters()
@@ -175,12 +177,12 @@ public sealed class LiteralCredentialSignalTests
 	}
 
 	/// <summary>
-	/// A CAPTURE PAST AN UNTERMINATED LITERAL SIGNALS FALSE. The raw literal opened by the
-	/// documentation line never closes, so the scanner abandons the mask at its opening position and
-	/// fills everything past it - the whole second line, credential argument included -
-	/// <see cref="LexicalZone.StringBody"/> in the demoting direction. Requiring
-	/// <see cref="ZoneMask.IsTrustworthyAt"/> across the whole extent keeps such a position from
-	/// reading as a literal credential.
+	/// A CAPTURE PAST AN UNTERMINATED LITERAL SIGNALS FALSE. The
+	/// raw literal opened by the documentation line never closes, so the lexical scanner abandons the mask at its
+	/// opening position and fills everything past it - the whole second line, credential argument
+	/// included - <see cref="LexicalZone.StringBody"/> in the demoting direction. The signal requires
+	/// <see cref="ZoneMask.IsTrustworthyAt"/> across the whole extent, so a credential position past
+	/// that boundary does not read as a literal credential.
 	/// </summary>
 	[Fact]
 	public void ACaptureThatFallsPastAnUnterminatedLiteralSignalsFalse()
@@ -244,8 +246,8 @@ public sealed class LiteralCredentialSignalTests
 	}
 
 	/// <summary>
-	/// The level is the one recognition composed, carried through without being touched. The
-	/// literal-credential signal does not change it, and the literal-body case is
+	/// The level is the one recognition composed, carried through without being touched. The finding model is
+	/// explicit that the literal-credential signal does not change it, and the literal-body case is
 	/// where a component that conflated the two would show it: that construct is Low because its
 	/// ANCHOR is outside code, and it signals true at the same time.
 	/// </summary>
@@ -289,8 +291,9 @@ public sealed class LiteralCredentialSignalTests
 
 	/// <summary>
 	/// What the CATALOG declared for a class, looked up from the registry. A finding carries a
-	/// pattern class identifier and not its analyzer, so a test comparing a finding against its rule
-	/// has to go and find the rule.
+	/// pattern class identifier and not its analyzer - which is the whole point of the choice
+	/// of the identifier over the name - so a test comparing a finding against its rule has to go
+	/// and find the rule.
 	/// </summary>
 	private static DetectionRule RuleFor(string patternClassIdentifier)
 	{

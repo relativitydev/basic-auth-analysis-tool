@@ -41,9 +41,10 @@ public static partial class EmbeddedLanguageAnalyzers
 }
 
 /// <summary>
-/// Every expression the `CSharp` analyzer hands over, generated at build time. The contract requires this:
+/// Every expression the `CSharp` analyzer hands over, generated at build time. The analyzer contract requires this:
 /// the generator needs a constant pattern and produces a method, not data, and every expression
-/// declares <see cref="RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS"/> as its own match timeout, as the catalog requires.
+/// declares <see cref="RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS"/> per
+/// The catalog's "every expression carries its own match timeout".
 /// </summary>
 internal static partial class CSharpPatternExpressions
 {
@@ -85,8 +86,55 @@ internal static partial class CSharpPatternExpressions
 	/// can restart at a position another has already tried - so the per-expression match-bound
 	/// timeout remains a safety net rather than something this shape leans on.
 	/// </summary>
-	private const string _ARGUMENT_EXPRESSION =
-		@"""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?:\s*\(\s*(?:[^(),]|\([^()]*\))*\s*\))?(?:" + _INDEXER_SUFFIX + @"){0,2}";
+	private const string _ARGUMENT_EXPRESSION = _QUOTED_LITERAL_ARGUMENT + @"|" + _IDENTIFIER_ROOTED_ARGUMENT;
+
+	/// <summary>The quoted-literal alternative of <see cref="_ARGUMENT_EXPRESSION"/>: an ordinary quoted literal on one line.</summary>
+	private const string _QUOTED_LITERAL_ARGUMENT = @"""[^""\r\n]*""";
+
+	/// <summary>
+	/// The identifier-rooted alternative of <see cref="_ARGUMENT_EXPRESSION"/>, which is the argument form
+	/// without its quoted literal: a dotted identifier, an optional call and up to two indexer suffixes. The
+	/// halves of a colon-joined pair take this form, so that a literal, which is how an empty half is
+	/// written, can never be one of them and the pair stays disjoint from the empty-half class.
+	/// </summary>
+	private const string _IDENTIFIER_ROOTED_ARGUMENT =
+		@"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?:\s*\(\s*(?:[^(),]|\([^()]*\))*\s*\))?(?:" + _INDEXER_SUFFIX + @"){0,2}";
+
+	/// <summary>
+	/// How a created type may be written in front of its name: an optional <c>global::</c> and then zero or
+	/// more <c>qualifier.</c> segments, so the fully qualified, the <c>global::</c> and the partial namespace
+	/// spellings all read the same. Where a class anchors on the type name, the anchor group is the name
+	/// itself, after this prefix.
+	/// </summary>
+	private const string _TYPE_QUALIFIER = @"(?:global::)?(?:[A-Za-z_][A-Za-z0-9_]*\.)*";
+
+	/// <summary>
+	/// A constructor's argument text, the parentheses included, with at most one further level of nested
+	/// parentheses. Atomic: the text can only end at the first closing parenthesis of the outer level, so
+	/// nothing is ever given back.
+	/// </summary>
+	private const string _CONSTRUCTOR_ARGUMENT_TEXT = @"\((?>(?:[^()]|\([^()]*\))*)\)";
+
+	/// <summary>
+	/// The creation of the credential type, up to its opening parenthesis: <c>new</c>, then the type written
+	/// plain or qualified.
+	/// </summary>
+	private const string _NETWORK_CREDENTIAL_CREATION = @"new\s+" + _TYPE_QUALIFIER + @"NetworkCredential";
+
+	/// <summary>
+	/// An address argument that is itself a creation: <c>new T(...)</c>, with the type plain or qualified,
+	/// or the target-typed <c>new(...)</c>. The alternative opens on <c>new</c>.
+	/// </summary>
+	private const string _ADDRESS_CONSTRUCTION_ARGUMENT =
+		@"new(?:\s+" + _TYPE_QUALIFIER + _IDENTIFIER + @")?\s*" + _CONSTRUCTOR_ARGUMENT_TEXT;
+
+	/// <summary>
+	/// What follows the declared type of a target-typed creation, <c>Type variable = new</c>: the variable and
+	/// the <c>new</c> keyword. The type name stands directly in front of the variable, which is what puts it
+	/// in the text, and each alternative that uses this opens on that type name as a literal, so it is tried
+	/// only at the words that can begin it.
+	/// </summary>
+	private const string _TARGET_TYPED_CREATION_SUFFIX = @"\s+" + _IDENTIFIER + @"\s*=\s*new";
 
 	/// <summary>
 	/// CS-007's own allow-list, in the catalog: "the credential construction must sit
@@ -117,7 +165,36 @@ internal static partial class CSharpPatternExpressions
 	/// file. The window is required, never inside an optional group.
 	/// </summary>
 	private const string _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS =
-		@"\s+NetworkCredential\s*\{[^{}]*?UserName\s*=[^{}]*?\}\s*;(?:[^\n]*\n){0,5}?[^\n]*?\b(?<cv>" + _IDENTIFIER + @")\.Password\s*=\s*(?<credential>[^;\r\n]*?)\s*;";
+		@"\s+" + _NETWORK_CREDENTIAL_INITIALIZER_OPENING + @"[^{}]*?UserName\s*=[^{}]*?\}\s*;(?:[^\n]*\n){0,5}?[^\n]*?\b(?<cv>" + _IDENTIFIER + @")\.Password\s*=\s*(?<credential>[^;\r\n]*?)\s*;";
+
+	/// <summary>
+	/// The opening of a credential built from an object initializer, from the type name to the brace: the type
+	/// written plain or qualified, then constructor parentheses that hold no argument, which may stand before
+	/// the initializer. CS-016 and the across-statements shape of CS-019 share it, so both read the same
+	/// spellings.
+	/// </summary>
+	private const string _NETWORK_CREDENTIAL_INITIALIZER_OPENING = _TYPE_QUALIFIER + @"NetworkCredential(?:\s*\(\s*\))?\s*\{";
+
+	/// <summary>The bounded five-line window between two statements: required wherever it is used, never inside an optional group.</summary>
+	private const string _FIVE_LINE_WINDOW = @"(?:[^\n]*\n){0,5}?[^\n]*?";
+
+	/// <summary>
+	/// A mail client or a proxy written plain or qualified, the sink type captured as <c>construct</c> after
+	/// any qualifier, which is where CS-019 anchors.
+	/// </summary>
+	private const string _MAIL_OR_PROXY_SINK_CREATION = _TYPE_QUALIFIER + @"(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")";
+
+	/// <summary>The credential pair of a created credential: both arguments in the shared argument form, captured as <c>user</c> and <c>credential</c>.</summary>
+	private const string _CREDENTIAL_ARGUMENT_PAIR =
+		@"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)";
+
+	/// <summary>
+	/// A sink's initializer that carries a credential created in place, from its opening brace to its closing
+	/// one: <c>{ Credentials = new NetworkCredential(user, password) }</c>. The creation of the credential is
+	/// the sink's own span, so the credential is reported once, by the sink.
+	/// </summary>
+	private const string _INITIALIZER_CARRYING_A_NEW_CREDENTIAL =
+		@"\s*\{[^{}]*?\bCredentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR + @"[^{}]*?\}";
 
 	/// <summary>
 	/// The credential token inside a FULLY LITERAL <c>"&lt;Scheme&gt; &lt;token&gt;"</c>
@@ -218,24 +295,41 @@ internal static partial class CSharpPatternExpressions
 	/// credential pair, all accept <see cref="_ARGUMENT_EXPRESSION"/>, so variable and literal arguments
 	/// are both read. The first argument's <see cref="_ARGUMENT_EXPRESSION"/> sits inside a non-capturing
 	/// group of its own, because that constant carries a top-level <c>|</c>.
+	///
+	/// The nested credential may be written qualified, with
+	/// <c>global::</c> or with a partial namespace (<see cref="_TYPE_QUALIFIER"/>), and the anchor group stays
+	/// the type name itself after the qualifier, so this class still subsumes CS-001 at identical anchor
+	/// positions. The client may also be declared with the target-typed creation, <c>RSAPIClient client =
+	/// new(first, new UsernamePasswordCredentials(user, password))</c>, where the declared type stands
+	/// directly in front of the variable. A nested credential that is itself target-typed, a <c>new(...)</c>
+	/// with no type name, names nothing to anchor on and is declared unsupported, as is a type renamed by a
+	/// <c>using</c> alias.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bRSAPIClient\s*\(\s*(?:" + _CONSTRUCTED_OBJECT_ARGUMENT + @"|" + _ARGUMENT_EXPRESSION + @")\s*,\s*new\s+(?<construct>UsernamePasswordCredentials)\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
+		@"\bRSAPIClient(?:\s*\(|" + _TARGET_TYPED_CREATION_SUFFIX + @"\s*\()\s*(?:" + _CONSTRUCTED_OBJECT_ARGUMENT + @"|" + _ARGUMENT_EXPRESSION + @")\s*,\s*new\s+" + _TYPE_QUALIFIER + @"(?<construct>UsernamePasswordCredentials)\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex SdkLegacyRsapiCredentialsConstruction();
 
 	/// <summary>
 	/// CS-003. Anchored on the <c>Add</c> invocation. The scheme argument is captured as either a
-	/// literal or an identifier so the file-scoped resolution can read either form. The
+	/// literal or an identifier so file-scoped resolution can read either form. The
 	/// credential pair's own two arguments accept <see cref="_ARGUMENT_EXPRESSION"/>. The
 	/// <c>new Uri(...)</c> argument accepts one level of nested parentheses, so a call such as
 	/// <c>new Uri(x.ToString())</c> is read, while a sibling constructor argument at the top level is not. The
 	/// enclosing group stays linear (no quantifier can restart at a position another has already tried),
 	/// so the per-expression match-bound timeout remains a safety net rather than something this shape leans on.
+	///
+	/// The address takes the shared argument form or any creation with at most one further level of nested parentheses, written
+	/// plain, qualified or target-typed (<see cref="_ADDRESS_CONSTRUCTION_ARGUMENT"/>). The constructed
+	/// credential may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_NETWORK_CREDENTIAL_CREATION"/>). Declared unsupported: a type renamed by a <c>using</c>
+	/// alias, a credential written as the target-typed <c>new(user, password)</c> in the entry's last
+	/// argument, a scheme written as a qualified constant, and an entry added by a collection initializer,
+	/// which has no <c>Add</c> call to anchor on.
 	/// </summary>
 	[GeneratedRegex(
-		@"\.(?<construct>Add)\s*\(\s*(?:new\s+Uri\s*\((?:[^()]|\([^()]*\))*\)|" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?:(?:" + _ARGUMENT_EXPRESSION + @")\s*,\s*)?(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*new\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
+		@"\.(?<construct>Add)\s*\(\s*(?:" + _ADDRESS_CONSTRUCTION_ARGUMENT + @"|" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?:(?:" + _ARGUMENT_EXPRESSION + @")\s*,\s*)?(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex CredentialCacheBasicSchemeConstruction();
@@ -249,9 +343,16 @@ internal static partial class CSharpPatternExpressions
 	/// requires the match to begin at an identifier boundary, so a name only carrying <c>Basic</c>
 	/// without the authenticator-role suffix is unaffected and still declines. Both arguments accept
 	/// <see cref="_ARGUMENT_EXPRESSION"/>.
+	///
+	/// The type name is read wherever it sits, so the qualified spellings are read. The target-typed
+	/// declaration <c>HttpBasicAuthenticator authenticator = new(user, password)</c> is read too; the
+	/// call-shaped alternative does not apply to it because the parenthesis does not follow the
+	/// type name: the declared type stands directly in front of the variable, and the match then reads the
+	/// <c>new(</c> that follows. A target-typed creation anywhere the type name is not in front of the
+	/// variable, and a type renamed by a <c>using</c> alias, are declared unsupported.
 	/// </summary>
 	[GeneratedRegex(
-		@"\b(?<construct>(?:[A-Za-z_][A-Za-z0-9_]*)?Basic[A-Za-z0-9_]*Authenticator)\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*[,)]",
+		@"\b(?<construct>(?:[A-Za-z_][A-Za-z0-9_]*)?Basic[A-Za-z0-9_]*Authenticator)(?:\s*\(|" + _TARGET_TYPED_CREATION_SUFFIX + @"\s*\()\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*[,)]",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex ThirdPartyBasicAuthenticatorTypeConstruction();
@@ -259,9 +360,16 @@ internal static partial class CSharpPatternExpressions
 	/// <summary>
 	/// CS-005. Anchored on the type name. The scheme argument is the first constructor argument; the
 	/// credential argument accepts <see cref="_ARGUMENT_EXPRESSION"/>.
+	///
+	/// The type may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>), and may be declared with the target-typed creation,
+	/// <c>AuthenticationHeaderValue header = new(scheme, credential)</c>, where the declared type stands
+	/// directly in front of the variable. The target-typed assignment to the header property names no type
+	/// and would anchor this class on a property name that other types also carry, so it is declared
+	/// unsupported, with a type renamed by a <c>using</c> alias and a scheme written as a qualified constant.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+(?<construct>AuthenticationHeaderValue)\s*\(\s*(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>AuthenticationHeaderValue)|\b(?<construct>AuthenticationHeaderValue)" + _TARGET_TYPED_CREATION_SUFFIX + @")\s*\(\s*(?<scheme>""[^""\r\n]*""|[A-Za-z_][A-Za-z0-9_]*)\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex AuthorizationHeaderValueSchemeConstruction();
@@ -295,7 +403,7 @@ internal static partial class CSharpPatternExpressions
 	/// NAMED-CONSTANT scheme in its own hole (<c>$"{SCHEME} {credential}"</c>), and a concatenated
 	/// named-constant scheme (<c>SCHEME + " " + credential</c>) - the interpolated and concatenated
 	/// named-constant shapes are what make the scheme verdict (Confirms/Suppresses/ProposesMedium)
-	/// reachable through an identifier, since the file-scoped resolution is not limited to one;
+	/// reachable through an identifier, since file-scoped resolution is not limited to one;
 	/// the fully literal shape reaches the same verdict machinery directly, because the scheme
 	/// group's captured extent is <c>StringBody</c> either way. The credential inside EITHER
 	/// interpolation hole, and inside the literal-prefix concatenation shape, accepts
@@ -344,10 +452,20 @@ internal static partial class CSharpPatternExpressions
 	/// source-generated regex return a malformed, repeating match. <c>construct</c>, <c>user</c> and
 	/// <c>credential</c> are declared again in this alternative, which the platform allows for two
 	/// alternatives of the same expression.
+	///
+	/// The handler or client type and the constructed
+	/// credential may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>). The initializer alternative accepts constructor parentheses, empty or
+	/// with arguments, before the brace (<see cref="_CONSTRUCTOR_ARGUMENT_TEXT"/>), and the target-typed
+	/// declarations <c>T x = new() { ... }</c> and <c>T x = new(...) { ... }</c>; the property-write alternative
+	/// also reads <c>T x = new(...);</c> followed by the write. In each target-typed form the declared type
+	/// stands directly in front of the variable, and the alternative opens on that type name. A handler type
+	/// renamed by a <c>using</c> alias, a target-typed creation where the type name is not in front of the
+	/// variable and a credential assigned from a variable stay unsupported, and the last is CS-008's.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")\s*\{[^{}]*?(?<construct>Credentials)\s*=\s*new\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)[^{}]*?\}"
-		+ @"|\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\s+(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\k<v>\.(?<construct>Credentials)\s*=\s*new\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?|\b(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @"\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")\s*\{[^{}]*?(?<construct>Credentials)\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)[^{}]*?\}"
+		+ @"|(?:\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\s+" + _TYPE_QUALIFIER + @"(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")|\b(?:" + _HTTP_CLIENT_OR_HANDLER_TYPE_NAMES + @")\s+(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\k<v>\.(?<construct>Credentials)\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + @"\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NetworkCredentialOnHttpHandlerConstruction();
@@ -357,40 +475,98 @@ internal static partial class CSharpPatternExpressions
 	/// and CS-019 also reach - that overlap is the point: the subsumption relation, not this
 	/// expression, is what keeps a bound credential from being reported twice. Both arguments accept
 	/// <see cref="_ARGUMENT_EXPRESSION"/>.
+	///
+	/// The type may be written qualified, with <c>global::</c> or with a partial namespace
+	/// (<see cref="_TYPE_QUALIFIER"/>), and may be declared with the target-typed creation,
+	/// <c>NetworkCredential credential = new(user, password)</c>, where the declared type stands directly in
+	/// front of the variable. The anchor group is the type name after any qualifier, so the subsumption by
+	/// CS-003, CS-007 and CS-019 still holds at overlapping spans. Declared unsupported: a type renamed by a
+	/// <c>using</c> alias, a target-typed creation where the type name is not in front of the variable, and a
+	/// credential created by an initializer that carries both halves.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew\s+(?<construct>NetworkCredential)\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		@"(?:\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>NetworkCredential)|\b(?<construct>NetworkCredential)" + _TARGET_TYPED_CREATION_SUFFIX + @")\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NetworkCredentialConstruction();
 
 	/// <summary>
+	/// The credential half of CS-009's pair: the whole second half, captured as one group, in the
+	/// identifier-rooted argument form. Atomic, so nothing is given back into its indexer suffixes and the
+	/// capture always covers the full half.
+	/// </summary>
+	private const string _CS_009_CREDENTIAL_HALF = @"(?>(?<credential>" + _IDENTIFIER_ROOTED_ARGUMENT + @"))";
+
+	/// <summary>
+	/// CS-009's interpolated, formatted and joined spellings of a colon-joined pair, each with both halves in
+	/// the identifier-rooted argument form (<see cref="_IDENTIFIER_ROOTED_ARGUMENT"/>), so a member access, a
+	/// call or an indexer is a half and a quoted literal never is. An empty half is the literal <c>""</c>, so
+	/// excluding the literal is what keeps this class and the empty-half class disjoint. Every alternative
+	/// opens on a literal, so none is tried at a word that cannot begin it. They are one alternation and the
+	/// caller groups it.
+	/// </summary>
+	private const string _CS_009_LITERAL_OPENED_PAIR_SPELLINGS =
+		@"\$""\{\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*\}\s*:\s*\{\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\}"""
+		+ @"|(?:string|String)\.Format\s*\(\s*""\{0\}:\{1\}""\s*,\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)"
+		+ @"|(?:string|String)\.Join\s*\(\s*"":""\s*,\s*" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*,\s*" + _CS_009_CREDENTIAL_HALF + @"\s*\)";
+
+	/// <summary>
+	/// CS-009's concatenated spelling when the pair is a statement of its own, anchored on the operator and
+	/// the colon literal that follows it, with the left half read BACKWARDS in a lookbehind: the half is an
+	/// identifier-rooted argument that no identifier character precedes and that ends, past any blanks,
+	/// directly before the operator. The alternative therefore opens on a plus sign, which is tried only
+	/// where one is, and not on an identifier, which is tried at every word of every file and, since a half may carry a call, would cost the whole class a call's arguments at each of them. The match begins at the
+	/// operator; the credential and the encoder are inside it, and the left half is not read for its value.
+	/// </summary>
+	private const string _CS_009_CONCATENATED_PAIR_AFTER_ITS_LEFT_HALF =
+		@"(?<=(?<![A-Za-z0-9_])" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*)\+\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
+
+	/// <summary>
+	/// CS-009's concatenated spelling inside the encoder call, read forwards: the left half must open inside
+	/// the window that follows the call's parenthesis, which a lookbehind could not guarantee, since a
+	/// call that has just closed would then be read as the left half of a pair written after it.
+	/// </summary>
+	private const string _CS_009_CONCATENATED_PAIR_INSIDE_THE_WINDOW =
+		@"(?<![A-Za-z0-9_])" + _IDENTIFIER_ROOTED_ARGUMENT + @"\s*\+\s*"":""\s*\+\s*" + _CS_009_CREDENTIAL_HALF;
+
+	/// <summary>
 	/// CS-009's pair written INSIDE the encoder call, with both halves non-empty. The encoder is the anchor
 	/// and the pair must open within 200 characters of the call's parenthesis with no statement end between
-	/// them. The four spellings are those of the separate-statement form: an interpolated pair, a
-	/// concatenated pair, <c>string.Format("{0}:{1}", a, b)</c> and <c>string.Join(":", a, b)</c>, with the
-	/// same identifier halves. Each alternative opens on a literal or on a word start, and both halves must
-	/// be identifiers, so a pair with an empty half opens on none of them and stays the empty-half class's.
+	/// them. The four spellings are those of the separate-statement form, with the same identifier-rooted
+	/// halves. A pair with an empty half opens on none of them and stays the empty-half class's.
 	/// </summary>
 	private const string _CS_009_PAIR_INSIDE_THE_ENCODER_CALL =
-		@"(?<encoder>Convert\.ToBase64String)\s*\([^;]{0," + _INLINE_PAIR_ENCODER_WINDOW_MAXIMUM_LENGTH + @"}?(?:"
-		+ @"\$""\{\s*" + _IDENTIFIER + @"\s*\}\s*:\s*\{\s*(?<credential>" + _IDENTIFIER + @")\s*\}"""
-		+ @"|(?<![A-Za-z0-9_])" + _IDENTIFIER + @"\s*\+\s*"":""\s*\+\s*(?<credential>" + _IDENTIFIER + @")"
-		+ @"|(?:string|String)\.Format\s*\(\s*""\{0\}:\{1\}""\s*,\s*" + _IDENTIFIER + @"\s*,\s*(?<credential>" + _IDENTIFIER + @")\s*\)"
-		+ @"|(?:string|String)\.Join\s*\(\s*"":""\s*,\s*" + _IDENTIFIER + @"\s*,\s*(?<credential>" + _IDENTIFIER + @")\s*\))";
+		@"(?<encoder>Convert\.ToBase64String)\s*\([^;]{0," + _INLINE_PAIR_ENCODER_WINDOW_MAXIMUM_LENGTH + @"}?(?:" + _CS_009_LITERAL_OPENED_PAIR_SPELLINGS + @"|" + _CS_009_CONCATENATED_PAIR_INSIDE_THE_WINDOW + @")";
 
 	/// <summary>
 	/// CS-009. Four spellings of the pair - an interpolated pair, a concatenated pair,
 	/// <c>string.Format("{0}:{1}", a, b)</c> and <c>string.Join(":", a, b)</c> - each requiring BOTH
 	/// halves non-empty (the empty-half idiom is CS-018, registered in the second analyzer file), followed
 	/// within a bounded five-line window by the Base64 encoder.
+	///
+	/// Each half of the pair takes the identifier-rooted argument form, so the halves may be a member access
+	/// (<c>passwordInput.Password</c>), a call (<c>Console.ReadLine()</c>) or an indexer, in all four spellings,
+	/// both when the pair is a statement of its own and when it is written inside the encoder call. The
+	/// credential position covers the whole second half. A quoted literal is not a half: the empty half is
+	/// the literal <c>""</c>, so admitting one would overlap the empty-half class; with it excluded the two
+	/// classes stay mutually exclusive by construction and no subsumption triple is needed. A half that is an
+	/// arithmetic or conditional expression, or a call nested deeper than the argument form's one level of
+	/// parentheses, is not a half.
 	/// </summary>
 	[GeneratedRegex(
-		@"(?:\$""\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\s*:\s*\{\s*(?<credential>[A-Za-z_][A-Za-z0-9_]*)\s*\}""|[A-Za-z_][A-Za-z0-9_]*\s*\+\s*"":""\s*\+\s*(?<credential>[A-Za-z_][A-Za-z0-9_]*)|(?:string|String)\.Format\s*\(\s*""\{0\}:\{1\}""\s*,\s*[A-Za-z_][A-Za-z0-9_]*\s*,\s*(?<credential>[A-Za-z_][A-Za-z0-9_]*)\s*\)|(?:string|String)\.Join\s*\(\s*"":""\s*,\s*[A-Za-z_][A-Za-z0-9_]*\s*,\s*(?<credential>[A-Za-z_][A-Za-z0-9_]*)\s*\))(?:[^\n]*\n){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
+		@"(?:" + _CS_009_LITERAL_OPENED_PAIR_SPELLINGS + @"|" + _CS_009_CONCATENATED_PAIR_AFTER_ITS_LEFT_HALF + @")(?:[^\n]*\n){0,5}?[^\n]*?(?<encoder>Convert\.ToBase64String)\s*\("
 			+ @"|" + _CS_009_PAIR_INSIDE_THE_ENCODER_CALL,
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex Base64UserPasswordPairConstruction();
+
+	/// <summary>
+	/// The factory call that obtains a file-transfer request: <c>Create</c> called through <c>WebRequest</c> or
+	/// through <c>FtpWebRequest</c>, either written plain or qualified, with its argument list read to the end of
+	/// the statement. The argument list is bounded by the statement's own semicolon, never past it.
+	/// </summary>
+	private const string _FILE_TRANSFER_REQUEST_FACTORY_CALL =
+		_TYPE_QUALIFIER + @"(?:Ftp)?WebRequest\.Create\s*\([^;]*\)";
 
 	/// <summary>
 	/// CS-019. The closed BCL set of non-HTTP credential sinks the catalog declares, in the shapes the
@@ -403,7 +579,11 @@ internal static partial class CSharpPatternExpressions
 	/// which do not occur in this shape.
 	///
 	/// The SECOND alternative covers <c>FtpWebRequest</c>, which has no public constructor and is
-	/// obtained only as <c>(FtpWebRequest)WebRequest.Create(...)</c>: the receiving variable is
+	/// obtained through the factory <c>Create</c>, called through <c>WebRequest</c> or through
+	/// <c>FtpWebRequest</c>, with the derived type given by a cast in front of the call or by <c>as</c> after
+	/// it (<see cref="_FILE_TRANSFER_REQUEST_FACTORY_CALL"/>); the type name is read literally, so an
+	/// <c>as HttpWebRequest</c> is not read. The four spellings share the one prefix of the <c>=</c>
+	/// alternative: the receiving variable is
 	/// captured once (<c>var x = ...</c> and <c>FtpWebRequest x = ...</c> both satisfy "the identifier
 	/// immediately before <c>=</c>") and read back by that SAME variable's own <c>.Credentials</c>
 	/// write within the bounded window, mirroring CS-007's own direct-assignment alternative and its
@@ -437,13 +617,31 @@ internal static partial class CSharpPatternExpressions
 	/// handler, or to no sink within the window, matches neither alternative and is still CS-016 alone.
 	/// The first, fourth and fifth alternatives all open on the <c>new</c> keyword, so they sit in one
 	/// group under a single <c>\bnew</c>, which is tried only where the keyword is.
+	///
+	/// Every alternative reads
+	/// the sink, the constructed credential and the file-transfer cast with its factory written plain or
+	/// qualified (<see cref="_TYPE_QUALIFIER"/>). An alternative in the <c>new</c> group reads a credential
+	/// built in the sink's own initializer, <c>new Sink(arguments) { Credentials = new NetworkCredential(user,
+	/// password) }</c>, with or without constructor parentheses, for the mail client and the proxy
+	/// (<see cref="_INITIALIZER_CARRYING_A_NEW_CREDENTIAL"/>). The sink decides, so the finding is this class at Low, and the existing subsumption of CS-008 and CS-016 removes
+	/// the credential inside it at overlapping spans. A top-level alternative reads
+	/// the target-typed declaration, <c>SmtpClient mailer = new(...)</c>, with the declared type directly in
+	/// front of the variable, in its initializer form, followed by the property binding, and followed by a
+	/// credential assembled across statements and bound later; the credential-first alternative reads the
+	/// target-typed sink in the same way. The target-typed alternative opens on the sink's type name as a
+	/// literal. Declared unsupported: a type renamed by a <c>using</c> alias and a target-typed creation where
+	/// the type name is not in front of the variable.
 	/// </summary>
 	[GeneratedRegex(
-		@"\bnew(?:\s+(?<construct>SmtpClient|FtpWebRequest|DirectoryEntry|DirectorySearcher|WebProxy)\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\.Credentials\s*=\s*new\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)"
-		+ @"|\s+(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + @"(?:[^\n]*\n){0,5}?[^\n]*?\.Credentials\s*=\s*\k<cv>\b"
-		+ @"|" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + @"(?:[^\n]*\n){0,5}?[^\n]*?\bnew\s+(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")\b[^;]{0,300}?\bCredentials\s*=\s*\k<cv>\b"
-		+ @"|(?<=\b(?<c>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\bnew\s+(?<construct>DirectoryEntry)\s*\([^;]*?\b\k<c>\b[^;]*?\))"
-		+ @"|=(?<=\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=)\s*\(\s*(?<construct>FtpWebRequest)\s*\)\s*WebRequest\.Create\s*\([^;]*\)\s*;(?:[^\n]*\n){0,5}?[^\n]*?\b\k<v>\.Credentials\s*=\s*new\s+NetworkCredential\s*\(\s*(?<user>" + _ARGUMENT_EXPRESSION + @")\s*,\s*(?<credential>" + _ARGUMENT_EXPRESSION + @")\s*\)",
+		@"\bnew(?:\s+" + _TYPE_QUALIFIER + @"(?<construct>SmtpClient|FtpWebRequest|DirectoryEntry|DirectorySearcher|WebProxy)\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
+		+ @"|\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*\k<cv>\b"
+		+ @"|" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"(?:\bnew\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"|\b(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @")\b[^;]{0,300}?\bCredentials\s*=\s*\k<cv>\b"
+		+ @"|(?<=\b(?<c>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*new)\s+" + _TYPE_QUALIFIER + @"NetworkCredential" + _CREDENTIAL_ARGUMENT_PAIR + @"\s*;" + _FIVE_LINE_WINDOW + @"\bnew\s+" + _TYPE_QUALIFIER + @"(?<construct>DirectoryEntry)\s*\([^;]*?\b\k<c>\b[^;]*?\)"
+		+ @"|\s+" + _MAIL_OR_PROXY_SINK_CREATION + @"\b(?:\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + @")?" + _INITIALIZER_CARRYING_A_NEW_CREDENTIAL + @")"
+		+ @"|=(?<=\b(?<v>[A-Za-z_][A-Za-z0-9_]*)\s*=)\s*(?:\(\s*" + _TYPE_QUALIFIER + @"(?<construct>FtpWebRequest)\s*\)\s*" + _FILE_TRANSFER_REQUEST_FACTORY_CALL + @"|" + _FILE_TRANSFER_REQUEST_FACTORY_CALL + @"\s*as\s+" + _TYPE_QUALIFIER + @"(?<construct>FtpWebRequest))\s*;" + _FIVE_LINE_WINDOW + @"\b\k<v>\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
+		+ @"|\b(?<construct>" + _MAIL_OR_PROXY_SINK_TYPE_NAMES + @")" + _TARGET_TYPED_CREATION_SUFFIX + @"(?:\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*" + _NETWORK_CREDENTIAL_CREATION + _CREDENTIAL_ARGUMENT_PAIR
+		+ @"|\s*" + _CONSTRUCTOR_ARGUMENT_TEXT + _INITIALIZER_CARRYING_A_NEW_CREDENTIAL
+		+ @"|\s*\([^;]*\)\s*;" + _FIVE_LINE_WINDOW + @"\bnew" + _CREDENTIAL_ASSEMBLED_ACROSS_STATEMENTS + _FIVE_LINE_WINDOW + @"\.Credentials\s*=\s*\k<cv>\b)",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex NonHttpCredentialSinkConstruction();
@@ -471,7 +669,8 @@ internal static partial class CSharpPatternExpressions
 	public static partial Regex GeneratedCodeAttributeContentMarker();
 
 	/// <summary>
-	/// The test-attribute content marker, <c>CodeOnly</c>: five common xUnit/MSTest/NUnit attribute tokens.
+	/// The test-attribute content marker, <c>CodeOnly</c>: five common
+	/// xUnit/MSTest/NUnit attribute tokens.
 	/// </summary>
 	[GeneratedRegex(
 		@"\[(?:Fact|Test|TestMethod|TestFixture|Theory)\b",
@@ -552,6 +751,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _CHARACTER_QUOTE = "'";
 	private const string _INTERPOLATION_OPENING = "{";
 	private const string _INTERPOLATION_CLOSING = "}";
+	private const string _INTERPOLATION_NESTING_OPENING = "{";
 	private const char _ESCAPE_CHARACTER = '\\';
 
 	private const string _TEST_FILE_SUFFIX_TESTS = ".Tests.cs";
@@ -579,6 +779,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	private const string _SAMPLE_FOLDER_NAME_EXAMPLES = "examples";
 	private const string _VENDORED_FOLDER_NAME_VENDOR = "vendor";
 	private const string _VENDORED_FOLDER_NAME_THIRD_PARTY = "third-party";
+	private const string _DEPLOYMENT_FOLDER_NAME = "Deployment";
 	private const string _TEST_FOLDER_SUFFIX_TEST = ".Test";
 	private const string _TEST_FOLDER_SUFFIX_TESTS = ".Tests";
 
@@ -646,7 +847,9 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// <summary>
 	/// Catalog element 1. Seven quote rules: the interpolated and verbatim combinations
 	/// each declare interpolation and newline handling on the <see cref="QuoteRule"/> itself rather
-	/// than through a <see cref="LiteralPrefixRule"/>, because a prefix cannot carry them; the raw form's interpolated variants are a declared profile gap. Every opening is a distinct token, so the engine's own longest-opening-first ordering
+	/// than through a <see cref="LiteralPrefixRule"/>, because a prefix cannot carry
+	/// them, and the raw form's interpolated variants are the declared profile gap that this
+	/// leaves. Every opening is a distinct token, so the engine's own longest-opening-first ordering
 	/// (<see cref="LexicalEnginePolicy"/>) is what tells <c>$@"</c> and <c>@$"</c> apart from <c>$"</c>
 	/// and <c>@"</c>, and <c>"""</c> apart from a plain <c>"</c>.
 	/// </summary>
@@ -694,7 +897,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		return rule;
 	}
 
-	/// <summary>Holes on <c>{</c>/<c>}</c>, backslash escape, no newline - the "Interpolated" row.</summary>
+	/// <summary>Holes on <c>{</c>/<c>}</c> counting nested braces, backslash escape, no newline - the "Interpolated" row.</summary>
 	private static QuoteRule BuildInterpolatedStringRule()
 	{
 		QuoteRule rule = new()
@@ -704,7 +907,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			NewlinePolicy = NewlinePolicy.Forbidden,
 			EscapeCharacter = _ESCAPE_CHARACTER,
 			InterpolationOpening = _INTERPOLATION_OPENING,
-			InterpolationClosing = _INTERPOLATION_CLOSING
+			InterpolationClosing = _INTERPOLATION_CLOSING,
+			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING
 		};
 
 		return rule;
@@ -720,7 +924,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			NewlinePolicy = NewlinePolicy.Allowed,
 			DoubledClosingEscapes = true,
 			InterpolationOpening = _INTERPOLATION_OPENING,
-			InterpolationClosing = _INTERPOLATION_CLOSING
+			InterpolationClosing = _INTERPOLATION_CLOSING,
+			InterpolationNestingOpening = _INTERPOLATION_NESTING_OPENING
 		};
 
 		return rule;
@@ -775,13 +980,14 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// should do about it. No internal design term, class identifier or section reference belongs
 	/// in either field - these entries are restated from the catalog's declared scope. The two classes supported at Low only (CS-011, CS-019) are a
 	/// DIFFERENT statement - they ARE recognized, just excluded from the recall denominator - so
-	/// they do not appear here. Split into four grouped helpers, each under the method-length
+	/// they do not appear here. Split into five grouped helpers, each under the method-length
 	/// limit, and concatenated.
 	/// </summary>
 	private static FrozenSet<DeclaredUnsupportedCoverage> BuildDeclaredUnsupportedCoverage()
 	{
 		IEnumerable<DeclaredUnsupportedCoverage> entries = UnsupportedCoverageForCredentialFlowAndScope()
 			.Concat(UnsupportedCoverageForResolutionAndConstruction())
+			.Concat(UnsupportedCoverageForCreationAndSchemeForms())
 			.Concat(UnsupportedCoverageForEngineLimits())
 			.Concat(UnsupportedCoverageForOutOfLanguageScope());
 
@@ -813,7 +1019,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		return entries;
 	}
 
-	/// <summary>What the engine cannot join, resolve or see the origin of - eight gaps.</summary>
+	/// <summary>What the engine cannot join, resolve or see the origin of - nine gaps.</summary>
 	private static ImmutableArray<DeclaredUnsupportedCoverage> UnsupportedCoverageForResolutionAndConstruction()
 	{
 		ImmutableArray<DeclaredUnsupportedCoverage> entries =
@@ -855,8 +1061,53 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a user name and password joined by a colon and converted to Base64 by the project's own helper method, rather than by the standard library's Base64 conversion",
-				Reason = "the tool recognizes the standard library's conversion only, so a colon-joined pair converted by a differently named helper is not matched on its own. A header value that names the scheme, written next to that conversion, is still reported - review any code that builds an Authorization header through its own encoding helper"
+				Construct = "an interpolated string that writes a literal brace as a doubled opening brace",
+				Reason = "the tool reads the doubled opening brace as the start of an interpolated expression followed by an inner brace, not as a literal brace. Text between a balanced pair is read as code, so a construct written there can be reported as if it were live code, and an unpaired doubled brace can make the tool read a later stretch of the file as the inside of that expression until it finds the end. The loss is a false finding or a demoted one in the lines near such a literal"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a user name and password joined by a colon and converted to Base64 by the project's own helper method, rather than by the standard library's Base64 conversion, or by that conversion called without its type name through a \"using static\" directive",
+				Reason = "the tool recognizes the standard library's conversion only, written with its type name, so a colon-joined pair converted by a differently named helper, or by the conversion reached without its type name, is not matched on its own. A header value that names the scheme, written next to that conversion, is still reported - review any code that builds an Authorization header through its own encoding helper"
+			}
+		];
+
+		return entries;
+	}
+
+	/// <summary>
+	/// The spellings of a created type and of a scheme the tool does not read - five gaps: a renamed type, the
+	/// target-typed creation away from its type name, a cache entry or a credential built by an initializer, a
+	/// scheme named by a qualified or directly concatenated constant, and a password control reached through an
+	/// operand the signal does not read.
+	/// </summary>
+	private static ImmutableArray<DeclaredUnsupportedCoverage> UnsupportedCoverageForCreationAndSchemeForms()
+	{
+		ImmutableArray<DeclaredUnsupportedCoverage> entries =
+		[
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a credential type, client, authenticator, header type or SDK entry point that the file renames with a \"using\" alias, or an enumeration member or conversion reached through \"using static\" without its type",
+				Reason = "the type name appears only on the \"using\" line, and following a rename means resolving what a name refers to, which the tool does not do. A use written under the alias, or a member written without its type, is not recognized, so a file that does nothing else is missed - search for such aliases and review those files by hand"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a credential or client created with the shorthand \"new(...)\" where the type name does not stand in front of the variable (an assignment to an existing variable, a return, an argument, a property initializer, a credential written as the last argument of a credential-cache entry)",
+				Reason = "without the type name nothing in the text marks the call as one of the recognized kinds. The form with the declared type directly in front of the variable, \"Type x = new(...)\", is recognized. The shorthand assignment to the header property, \"Authorization = new(\"Basic\", credential)\", is left out for the same reason: reading it would match on a property name that other types also carry"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a credential cache entry added by a collection initializer, and a credential created by an object initializer that carries both the user name and the password in the one initializer",
+				Reason = "the first has no \"Add\" call for the tool to match on, so only the credential inside it is reported, as a plain credential construction. The second is read by no rule: the rule for a credential completed in a later statement needs the password there, and the construction rule needs constructor arguments. Review such code by hand"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a scheme named by a constant written with a type or namespace qualifier, as the scheme argument of a credential-cache entry, of an authentication header value or of a header written by name, or in the interpolated spelling of a header written by name; a header-enumeration value built from a constant that carries the scheme and the space and is concatenated directly, or formatted with the standard library's format call; a qualified constant that names another scheme in any segment of its spelling, in the header-enumeration value",
+				Reason = "a qualified constant is read only where the header is written through the header enumeration, concatenated or in an interpolation hole, and the other classes are widened when the shape is shown to them. A constant that carries the scheme and the space is not read when it is concatenated directly, because that shape would otherwise match every two-operand concatenation written into an Authorization header. A qualified constant is never resolved, so one that names another scheme without Bearer, Negotiate, Digest, Ntlm or Kerberos anywhere in its spelling is reported at Medium as if it were Basic, and one that has such a word in its spelling but names Basic is not reported. Review such code by hand"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a Windows Presentation Foundation password control reached through a call with a nested call in its argument, a constructed operand or a parenthesized operand in the stored \"as\" form (\"Find(Get(\"x\")) as PasswordBox\", \"new Factory() as PasswordBox\", \"(expression) as PasswordBox\")",
+				Reason = "the operand of the cast or \"as\" is bounded, so the signal that a person typed a password into the control does not fire on these three operands and the finding is decided as if the signal were absent. That can only move the result toward the default flow; it never assigns a flow the file does not show"
 			}
 		];
 
@@ -895,8 +1146,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		[
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a C# source file saved in an older single-byte text encoding, such as Latin-1 or Windows-1252, rather than in UTF-8 or UTF-16",
-				Reason = "the tool reads source files as UTF-8 or UTF-16 text only and does not guess at any other encoding, so a file that holds accented or other non-ASCII characters in such an encoding cannot be read: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. Convert those files to UTF-8 and scan again, or review them by hand"
+				Construct = "a C# source file saved in a single-byte text encoding other than Windows-1252 (for example a Cyrillic or Central European code page), rather than in UTF-8, UTF-16 or Windows-1252",
+				Reason = "a file that is not UTF-8 or UTF-16 is read as Windows-1252, which covers Latin-1 and the other Western European files. A file in another single-byte code page that holds a byte Windows-1252 leaves undefined cannot be read that way: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. One that holds only bytes Windows-1252 defines is read, but its accented or other non-ASCII characters come out as different characters; a credential written in plain ASCII is still found, and one whose value holds such a character is read with the wrong character. Convert those files to UTF-8 and scan again, or review them by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
@@ -1131,7 +1382,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// CS-012. High base, not self-sufficient (the legacy BCL handler's own binding still has to be
 	/// established), so composition lands it at Medium. Carries the shared scheme interpretation -
 	/// the same verdict machinery CS-003, CS-005 and CS-006 use - because both value shapes capture
-	/// a <c>scheme</c> group subject to file-scoped resolution.
+	/// a <c>scheme</c> group subject to symbolic resolution.
 	/// </summary>
 	private static DetectionRule BuildCS012()
 	{
@@ -1154,7 +1405,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// CS-013. High base, not self-sufficient: the binding's
 	/// own expression cannot witness the credential, which lives in a different statement. No
 	/// scheme argument here - the scheme is explicit text in the credential-type MEMBER NAME, never
-	/// an argument the file-scoped resolution reads - so <see cref="SymbolicVerdictInterpretation.NotSubjectToSymbolicResolution"/>.
+	/// an argument symbolic resolution handles - so <see cref="SymbolicVerdictInterpretation.NotSubjectToSymbolicResolution"/>.
 	/// </summary>
 	private static DetectionRule BuildCS013()
 	{
@@ -1299,7 +1550,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 
 	/// <summary>
 	/// The catalog's scheme interpretation, shared by CS-003, CS-005 and CS-006 - the three
-	/// of the first half's ten classes that carry a scheme argument subject to file-scoped resolution.
+	/// classes that carry a scheme argument subject to symbolic resolution.
 	/// </summary>
 	private static SymbolicVerdictInterpretation BuildSchemeInterpretation()
 	{
@@ -1372,6 +1623,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new FolderNameSignal { FolderName = _SAMPLE_FOLDER_NAME_EXAMPLES, Sensitivity = CaseSensitivity.Insensitive },
 			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_VENDOR, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
 			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_THIRD_PARTY, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
+			// The Deployment demotion lives here, not in the shared path-shaped set. It is a demotion, never an exclusion.
+			new FolderNameSignal { FolderName = _DEPLOYMENT_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive },
 			new FolderNameSignal
 			{
 				FolderName = _TEST_FOLDER_SUFFIX_TEST,
@@ -1461,7 +1714,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// <summary>
 	/// Sixteen classes resolve to their catalog entry for either flow; CS-011 and CS-019 - and
 	/// any identifier this analyzer does not declare - resolve to null, which is what routes a Low
-	/// finding to manual review and would route an unrecognized High or Medium finding to the generic route with this analyzer's own declared fallback text for the flow, since
+	/// finding to manual review and would route an unrecognized High or Medium finding to the
+	/// generic route with this analyzer's own declared fallback text for the flow, since
 	/// <see cref="BuildCandidateSelectionAndRecommendation"/> supplies one per flow.
 	/// `RecommendationTemplateProvider` declares no third outcome.
 	/// </summary>
@@ -1697,7 +1951,7 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	/// <summary>
 	/// The catalog's declared triples. CS-002 subsumes CS-001 at identical anchor
 	/// positions - both anchor on the same credential-type token. CS-003, CS-007 and CS-019 each subsume
-	/// CS-008 at overlapping spans - an HTTP binding and a non-HTTP sink are the two ways a credential is bound, each expressed as a relation. CS-019
+	/// CS-008 at overlapping spans - an HTTP binding and a non-HTTP sink both bind the credential. CS-019
 	/// also subsumes CS-016 at overlapping spans: a credential assembled across statements and bound to
 	/// a non-HTTP sink is the sink's near-miss, not a Medium finding of its own.
 	/// </summary>

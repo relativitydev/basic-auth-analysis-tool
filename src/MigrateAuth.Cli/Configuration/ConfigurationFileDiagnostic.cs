@@ -28,8 +28,8 @@ public enum ConfigurationDiagnosticKind
 ///
 /// IT IS FOR THE CONSOLE AND NEVER FOR THE REPORT. <see cref="Subject"/> and <see cref="Value"/>
 /// are text the user typed - a key, a language name, a level - already stripped of characters
-/// that can act on a terminal and cut to a fixed length. Text from the audited repository is kept
-/// out of the report and the data artifact unless it belongs to this product's closed
+/// that can act on a terminal and cut to a fixed length. Text from the audited
+/// repository out of the report and the data artifact unless it belongs to this product's closed
 /// vocabularies, and a typed key does not, so this record deliberately lives on
 /// <see cref="EffectiveConfiguration"/> and not inside <see cref="ConfigurationProvenance"/>,
 /// which the renderers read.

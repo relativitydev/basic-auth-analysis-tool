@@ -8,13 +8,16 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The embedded catalog is exactly <c>CSharp</c> in every build, and the tested build
+/// The embedded catalog is exactly <c>CSharp</c> and <c>PowerShell</c> in every build, and the tested build
 /// is the shipped build. The reference fixture analyzer lives in the test project and is registered
-/// in-process, so nothing in the shipped assembly names it.
+/// in-process, so nothing in the shipped assembly names it and validator codes 35 to 37 and the
+/// lexical budget guard nothing in the release binary until a language analyzer declares one of the three
+/// pre-budget expressions.
 /// </summary>
 public sealed class EmbeddedCatalogCompositionTests
 {
 	private const string _CSHARP_LANGUAGE_NAME = "CSharp";
+	private const string _POWERSHELL_LANGUAGE_NAME = "PowerShell";
 	private const string _REFERENCE_TYPE_NAME_FRAGMENT = "Exemplar";
 	private const string _SOURCE_FOLDER_NAME = "src";
 	private const string _SOLUTION_FILE_PATTERN = "*.sln";
@@ -23,7 +26,7 @@ public sealed class EmbeddedCatalogCompositionTests
 	private const string _BUILD_OUTPUT_FOLDER_SEGMENT_OBJ = "obj";
 
 	[Fact]
-	public void TheEmbeddedAnalyzersDeclareExactlyCSharp()
+	public void TheEmbeddedAnalyzersDeclareExactlyCSharpAndPowerShell()
 	{
 		string[] declaredLanguageNames =
 		[
@@ -33,16 +36,18 @@ public sealed class EmbeddedCatalogCompositionTests
 				.Order(StringComparer.Ordinal)
 		];
 
-		Assert.Equal([_CSHARP_LANGUAGE_NAME], declaredLanguageNames);
+		Assert.Equal([_CSHARP_LANGUAGE_NAME, _POWERSHELL_LANGUAGE_NAME], declaredLanguageNames);
 	}
 
 	[Fact]
-	public void TheEmbeddedCatalogHoldsOneAnalyzerAndItIsCSharp()
+	public void TheEmbeddedCatalogHoldsTwoAnalyzersAndTheyAreCSharpAndPowerShell()
 	{
 		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
 
-		Assert.Equal([_CSHARP_LANGUAGE_NAME], catalog.AnalyzersByLanguageName.Keys.Order(StringComparer.Ordinal));
-		Assert.Single(EmbeddedLanguageAnalyzers.CreateAll());
+		Assert.Equal(
+			[_CSHARP_LANGUAGE_NAME, _POWERSHELL_LANGUAGE_NAME],
+			catalog.AnalyzersByLanguageName.Keys.Order(StringComparer.Ordinal));
+		Assert.Equal(2, EmbeddedLanguageAnalyzers.CreateAll().Length);
 	}
 
 	[Fact]

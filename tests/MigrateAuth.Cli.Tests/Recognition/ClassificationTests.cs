@@ -9,14 +9,12 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Recognition;
 
 /// <summary>
-/// THE CONFIDENCE COMPOSITION: THE MINIMUM OF A SET OF CANDIDATES, NEVER A CHAIN OF DECREMENTS.
+/// THE COMPOSITION OF CONFIDENCE: THE MINIMUM OF A SET OF CANDIDATES, NEVER A CHAIN OF DECREMENTS.
 ///
-/// The distinction is not cosmetic and this suite is built around the case that proves it.
-/// <see cref="AClassAtMediumThatIsNeitherSelfSufficientNorResolvedStaysAtMedium"/>: base Medium,
-/// not self-sufficient, indeterminate verdict. Under successive demotion that lands at Low, out of
-/// the High-or-Medium recall numerator and without a recommendation - and it lands there for the
-/// classes whose scheme arrives as a named constant, the common case on real code. Under a minimum
-/// over {Medium, Medium, Medium} it lands at Medium.
+/// <see cref="AClassAtMediumThatIsNeitherSelfSufficientNorResolvedStaysAtMedium"/> is the case that shows the
+/// difference: base Medium, not self-sufficient, indeterminate verdict. Under successive demotion that lands at
+/// Low, out of the recall numerator, which counts High or Medium, and without a recommendation under the
+/// manual-review rule. Under a minimum over {Medium, Medium, Medium} it lands at Medium.
 /// </summary>
 public sealed class ClassificationTests
 {
@@ -50,9 +48,9 @@ public sealed class ClassificationTests
 
 	/// <summary>
 	/// A self-sufficient class in executable code reaches High, which is the only route to High the
-	/// engine has: the second Medium condition is unreachable without flow analysis, so every class
-	/// that needs the call path established is capped at Medium by its own declaration rather than by
-	/// anything observed in the file.
+	/// engine has: the rubric declares its second Medium condition unreachable without flow
+	/// analysis, so every class that needs the call path established is capped at Medium by its own
+	/// declaration rather than by anything observed in the file.
 	/// </summary>
 	[Fact]
 	public void ASelfSufficientClassAnchoredInCodeReachesHigh()
@@ -84,9 +82,9 @@ public sealed class ClassificationTests
 	}
 
 	/// <summary>
-	/// Three signals each proposing Medium compose to Medium. If this test ever reads Low, the
-	/// composition has become a decrement chain and the named-constant classes have silently left
-	/// the recall numerator.
+	/// Three signals each proposing Medium compose to Medium.
+	/// If this test ever reads Low, the composition has become a decrement chain and the
+	/// dominant classes have silently left the recall numerator.
 	/// </summary>
 	[Fact]
 	public void AClassAtMediumThatIsNeitherSelfSufficientNorResolvedStaysAtMedium()

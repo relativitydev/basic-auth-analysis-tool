@@ -35,14 +35,15 @@ public interface IEmissionSink
 /// as a change to the data invariant rather than as an improvement to the report.
 ///
 /// The fan-out is deliberately dumb. This class decides nothing about presentation, ordering or
-/// filtering - those belong to the sinks. What it owns is that there is exactly one door.
+/// filtering - those belong to the sinks and to the decisions that own them. What it owns is
+/// that there is exactly one door.
 /// </summary>
 public sealed class EmissionPoint
 {
 	private const string _SINK_NULL_MESSAGE = "A sink may not be null.";
 	private const string _CATEGORY_ABSENT_MESSAGE = "An emitted fact must declare its category.";
 	private const string _SKIP_REASON_ABSENT_MESSAGE =
-		"A skipped item must declare which of DR-22's eleven categories it was skipped under.";
+		"A skipped item must declare which of the eleven skipped-item categories it was skipped under.";
 	private const string _SKIP_REASON_UNEXPECTED_MESSAGE =
 		"Only a skipped item carries a skipped-item category.";
 
@@ -87,7 +88,7 @@ public sealed class EmissionPoint
 
 	/// <summary>
 	/// The skip reason and the skipped-item category travel together or not at all. A skipped
-	/// item without a reason is an aggregate count that cannot tell a
+	/// item without a reason is exactly the aggregate count the walk refuses to report - it cannot tell a
 	/// permissions problem from a coverage problem - and a reason on anything else is a category
 	/// leaking out of the walk into facts that are not skips.
 	/// </summary>

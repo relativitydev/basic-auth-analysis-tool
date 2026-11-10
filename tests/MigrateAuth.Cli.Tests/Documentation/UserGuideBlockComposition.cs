@@ -15,7 +15,7 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 /// Two kinds of block sit in the guide, delimited by the same markers Part C uses
 /// (<see cref="GeneratedBlockMarkers"/>). The <c>oauth2-client {flow slug}</c> blocks of row 5 hold the
 /// OAuth2 Client field list of a flow, taken from the composed recommendation of a class the analyzer
-/// declares no template for, so the block is the base-owned one and no language's text is mixed in. The
+/// declares no template for, so the block is the engine-owned one and no language's text is mixed in. The
 /// <c>flow-notes</c> block of row 1 holds the four flow notes with the keys the suggest console prints.
 /// Everything outside a marker pair is hand-written and is never touched.
 ///

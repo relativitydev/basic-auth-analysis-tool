@@ -8,7 +8,7 @@ namespace MigrateAuth.Cli.Tests.Fixtures;
 /// and one with neither. Every name is generic; none comes from any real repository.
 ///
 /// The files are ordered by path so a report lists them fixed, interactive, plain, which is what the
-/// tests that read findings by position rely on. They are planted into a temporary repository and run
+/// tests that read findings by position rely on. They are placed into a temporary repository and run
 /// through the REAL embedded `CSharp` analyzer - nothing here is a hand-built finding.
 /// </summary>
 internal static class CSharpFlowFixtureRepository

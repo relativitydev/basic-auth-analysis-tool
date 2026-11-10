@@ -12,8 +12,9 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// The console table's five columns, and the sixth that must never appear there.
 ///
 /// The console and the report deliberately disagree in one place: the finding model carries
-/// destination certainty and the report groups by it, but the console table is specified column by
-/// column, so the console stays as specified. The test that matters is therefore the negative one.
+/// destination certainty and the report groups its findings by it, but the console table is
+/// specified column by column, so the console stays as specified. The test that
+/// matters is therefore the negative one.
 /// </summary>
 public sealed class ConsoleFindingsTableTests
 {
@@ -54,8 +55,8 @@ public sealed class ConsoleFindingsTableTests
 	/// <summary>
 	/// The Pattern column carries the catalog's display name, with the
 	/// identifier still discoverable in the same cell, at every one of the three confidence
-	/// levels - Low is routed to manual review for its recommendation, but the naming promise
-	/// does not carve out an exception for it.
+	/// levels - Low is routed to manual review for its recommendation, but the
+	/// naming promise does not carve out an exception for it.
 	/// </summary>
 	[Theory]
 	[InlineData(ConfidenceLevel.Low)]
@@ -73,7 +74,7 @@ public sealed class ConsoleFindingsTableTests
 	}
 
 	/// <summary>
-	/// The negative case. Both findings are rendered and neither row says anything
+	/// The negative case the console specification exists for. Both findings are rendered and neither row says anything
 	/// about where the request goes, in either direction.
 	/// </summary>
 	[Fact]
@@ -119,6 +120,32 @@ public sealed class ConsoleFindingsTableTests
 
 		Assert.Equal(3, lines.Length);
 		Assert.Equal(ConsoleFindingsTable.BuildHeaderLine(), lines[0].TrimEnd('\r'));
+	}
+
+	/// <summary>
+	/// A path longer than the location column widens that column for the whole table, so every
+	/// row's later columns start where the header's do instead of the long row drifting right.
+	/// </summary>
+	[Fact]
+	public void APathLongerThanTheColumnKeepsEveryRowAligned()
+	{
+		string longPath = string.Join('/', Enumerable.Repeat("a-deeply-nested-folder", 4)) + "/source.cs";
+
+		string rendered = Render(
+		[
+			ReportHarness.FindingAt(1, "short.cs", 1, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.High),
+			ReportHarness.FindingAt(2, longPath, 20, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.Medium)
+		]);
+
+		string[] lines = rendered.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+		string languageName = AssessedLanguages.CanonicalName(AssessedLanguage.CSharp);
+		int headerLanguageColumn = lines[0].IndexOf("Language", StringComparison.Ordinal);
+
+		Assert.True(longPath.Length > 48);
+		Assert.Equal(3, lines.Length);
+		Assert.Equal(headerLanguageColumn, lines[1].IndexOf(languageName, StringComparison.Ordinal));
+		Assert.Equal(headerLanguageColumn, lines[2].IndexOf(languageName, StringComparison.Ordinal));
+		Assert.Equal(lines[0].IndexOf("Confidence", StringComparison.Ordinal), lines[2].IndexOf("Medium", StringComparison.Ordinal));
 	}
 
 	private static string Render(ImmutableArray<Finding> findings)

@@ -1,4 +1,7 @@
+using System.Globalization;
+
 using MigrateAuth.Cli.Catalog;
+using MigrateAuth.Cli.Pipeline;
 using MigrateAuth.Cli.Reading;
 using MigrateAuth.Cli.Reporting;
 using MigrateAuth.Cli.Session;
@@ -14,7 +17,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// The renderer tests verify what the two renderers produce, exhaustively, over synthetic content. What
 /// these tests check is that the stage assembles the RIGHT content from a real run - which is a
 /// different claim and the only one these tests are responsible for. So these tests assert that each of
-/// the five report sections is fed from the component that owns it, and deliberately do not re-assert
+/// the report's five sections is fed from the component that owns it, and deliberately do not re-assert
 /// the shape of the sections themselves.
 /// </summary>
 public sealed class ReportStageTests
@@ -23,6 +26,8 @@ public sealed class ReportStageTests
 	private const string _LOW_FILE_NAME = "Legacy.cs";
 	private const string _ORDINARY_FILE_NAME = "Ordinary.cs";
 	private const string _ORDINARY_CONTENT = "public sealed class Ordinary\n{\n}\n";
+	private const string _STAGE_NAME_SEPARATOR = ": ";
+	private const int _ONE_FINDING = 1;
 
 	private static readonly string _credentialContent =
 		$"class Credentials\n{{\n\tvoid Build() => {PipelineLanguageAnalyzer.TEMPLATED_CONSTRUCT}(user, secret);\n}}\n";
@@ -41,6 +46,33 @@ public sealed class ReportStageTests
 		Assert.Equal(2, harness.WrittenArtifactNames().Length);
 		Assert.Contains(OutputArtifactNaming.MARKDOWN_FILE_EXTENSION, harness.Transcript, StringComparison.Ordinal);
 		Assert.Contains(OutputArtifactNaming.STRUCTURED_DATA_FILE_EXTENSION, harness.Transcript, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Each "Written" line names the output folder as well as the file, so the user can find it.
+	/// The folder is named by its label, never by its path.
+	/// </summary>
+	[Fact]
+	public void EachWrittenLineNamesTheFileAndTheOutputFolder()
+	{
+		using PipelineHarness harness = PipelineHarness.Create();
+		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
+
+		harness.RunTheWholeWorkflow();
+
+		foreach (string fileName in harness.WrittenArtifactNames())
+		{
+			Assert.Contains(
+				string.Format(
+					System.Globalization.CultureInfo.InvariantCulture,
+					ReportStage.ARTIFACT_WRITTEN_MESSAGE_FORMAT,
+					fileName,
+					harness.Destination.Label),
+				harness.Transcript,
+				StringComparison.Ordinal);
+		}
+
+		Assert.DoesNotContain(harness.Destination.CanonicalPath, harness.Transcript, StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -91,7 +123,7 @@ public sealed class ReportStageTests
 		Assert.Contains("Skipped files: 1.", report, StringComparison.Ordinal);
 	}
 
-	/// <summary>SECTION 4 COMES FROM THE SESSION STATE, which is where the findings are persisted.</summary>
+	/// <summary>SECTION 4 COMES FROM THE SESSION STATE, which is where the data invariant put the findings.</summary>
 	[Fact]
 	public void SectionFourCarriesTheFindingsTheAnalysisRecorded()
 	{
@@ -169,29 +201,29 @@ public sealed class ReportStageTests
 	}
 
 	/// <summary>
-	/// The same invariant at the sink that matters most: no text from an analyzed file reaches an
-	/// artifact. The fixture plants a distinctive literal credential in the source, and neither
+	/// The data invariant again, at the sink that matters most: no text from an analyzed file reaches an
+	/// artifact. The fixture places a distinctive literal credential in the source, and neither
 	/// output may contain it - a template renders the GENERIC form of the class, never what was
 	/// found.
 	/// </summary>
 	[Fact]
 	public void NeitherArtifactCarriesTextFromTheAnalyzedFile()
 	{
-		const string plantedSecret = "the-planted-literal-secret";
+		const string placedSecret = "the-placed-literal-secret";
 
 		using PipelineHarness harness = PipelineHarness.Create();
 		harness.WriteSourceFile(
 			_CREDENTIAL_FILE_NAME,
-			$"class Credentials\n{{\n\tvoid Build() => {PipelineLanguageAnalyzer.TEMPLATED_CONSTRUCT}(user, \"{plantedSecret}\");\n}}\n");
+			$"class Credentials\n{{\n\tvoid Build() => {PipelineLanguageAnalyzer.TEMPLATED_CONSTRUCT}(user, \"{placedSecret}\");\n}}\n");
 
 		harness.RunTheWholeWorkflow();
 
 		Assert.DoesNotContain(
-			plantedSecret,
+			placedSecret,
 			harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport),
 			StringComparison.Ordinal);
 		Assert.DoesNotContain(
-			plantedSecret,
+			placedSecret,
 			harness.ReadWrittenArtifact(OutputArtifactKind.StructuredDataArtifact),
 			StringComparison.Ordinal);
 	}
@@ -218,8 +250,41 @@ public sealed class ReportStageTests
 
 		string reportOnlyOutput = harness.Transcript[transcriptLengthBeforeReport..];
 
-		Assert.DoesNotContain(ConsoleFindingsTable.BuildHeaderLine(), reportOnlyOutput, StringComparison.Ordinal);
+		Assert.DoesNotContain(ConsoleFindingsTable.ColumnHeadings[1], reportOnlyOutput, StringComparison.Ordinal);
 		Assert.DoesNotContain(PipelineLanguageAnalyzer.TEMPLATED_PATTERN_CLASS, reportOnlyOutput, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// `report`'s first console line opens with its stage name, as the first line of `scan`,
+	/// `analyze` and `suggest` does, and it is the line that names the reported set.
+	/// </summary>
+	[Fact]
+	public void TheFirstLineOfTheReportStageOpensWithTheStageName()
+	{
+		using PipelineHarness harness = PipelineHarness.Create();
+		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
+
+		harness.RunAndCommit(CommandId.Scan);
+		harness.RunAndCommit(CommandId.Analyze);
+		harness.RunAndCommit(CommandId.Suggest);
+
+		int transcriptLengthBeforeReport = harness.Transcript.Length;
+
+		harness.RunAndCommit(CommandId.Report);
+
+		string firstReportLine = FirstLineOf(harness.Transcript[transcriptLengthBeforeReport..]);
+		string expectedLine = string.Format(
+			CultureInfo.InvariantCulture,
+			ReportStage.REPORTING_MESSAGE_FORMAT,
+			_ONE_FINDING,
+			_ONE_FINDING,
+			ConfidenceLevels.Name(ConfidenceLevels.WIDEST));
+
+		Assert.StartsWith(
+			CommandRegistry.Describe(CommandId.Report).Name + _STAGE_NAME_SEPARATOR,
+			firstReportLine,
+			StringComparison.Ordinal);
+		Assert.Equal(expectedLine, firstReportLine);
 	}
 
 	/// <summary>An interrupted stage writes nothing and does not complete.</summary>
@@ -239,5 +304,10 @@ public sealed class ReportStageTests
 
 		Assert.Equal(StageRunOutcome.Cancelled, harness.Run(CommandId.Report, cancellation.Token));
 		Assert.Empty(harness.WrittenArtifactNames());
+	}
+
+	private static string FirstLineOf(string output)
+	{
+		return output.ReplaceLineEndings().Split(Environment.NewLine)[0];
 	}
 }

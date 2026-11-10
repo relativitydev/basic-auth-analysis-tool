@@ -23,9 +23,10 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// it declares the invented names <c>ExemplarOne</c> and <c>ExemplarTwo</c>, which match none of
 /// the eight canonical names a finding carries.
 ///
-/// So the catalogs below are assembled from analyzers that DO declare a real language name.
-/// Nothing about the shape is invented: the contract is the real <see cref="ILanguageAnalyzer"/>,
-/// and a member added to it breaks this file rather than being silently skipped.
+/// So the catalogs below are assembled from analyzers that DO declare a real language name, as a
+/// language analyzer does. Nothing about the shape is invented: the
+/// contract is the real <see cref="ILanguageAnalyzer"/>, and a member added to it breaks this file
+/// rather than being silently skipped.
 /// </summary>
 internal sealed class TestLanguageAnalyzer : ILanguageAnalyzer
 {
@@ -271,7 +272,7 @@ internal static class ReportHarness
 	/// <summary>
 	/// A catalog holding a C# analyzer that declares
 	/// <see cref="LANGUAGE_FALLBACK_TEXT"/> as its generic-fallback text, for the tests that
-	/// assert the renderer's third route uses it in place of the base's language-neutral one.
+	/// assert the renderer's third route uses it in place of the language-neutral one.
 	/// </summary>
 	internal static LanguageCatalog CatalogWithLanguageFallbackText()
 	{

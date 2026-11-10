@@ -22,7 +22,7 @@ public enum PathOverlap
 
 /// <summary>
 /// What the boundary decided, and what to say when it refused. The message names both
-/// locations by label, because no absolute path appears in anything the product emits -
+/// locations by label, because no absolute path may appear in anything the product emits -
 /// a refusal message included.
 /// </summary>
 public sealed record WriteBoundaryVerdict
@@ -41,30 +41,32 @@ public sealed record WriteBoundaryVerdict
 /// The write boundary: the tool never writes inside the repository it audits, and never
 /// audits a repository that sits inside where it writes.
 ///
-/// One implementation, three call sites. The comparison runs at Pre-flight
-/// Validation as well as immediately before each write, and it is one primitive
-/// rather than two because the early check exists only to spare the user a whole run - it is
+/// ONE IMPLEMENTATION, THREE CALL SITES. The comparison runs at Pre-flight
+/// Validation as well as immediately before each write, and the reason it is one primitive
+/// rather than two is that the early check exists only to spare the user a whole run - it is
 /// not a second boundary and must not be able to disagree with the first. The third call site
-/// is the read path: the state file is untrusted input, a candidate path escaping the
+/// is the READ path: the state file is untrusted input, a candidate path escaping the
 /// repository root is schema-valid, and analysis would otherwise open it. Nothing here touches
 /// write machinery, so pre-flight can call it before any stage has run, against a destination
 /// that is known but not yet written to.
 ///
-/// The comparison is case-insensitive on every platform. Case sensitivity is a property of the
-/// volume, not of the operating system: macOS is case-insensitive by default and case-sensitive on
-/// some volumes, Linux filesystems vary, and Windows is case-insensitive but case-preserving. Nothing
-/// derivable from the running platform answers the question, and probing the volume at runtime would
-/// make a security boundary depend on a filesystem round trip. So the fold is applied everywhere,
-/// using ordinal case folding against the invariant culture, which keeps the comparison itself
+/// THE COMPARISON IS CASE-INSENSITIVE ON EVERY PLATFORM, and that is a decision rather than an
+/// oversight. Case sensitivity is a property of the VOLUME, not of the operating system: macOS
+/// is case-insensitive by default and case-sensitive on some volumes, Linux filesystems vary,
+/// and Windows is case-insensitive but case-preserving. Nothing derivable from the running
+/// platform answers the question, and probing the volume at runtime would make a security
+/// boundary depend on a filesystem round trip. So the fold is applied everywhere, using
+/// ordinal case folding against the invariant culture, which keeps the comparison itself
 /// platform-independent - no platform API participates in it.
 ///
 /// The asymmetry is the safe direction. On a case-sensitive volume, two paths differing only
-/// in case are genuinely different, so folding them together can refuse a legitimate write -
+/// in case are genuinely different, so folding them together can REFUSE A LEGITIMATE WRITE -
 /// visible, recoverable, and reported with exit code 4. Comparing case-sensitively on a
-/// case-insensitive volume would permit a write inside the audited repository - silent, and
-/// the single thing this boundary exists to stop.
+/// case-insensitive volume would PERMIT A WRITE INSIDE THE AUDITED REPOSITORY - silent, and
+/// the single thing this boundary exists to stop. A boundary that fails should fail toward
+/// refusing.
 ///
-/// And it is not a string prefix test. A prefix comparison fails on case differences, on
+/// AND IT IS NOT A STRING PREFIX TEST. A prefix comparison fails on case differences, on
 /// sibling folders with overlapping names, on traversals, on short names, on drives mapped to
 /// shares, and on directory links resolving inside the tree. Both paths are canonicalized with
 /// link resolution and then compared segment by segment.
@@ -88,9 +90,9 @@ public static class WriteBoundary
 
 	/// <summary>
 	/// What to do about it. Split from the refusal itself because all three refusals share it,
-	/// and because the early check says what to do rather than only what is wrong - the collision is
-	/// what happens when the tool is run from inside the repository, which is the most natural
-	/// invocation there is.
+	/// and because the early check must say what to do rather than only what is
+	/// wrong - the collision is what happens when the tool is run from inside the repository,
+	/// which is the most natural invocation there is.
 	/// </summary>
 	public const string REFUSAL_REMEDY_MESSAGE =
 		"Run it from another folder, or supply --documentationDestinationFolderPath with a destination outside the repository.";
@@ -129,13 +131,15 @@ public static class WriteBoundary
 
 	/// <summary>
 	/// The read path. Every candidate is put through the same primitive before anything is
-	/// opened, and the outcome it must produce is the one that refuses a write: a path this
+	/// opened, and the outcome it must produce is the one that REFUSES a write: a path this
 	/// tool may read is exactly a path contained in the repository being assessed.
 	///
-	/// The candidate is normalized but not link-resolved. The walk does not follow links, so a link
-	/// inside the repository is already a skipped item rather than something this check must catch; and
-	/// a stat per candidate would put a filesystem round trip in the inner loop of a stage that may run
-	/// over half a million files.
+	/// The candidate is normalized but not link-resolved, and that is deliberate on two
+	/// grounds. The link policy is owned by the walk, which does not follow links, so a link inside
+	/// the repository is already a skipped item rather than something this check must catch.
+	/// And a stat per candidate would put a filesystem round trip in the inner loop of a
+	/// stage whose worst case is half a million files - the same objection that applies
+	/// to probing the volume to answer the case question.
 	/// </summary>
 	public static bool PermitsReading(RepositoryFolderPath repository, string candidatePath)
 	{

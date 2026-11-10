@@ -30,13 +30,33 @@ public sealed class OutOfScopeGrantTests
 		}
 	}
 
-	/// <summary>The analyzer's own declared fallback texts, before the base composes them with the OAuth2 Client block.</summary>
+	/// <summary>The analyzer's own declared fallback texts, before the shared engine composes them with the OAuth2 Client block.</summary>
 	[Fact]
 	public void NoDeclaredCSharpFallbackTextNamesAnOutOfScopeGrant()
 	{
 		foreach (CredentialFlow flow in CSharpRenderedTexts.Flows)
 		{
 			AssertNoOutOfScopeGrant(CSharpRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow]);
+		}
+	}
+
+	/// <summary>Every (class, flow) `PowerShell` recommendation and both generic texts, composed exactly as the report composes them.</summary>
+	[Fact]
+	public void NoComposedPowerShellRecommendationNamesAnOutOfScopeGrant()
+	{
+		foreach (string text in PowerShellRenderedTexts.AllComposedTexts())
+		{
+			AssertNoOutOfScopeGrant(text);
+		}
+	}
+
+	/// <summary>The `PowerShell` analyzer's own declared fallback texts, before the shared engine composes them with the OAuth2 Client block.</summary>
+	[Fact]
+	public void NoDeclaredPowerShellFallbackTextNamesAnOutOfScopeGrant()
+	{
+		foreach (CredentialFlow flow in PowerShellRenderedTexts.Flows)
+		{
+			AssertNoOutOfScopeGrant(PowerShellRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow]);
 		}
 	}
 

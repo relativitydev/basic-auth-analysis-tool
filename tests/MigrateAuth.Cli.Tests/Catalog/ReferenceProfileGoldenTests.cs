@@ -12,8 +12,8 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The golden test of the analyzer contract: a reference profile is registered and consumed with
-/// no engine change.
+/// The golden test of the analyzer contract: a reference profile is registered and consumed with no engine
+/// change.
 ///
 /// What makes this demonstrate the property rather than assert it:
 ///
@@ -46,10 +46,11 @@ public sealed class ReferenceProfileGoldenTests
 
 	private const int _EXPECTED_DECLARED_LANGUAGE_COUNT = 2;
 	/// <summary>
-	/// Three classes. Subsumption needs two classes that recognize ONE construct, and the first two
-	/// cannot overlap in any text - a credential construction and a header assembly are disjoint by
-	/// shape. The legacy client is the class that overlaps, and it is what makes the subsumption
-	/// relation something the engine is tested against rather than something the contract merely accepts.
+	/// Three rules. Subsumption needs two classes that recognize ONE
+	/// construct, and a credential construction and a header assembly are disjoint by shape, so they
+	/// cannot overlap in any text. The legacy client is the class the subsumption rule's own example names,
+	/// and it is what makes the relation something the engine is tested against rather than something the
+	/// contract merely accepts.
 	/// </summary>
 	private const int _EXPECTED_DETECTION_RULE_COUNT = 3;
 	private const int _EXPECTED_NEWLINE_POLICY_COUNT = 3;
@@ -146,7 +147,7 @@ public sealed class ReferenceProfileGoldenTests
 	}
 
 	/// <summary>
-	/// Why the credential position is separate: a credential type is anchored at its
+	/// The reason for a separate credential position: a credential type is anchored at its
 	/// type name and carries its credential at argument two, so the two offsets differ.
 	/// </summary>
 	[Fact]
@@ -188,8 +189,8 @@ public sealed class ReferenceProfileGoldenTests
 	}
 
 	/// <summary>
-	/// Every lexical-profile field has to be reachable from a profile, and the only honest way to know
-	/// is to write one that uses them.
+	/// Every profile field has to be reachable from a profile, and the only honest way to know is to
+	/// write one that uses them.
 	/// </summary>
 	[Fact]
 	public void TheReferenceProfileExercisesEveryFieldOfTheProfileVocabulary()

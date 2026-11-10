@@ -26,7 +26,7 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 /// Part C first (UTF-8 without a byte-order mark, LF line endings) and then compare, so the run that
 /// regenerates passes and the next run, without the variable, proves the file on disk is what the tool says.
 /// </summary>
-public sealed class PartCDriftTests
+public abstract class PartCDriftTests
 {
 	private const string _REGENERATE_ENABLED_VALUE = "1";
 	private const string _ATTRIBUTES_RULE = "docs/public/** text eol=lf";
@@ -52,11 +52,19 @@ public sealed class PartCDriftTests
 	/// <summary>The environment variable that makes the drift test rewrite Part C instead of only comparing.</summary>
 	public const string REGENERATE_ENVIRONMENT_VARIABLE = "MIGRATE_AUTH_REGENERATE_PART_C";
 
+	private readonly DocumentedLanguage _language;
+
+	/// <summary>The checks of this class run for one language: its two documents and its embedded analyzer.</summary>
+	protected PartCDriftTests(DocumentedLanguage language)
+	{
+		_language = language;
+	}
+
 	/// <summary>Every marker pair of Part C exists and is balanced: no orphan, no nesting, no duplicate, no unclosed block.</summary>
 	[Fact]
 	public void EveryGeneratedBlockMarkerPairInPartCIsBalanced()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
+		string partC = File.ReadAllText(_language.PartCPath());
 
 		ImmutableArray<string> problems = GeneratedBlockMarkers.BalanceProblems(partC);
 
@@ -85,8 +93,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void PartCHoldsExactlyTheClassFlowEntriesAndTheGenericBlockOfEachFlow()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		string partC = File.ReadAllText(_language.PartCPath());
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		string[] expected = [.. PartCBlockComposition.ExpectedKeys(analyzer).Select(PartCBlockComposition.KeyText).Order(StringComparer.Ordinal)];
 		string[] actual = [.. GeneratedBlockMarkers.Blocks(partC).Select(block => block.Key).Order(StringComparer.Ordinal)];
@@ -104,13 +112,13 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryClassEntryIsComposedFromItsOwnTemplateSoNoPerClassReasonIsNeeded()
 	{
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		string[] genericallyComposed =
 		[
 			.. PartCBlockComposition.ExpectedKeys(analyzer)
 				.Where(key => !key.IsGeneric)
-				.Where(key => PartCBlockComposition.Composed(key).Kind != RecommendationKind.FromTemplate)
+				.Where(key => PartCBlockComposition.Composed(_language, key).Kind != RecommendationKind.FromTemplate)
 				.Select(PartCBlockComposition.KeyText)
 		];
 
@@ -121,7 +129,7 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void PartCGeneratedBlocksEqualAFreshCompositionFromTheEmbeddedCatalog()
 	{
-		string path = PublicDocuments.PartCPath();
+		string path = _language.PartCPath();
 		string committed = File.ReadAllText(path);
 		FrozenDictionary<string, string> composedByKey = ComposedContentByKey();
 		string fresh = GeneratedBlockMarkers.Rewrite(committed, key => ComposedContentOrFail(composedByKey, key));
@@ -144,7 +152,7 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryPartCEntryCarriesAMarkerForEachItemTwoElement()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
+		string partC = File.ReadAllText(_language.PartCPath());
 
 		string[] problems =
 		[
@@ -159,10 +167,10 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void TheItemTwoCheckReportsAnEntryWhoseMarkerWasRemoved()
 	{
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 		string patternClassIdentifier = PartCBlockComposition.ClassesThatProduceAdvice(analyzer).First();
 		PartCBlockKey key = new(patternClassIdentifier, CredentialFlow.AuthorizationCode);
-		string complete = PartCBlockComposition.ContentFor(PartCBlockComposition.KeyText(key));
+		string complete = PartCBlockComposition.ContentFor(_language, PartCBlockComposition.KeyText(key));
 		string withoutPkce = complete.Replace(PublicDocumentChecks.PKCE_MARKER, string.Empty, StringComparison.Ordinal);
 		string withoutPartB = complete.Replace(SecretManagementPointer.PART_B_NAME, string.Empty, StringComparison.Ordinal);
 
@@ -179,8 +187,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EachGenericBlockCarriesTheLanguageFallbackTextOfItsFlow()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		string partC = File.ReadAllText(_language.PartCPath());
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 		FrozenDictionary<CredentialFlow, string> fallbackByFlow = analyzer.CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow!;
 
 		foreach (CredentialFlow flow in PartCBlockComposition.Flows)
@@ -188,7 +196,7 @@ public sealed class PartCDriftTests
 			PartCBlockKey key = new(null, flow);
 			GeneratedBlock block = GeneratedBlockMarkers.Blocks(partC).Single(candidate => candidate.Key == PartCBlockComposition.KeyText(key));
 
-			Assert.Equal(RecommendationKind.Generic, PartCBlockComposition.Composed(key).Kind);
+			Assert.Equal(RecommendationKind.Generic, PartCBlockComposition.Composed(_language, key).Kind);
 			Assert.Contains(fallbackByFlow[flow], block.Content, StringComparison.Ordinal);
 		}
 	}
@@ -197,9 +205,9 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryRegisteredClassAppearsInPartAWithAllItsElements()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
+		string partA = File.ReadAllText(_language.PartAPath());
 
-		ImmutableArray<string> problems = PublicDocumentChecks.PartAClassProblems(partA, RegisteredRules());
+		ImmutableArray<string> problems = PublicDocumentChecks.PartAClassProblems(partA, RegisteredRules(), ExampleFence());
 
 		Assert.True(problems.IsEmpty, string.Join(Environment.NewLine, problems));
 	}
@@ -208,13 +216,13 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void ThePartACheckReportsAClassWhoseHeadingWasRemoved()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
+		string partA = File.ReadAllText(_language.PartAPath());
 		KeyValuePair<string, DetectionRule> removed = RegisteredRules().OrderBy(entry => entry.Key, StringComparer.Ordinal).First();
 		string heading = PublicDocumentChecks.ClassHeading(removed.Key, removed.Value.DisplayName);
 
 		string withoutHeading = partA.Replace(heading, string.Empty, StringComparison.Ordinal);
 
-		ImmutableArray<string> problems = PublicDocumentChecks.PartAClassProblems(withoutHeading, RegisteredRules());
+		ImmutableArray<string> problems = PublicDocumentChecks.PartAClassProblems(withoutHeading, RegisteredRules(), ExampleFence());
 
 		Assert.Contains(problems, problem => problem.Contains(removed.Key, StringComparison.Ordinal));
 		Assert.NotEqual(partA, withoutHeading);
@@ -224,7 +232,7 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryRegisteredClassAppearsInPartC()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
+		string partC = File.ReadAllText(_language.PartCPath());
 
 		ImmutableArray<string> problems = PublicDocumentChecks.PartCClassProblems(partC, RegisteredRules());
 
@@ -235,8 +243,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void ThePartCCheckReportsAClassWhoseHeadingAndBlocksWereRemoved()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
-		string patternClassIdentifier = PartCBlockComposition.ManualReviewClasses(CSharpRenderedTexts.Analyzer()).First();
+		string partC = File.ReadAllText(_language.PartCPath());
+		string patternClassIdentifier = PartCBlockComposition.ManualReviewClasses(_language.Analyzer()).First();
 		DetectionRule rule = RegisteredRules()[patternClassIdentifier];
 
 		string withoutClass = partC.Replace(PublicDocumentChecks.ClassHeading(patternClassIdentifier, rule.DisplayName), string.Empty, StringComparison.Ordinal);
@@ -251,8 +259,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryDeclaredUnsupportedConstructAppearsInPartA()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		string partA = File.ReadAllText(_language.PartAPath());
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		ImmutableArray<string> problems = PublicDocumentChecks.UnsupportedProblems(partA, analyzer.LanguageIdentification.DeclaredUnsupportedCoverage);
 
@@ -264,7 +272,7 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void TheUnsupportedCheckReportsAConstructThatIsNotListed()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
+		string partA = File.ReadAllText(_language.PartAPath());
 		DeclaredUnsupportedCoverage unlisted = new() { Construct = "a construct the document does not mention", Reason = "not used" };
 
 		ImmutableArray<string> problems = PublicDocumentChecks.UnsupportedProblems(partA, [unlisted]);
@@ -280,8 +288,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void EveryWhichFlowParagraphAgreesWithTheSignalSectionAndTheCrossFileLimit()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		string partA = File.ReadAllText(_language.PartAPath());
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		ImmutableArray<string> paragraphProblems = PublicDocumentChecks.WhichFlowProblems(partA, RegisteredRules());
 		ImmutableArray<string> signalProblems = PublicDocumentChecks.FlowSignalProblems(partA, analyzer.CandidateSelectionAndRecommendation.FlowSignals);
@@ -294,7 +302,7 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void TheWhichFlowCheckReportsAParagraphThatOmitsTheCrossFileLimit()
 	{
-		string partA = File.ReadAllText(PublicDocuments.PartAPath());
+		string partA = File.ReadAllText(_language.PartAPath());
 		string withoutLimit = partA.Replace(PublicDocumentChecks.CROSS_FILE_LIMIT_PHRASE, "other place", StringComparison.OrdinalIgnoreCase);
 
 		ImmutableArray<string> problems = PublicDocumentChecks.WhichFlowProblems(withoutLimit, RegisteredRules());
@@ -306,8 +314,8 @@ public sealed class PartCDriftTests
 	[Fact]
 	public void PartCHasAParagraphForEachLowCauseAndEachLowClass()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
-		ILanguageAnalyzer analyzer = CSharpRenderedTexts.Analyzer();
+		string partC = File.ReadAllText(_language.PartCPath());
+		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		string[] headings =
 		[
@@ -336,8 +344,8 @@ public sealed class PartCDriftTests
 		string[] attributeLines = File.ReadAllLines(PublicDocuments.GitAttributesPath());
 
 		Assert.Contains(attributeLines, line => line.Trim() == _ATTRIBUTES_RULE);
-		Assert.DoesNotContain(_CARRIAGE_RETURN, File.ReadAllText(PublicDocuments.PartCPath()), StringComparison.Ordinal);
-		Assert.DoesNotContain(_CARRIAGE_RETURN, File.ReadAllText(PublicDocuments.PartAPath()), StringComparison.Ordinal);
+		Assert.DoesNotContain(_CARRIAGE_RETURN, File.ReadAllText(_language.PartCPath()), StringComparison.Ordinal);
+		Assert.DoesNotContain(_CARRIAGE_RETURN, File.ReadAllText(_language.PartAPath()), StringComparison.Ordinal);
 	}
 
 	/// <summary>Code blocks in both documents use tab indentation; bash, text, markdown and unlabelled blocks are exempt.</summary>
@@ -346,24 +354,29 @@ public sealed class PartCDriftTests
 	{
 		string[] violations =
 		[
-			.. SpaceIndentedCodeLines(PublicDocuments.PartAPath()),
-			.. SpaceIndentedCodeLines(PublicDocuments.PartCPath())
+			.. SpaceIndentedCodeLines(_language.PartAPath()),
+			.. SpaceIndentedCodeLines(_language.PartCPath())
 		];
 
 		Assert.Empty(violations);
 	}
 
-	private static IReadOnlyDictionary<string, DetectionRule> RegisteredRules()
+	private string ExampleFence()
 	{
-		return CSharpRenderedTexts.Analyzer().DetectionRulesByPatternClass;
+		return string.Concat(_FENCE_MARKER, _language.ExampleFenceLabel);
 	}
 
-	private static FrozenDictionary<string, string> ComposedContentByKey()
+	private IReadOnlyDictionary<string, DetectionRule> RegisteredRules()
+	{
+		return _language.Analyzer().DetectionRulesByPatternClass;
+	}
+
+	private FrozenDictionary<string, string> ComposedContentByKey()
 	{
 		return PartCBlockComposition
-			.ExpectedKeys(CSharpRenderedTexts.Analyzer())
+			.ExpectedKeys(_language.Analyzer())
 			.Select(PartCBlockComposition.KeyText)
-			.ToFrozenDictionary(key => key, PartCBlockComposition.ContentFor);
+			.ToFrozenDictionary(key => key, keyText => PartCBlockComposition.ContentFor(_language, keyText));
 	}
 
 	private static string ComposedContentOrFail(FrozenDictionary<string, string> composedByKey, string key)

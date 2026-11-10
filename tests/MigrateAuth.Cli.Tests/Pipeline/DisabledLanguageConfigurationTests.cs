@@ -36,6 +36,7 @@ public sealed class DisabledLanguageConfigurationTests
 	private const string _CSHARP_FILE_NAME = "HighFinding.cs";
 	private const string _PYTHON_FILE_NAME = "script.py";
 	private const string _DIFFERS_FROM_SESSION_FIELD = "enabledLanguagesDifferFromSession";
+	private const string _STAGE_NAME_SEPARATOR = ": ";
 
 	/// <summary>The C# recommendation route tests' own High-finding fixture, reused verbatim: synthetic, with generic names.</summary>
 	private const string _csharpHighFindingContent =
@@ -176,6 +177,10 @@ public sealed class DisabledLanguageConfigurationTests
 			ReportStage.SCAN_ENABLED_LANGUAGES_STALE_MESSAGE,
 			processTwo.Output.ToString(),
 			StringComparison.Ordinal);
+		Assert.StartsWith(
+			CommandRegistry.Describe(CommandId.Report).Name + _STAGE_NAME_SEPARATOR,
+			processTwo.Output.ToString(),
+			StringComparison.Ordinal);
 
 		string markdown = File.ReadAllText(WrittenArtifactPath(destination, OutputArtifactNaming.MARKDOWN_FILE_EXTENSION));
 
@@ -189,6 +194,115 @@ public sealed class DisabledLanguageConfigurationTests
 			$"| {MarkdownReportRenderer.ASSESSED_NO} |",
 			MarkdownTableRow(markdown, AssessedLanguage.Python),
 			StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The configuration now disables C#, which the scan assessed and Analyze found a finding in. The
+	/// user is told once, when the session resumes, and analyze does not say it again, and the report does not describe C#
+	/// as disabled beside the findings it reports.
+	/// </summary>
+	[Fact]
+	public void AConfigurationChangedAfterScanIsAnnouncedEarlyAndTheReportStaysConsistentWithWhatWasAnalyzed()
+	{
+		using RepositoryFixture fixture = RepositoryFixture.CreateEmpty();
+
+		fixture.WriteText(_CSHARP_FILE_NAME, _csharpHighFindingContent);
+
+		RepositoryFolderPath repository = fixture.Repository;
+		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
+		using TemporaryFolder destination = TemporaryFolder.Create();
+		DocumentationDestinationFolderPath destinationFolder =
+			DocumentationDestinationFolderPath.FromSuppliedText(destination.Path);
+
+		StageSet processOne = BuildStages(repository, destinationFolder, catalog, ResolveConfigurationEnablingOnly(AssessedLanguage.CSharp));
+		SessionStateStore store = new(destinationFolder);
+		SessionState processOneState = SessionState.Fresh(catalog.Version, repository.Label);
+
+		Assert.Equal(StageRunOutcome.Completed, processOne.Scan.Run(processOneState, CancellationToken.None));
+		processOneState.MarkCompleted(CommandId.Scan);
+		store.Save(repository, processOneState);
+
+		EffectiveConfiguration laterConfiguration = ResolveConfigurationEnablingOnly(AssessedLanguage.Python);
+		SessionStateLoad reloaded = store.Load(repository, catalog);
+		StringWriter startupOutput = new();
+
+		SessionStartup.ReportScanConfigurationChange(reloaded.State, laterConfiguration, startupOutput);
+
+		Assert.Contains(SessionStartup.SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE, startupOutput.ToString(), StringComparison.Ordinal);
+
+		StageSet processTwo = BuildStages(repository, destinationFolder, catalog, laterConfiguration);
+
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Analyze.Run(reloaded.State, CancellationToken.None));
+		reloaded.State.MarkCompleted(CommandId.Analyze);
+		Assert.DoesNotContain(SessionStartup.SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE, processTwo.Output.ToString(), StringComparison.Ordinal);
+		Assert.Single(reloaded.State.Findings);
+
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Suggest.Run(reloaded.State, CancellationToken.None));
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Report.Run(reloaded.State, CancellationToken.None));
+		Assert.DoesNotContain(ReportStage.SCAN_ENABLED_LANGUAGES_STALE_MESSAGE, processTwo.Output.ToString(), StringComparison.Ordinal);
+
+		string markdown = File.ReadAllText(WrittenArtifactPath(destination, OutputArtifactNaming.MARKDOWN_FILE_EXTENSION));
+		string coverageSection = markdown[..markdown.IndexOf(MarkdownReportRenderer.SCAN_SUMMARY_HEADING, StringComparison.Ordinal)];
+
+		Assert.DoesNotContain("| CSharp | disabled by configuration |", coverageSection, StringComparison.Ordinal);
+		Assert.Contains("| CSharp | supported,", coverageSection, StringComparison.Ordinal);
+		Assert.Contains(MarkdownReportRenderer.COVERAGE_STALE_MESSAGE, coverageSection, StringComparison.Ordinal);
+		Assert.DoesNotContain("None declared", coverageSection, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// When nothing said it at resume, the first of analyze and report to run says it, and the other stays
+	/// silent: the stale-scan warning is printed once per session, whichever stage reaches it first.
+	/// </summary>
+	[Fact]
+	public void TheStaleScanWarningIsPrintedOnceWhenResumeDidNotSayIt()
+	{
+		using RepositoryFixture fixture = RepositoryFixture.CreateEmpty();
+
+		fixture.WriteText(_CSHARP_FILE_NAME, _csharpHighFindingContent);
+
+		RepositoryFolderPath repository = fixture.Repository;
+		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
+		using TemporaryFolder destination = TemporaryFolder.Create();
+		DocumentationDestinationFolderPath destinationFolder =
+			DocumentationDestinationFolderPath.FromSuppliedText(destination.Path);
+
+		StageSet processOne = BuildStages(repository, destinationFolder, catalog, ResolveConfigurationEnablingOnly(AssessedLanguage.CSharp));
+		SessionStateStore store = new(destinationFolder);
+		SessionState processOneState = SessionState.Fresh(catalog.Version, repository.Label);
+
+		Assert.Equal(StageRunOutcome.Completed, processOne.Scan.Run(processOneState, CancellationToken.None));
+		processOneState.MarkCompleted(CommandId.Scan);
+		store.Save(repository, processOneState);
+
+		StageSet processTwo = BuildStages(repository, destinationFolder, catalog, ResolveConfigurationEnablingOnly(AssessedLanguage.Python));
+		SessionState reloaded = store.Load(repository, catalog).State;
+
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Analyze.Run(reloaded, CancellationToken.None));
+		reloaded.MarkCompleted(CommandId.Analyze);
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Suggest.Run(reloaded, CancellationToken.None));
+		Assert.Equal(StageRunOutcome.Completed, processTwo.Report.Run(reloaded, CancellationToken.None));
+
+		string console = processTwo.Output.ToString();
+
+		Assert.Contains(SessionStartup.SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE, console, StringComparison.Ordinal);
+		Assert.DoesNotContain(ReportStage.SCAN_ENABLED_LANGUAGES_STALE_MESSAGE, console, StringComparison.Ordinal);
+		Assert.Equal(1, console.Split(SessionStartup.SCAN_ENABLED_LANGUAGES_CHANGED_MESSAGE).Length - 1);
+	}
+
+	[Fact]
+	public void NoConfigurationChangeAnnouncementIsMadeWhenNoScanHasCompletedOrTheSetIsUnchanged()
+	{
+		using RepositoryFixture fixture = RepositoryFixture.CreateEmpty();
+
+		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
+		EffectiveConfiguration configuration = ResolveConfigurationEnablingOnly(AssessedLanguage.CSharp);
+		SessionState freshState = SessionState.Fresh(catalog.Version, fixture.Repository.Label);
+		StringWriter output = new();
+
+		SessionStartup.ReportScanConfigurationChange(freshState, configuration, output);
+
+		Assert.Equal(string.Empty, output.ToString());
 	}
 
 	/// <summary>A session whose scan and report ran under the same configuration carries the flag as false.</summary>

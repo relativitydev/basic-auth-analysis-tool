@@ -31,23 +31,30 @@ public enum LanguageAssessmentState
 }
 
 /// <summary>
-/// Whether a language the language inventory names has a registered analyzer behind it,
-/// derived from the catalog at render time and never persisted.
+/// WHETHER A LANGUAGE THE LANGUAGE INVENTORY NAMES HAS A REGISTERED ANALYZER BEHIND IT,
+/// DERIVED FROM THE CATALOG AT RENDER TIME AND NEVER PERSISTED.
 ///
-/// <see cref="Scanning.BaseLanguageDetection"/> lets the inventory name all eight languages, and a
-/// reader needs to tell which rows the running catalog actually searched from which rows it only
-/// counted. This is read straight off <see cref="LanguageCatalog.AnalyzersByLanguageName"/> rather
-/// than carried on <see cref="Scanning.LanguageInventoryRow"/>: the row may be read back from a
-/// resumed session's state, while the catalog is always the one embedded in the running binary, so a
-/// resumed report stays identical to an uninterrupted one.
+/// <see cref="Scanning.BaseLanguageDetection"/> lets the inventory name all eight languages before
+/// every one of them ships an analyzer, and a reader of that inventory needs to be able to tell
+/// which rows the running catalog actually searched from which rows it only counted. This is that
+/// distinction, read straight off <see cref="LanguageCatalog.AnalyzersByLanguageName"/> rather than
+/// carried on <see cref="Scanning.LanguageInventoryRow"/> itself - the row is produced once by the
+/// Scan stage and may be read back from a resumed session's state long after that stage ran, while
+/// the catalog a later stage builds is always the one embedded in THAT run's binary. Computing this
+/// at render time is what keeps a resumed report identical to an uninterrupted one without the
+/// session-state schema having to carry a field that would go stale the moment a later build ships
+/// the missing analyzer.
 ///
-/// The unrecognized bucket is its own state, never "assessed".
-/// `LanguageAttribution.UNRECOGNIZED_LANGUAGE_NAME` is not one of <see cref="AssessedLanguages"/>'s
-/// eight names - it is what the inventory calls a file matching neither an analyzer's rule nor the
-/// base's own table. Those files were never searched at all, which is a different fact from "a
-/// detected language this release does not assess", so
-/// <see cref="LanguageAssessmentState.NoLanguageDetected"/> is a third state rather than folded into
-/// either of the other two.
+/// THE UNRECOGNIZED BUCKET IS ITS OWN STATE, NEVER "ASSESSED". `LanguageAttribution.UNRECOGNIZED_LANGUAGE_NAME`
+/// is not one of <see cref="AssessedLanguages"/>'s eight names and never will be - it is what
+/// the inventory calls a file matching neither an analyzer's rule nor the shared engine's own table, not a
+/// ninth language this release forgot to build. Those files were never searched at all, which is a
+/// different fact from "a detected language this release does not assess" - marking either one as
+/// the other misattributes an absence of any match to an absence of coverage, or the reverse, which
+/// is exactly the confusion the coverage section's own three-state split (disabled, declared unsupported,
+/// supported) already refuses to make for the coverage section. This is the same refusal applied to
+/// the inventory, with <see cref="LanguageAssessmentState.NoLanguageDetected"/> as its own third
+/// state rather than folded into either of the other two.
 /// </summary>
 public static class LanguageAssessment
 {

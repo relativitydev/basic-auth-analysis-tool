@@ -9,14 +9,14 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Pipeline;
 
 /// <summary>
-/// The generic route
+/// The generic recommendation route
 /// reads the finding's own language's declared fallback text when the analyzer that owns it
 /// supplies one, through the REAL renderer and the real four-stage pipeline - not a synthetic
 /// <see cref="RenderedRecommendation"/>, because what is under test is whether the declared text
 /// actually reaches both shareable artifacts rather than whether the renderer's private routing
 /// logic can be made to return it.
 ///
-/// <see cref="PipelineLanguageAnalyzer.UNTEMPLATED_PATTERN_CLASS"/> is exactly the generic route:
+/// <see cref="PipelineLanguageAnalyzer.UNTEMPLATED_PATTERN_CLASS"/> is exactly the third route:
 /// a High-confidence class the fixture analyzer declares no template for. Declaring a language
 /// fallback text on that same analyzer, and reading it back from both artifacts, is the whole of
 /// what this class proves.
@@ -34,7 +34,7 @@ public sealed class LanguageFallbackTextPipelineTests
 		string.Empty);
 
 	/// <summary>
-	/// The declared text renders in place of the base's language-neutral one, in both the Markdown
+	/// The declared text renders in place of the shared engine's language-neutral one, in both the Markdown
 	/// report and the JSON artifact's `recommendation` field.
 	/// </summary>
 	[Fact]
@@ -58,7 +58,7 @@ public sealed class LanguageFallbackTextPipelineTests
 	}
 
 	/// <summary>
-	/// The unchanged case: an analyzer that declares no fallback text still reaches the base's
+	/// The unchanged case: an analyzer that declares no fallback text still reaches the shared engine's
 	/// Client Credentials <see cref="GenericRecommendationProvider.CLIENT_CREDENTIALS_GENERIC_TEXT"/>.
 	/// </summary>
 	[Fact]

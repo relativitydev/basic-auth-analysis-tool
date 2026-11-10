@@ -9,23 +9,27 @@ using MigrateAuth.Cli.Reporting;
 namespace MigrateAuth.Cli.Session;
 
 /// <summary>
-/// The bounded session state: the minimum the gating needs, and nothing else - which stages
-/// completed, the candidate set, and findings without rendered recommendations.
+/// The bounded session state: the minimum the gating needs, and nothing else. It holds three
+/// parts - which stages completed, the candidate set, and findings without rendered
+/// recommendations.
 ///
-/// <see cref="Finding"/> carries no rendered recommendation by construction - it holds a pattern
-/// class, which the template catalog is indexed by, and the rendered text is produced at write time
-/// and held by nobody. So this state stores the type as it is rather than a filtered projection of it.
+/// <see cref="Finding"/> carries no rendered recommendation by construction - it holds a
+/// pattern class, which the template catalog is indexed by, and the rendered text is
+/// produced at write time and held by nobody. So this field stores the type as it is rather than a
+/// filtered projection of it, and there is no narrowing step here that a later edit could skip.
 ///
-/// The scan summary, each stage's own skipped-item tallies and the findings-cap outcome are recorded
-/// here too, as supporting detail of the same stage outputs, so a report produced in a resumed process
-/// reads them as the scan and the analysis left them.
+/// The scan summary, each stage's own skipped-item tallies and the findings-cap outcome are
+/// recorded here too, as those three parts' own supporting detail, so that a report produced in a
+/// process resumed after the one that scanned and analyzed reads them as Scan and Analysis left them.
 ///
 /// Resumption granularity is the stage. There is no checkpoint inside a stage: a stage
-/// commits on completion and an interrupted one leaves nothing behind.
+/// commits on completion and an interrupted one leaves nothing behind, so a resumed session is
+/// never in a condition the design did not model.
 /// </summary>
 public sealed class SessionState
 {
 	private readonly HashSet<CommandId> _completedWorkflowStages = [];
+	private bool _scanConfigurationChangeAnnounced;
 	private readonly List<string> _candidateRelativePaths = [];
 	private readonly List<string> _candidateLanguageNames = [];
 
@@ -42,7 +46,7 @@ public sealed class SessionState
 	/// <summary>
 	/// The catalog version that produced this state. A state produced under a different
 	/// catalog version starts a fresh session, because a report declaring the new version over
-	/// findings produced with the previous one would misstate its own provenance.
+	/// findings produced with the previous one would lie about its own provenance.
 	/// </summary>
 	public CatalogVersion CatalogVersion { get; }
 
@@ -62,10 +66,10 @@ public sealed class SessionState
 	/// <summary>
 	/// The complete, ordered, numbered finding set Analysis produces and Report consumes.
 	///
-	/// It is the full set and never the filtered one. The confidence threshold runs at render time over
+	/// IT IS THE FULL SET AND NEVER THE FILTERED ONE. The confidence threshold runs at render time over
 	/// this array, so what is persisted is what the rubric assigned rather than what the reader's
 	/// configuration currently admits - otherwise a session resumed under a different threshold
-	/// would lose findings that were filtered out of the state file.
+	/// would report findings that were filtered out of the state file and can never come back.
 	/// </summary>
 	public ImmutableArray<Finding> Findings => _findings;
 
@@ -101,7 +105,7 @@ public sealed class SessionState
 	public ImmutableArray<AssessedLanguage> ScanEnabledLanguages { get; private set; } = [];
 
 	/// <summary>
-	/// The truncation counter, as Analysis last left it: <see cref="FindingsCapOutcome.Empty"/>
+	/// The findings-cap truncation counter, as Analysis last left it: <see cref="FindingsCapOutcome.Empty"/>
 	/// until Analysis has completed at least once in this session or an earlier one.
 	/// </summary>
 	public FindingsCapOutcome FindingsCapOutcome { get; private set; } = FindingsCapOutcome.Empty;
@@ -109,14 +113,16 @@ public sealed class SessionState
 	/// <summary>
 	/// The flow-signal evaluation counters as Analysis last left them:
 	/// <see cref="FlowEvaluationDiagnostics.Empty"/> until an analysis has completed in this session
-	/// or an earlier one. Persisted, so that the figures a report carries survive a resume.
+	/// or an earlier one. Persisted (schema version 5), so that the figures a report carries survive
+	/// a resume.
 	/// </summary>
 	public FlowEvaluationDiagnostics FlowEvaluationDiagnostics { get; private set; } = FlowEvaluationDiagnostics.Empty;
 
 	/// <summary>
 	/// The default flow Analysis applied when it decided the flows, and where it came from:
-	/// the built-in default until an analysis has completed. Persisted, so that what a resumed session
-	/// reports as its default is the one the persisted decisions were made under.
+	/// the built-in default until an analysis has completed. Persisted (schema version 5), so that
+	/// what a resumed session reports as its default is the one the persisted decisions were made
+	/// under.
 	/// </summary>
 	public EffectiveDefaultFlow DefaultFlow { get; private set; } = EffectiveDefaultFlow.BuiltIn;
 
@@ -180,14 +186,15 @@ public sealed class SessionState
 	}
 
 	/// <summary>
-	/// Every output Scan produced this run: the candidate set, Section 2's numbers, Scan's own
-	/// skipped-item tallies and the enabled-language set it narrowed candidate selection with, recorded
-	/// together because they are one stage's one completed run.
+	/// Every output Scan produced this run: the candidate set, Section
+	/// 2's numbers, Scan's own skipped-item tallies and the enabled-language set it narrowed candidate
+	/// selection with, recorded together because they are one stage's one completed run.
 	///
-	/// It replaces rather than appends. An interrupted Scan leaves nothing partial behind and re-runs
-	/// from its start, so a second run must produce the outputs of that run and not the union of two.
-	/// Appending would also double the candidate set on every ordinary re-scan of an unchanged
-	/// repository.
+	/// IT REPLACES RATHER THAN APPENDS, and that is the required behaviour rather than a
+	/// convenience. Resumption granularity is the stage: an interrupted Scan leaves nothing partial
+	/// behind and re-runs from its start, so a second run must produce the outputs of that run and
+	/// not the union of two. Appending would also double the candidate set on every ordinary re-scan
+	/// of an unchanged repository, which the cascade makes a routine thing to do.
 	///
 	/// The caller is the Scan stage, which has already established that every candidate path is
 	/// relative to the repository root - the walk produces no other kind - that
@@ -209,7 +216,7 @@ public sealed class SessionState
 		if (candidateLanguageNames.Count != candidateRelativePaths.Count)
 		{
 			throw new ArgumentException(
-				"Every candidate carries exactly one attributed language name (DR-27).",
+				"Every candidate carries exactly one attributed language name.",
 				nameof(candidateLanguageNames));
 		}
 
@@ -223,19 +230,23 @@ public sealed class SessionState
 	}
 
 	/// <summary>
-	/// Every output Analysis produced this run: the finding set, the truncation counter and Analysis's
-	/// own skipped-item tallies, recorded together for the reason <see cref="RecordScanOutcome"/> already
-	/// gives for Scan's outputs.
+	/// Every output Analysis produced this run: the finding set, the findings-cap truncation
+	/// counter and Analysis's own skipped-item tallies, recorded together for the reason
+	/// <see cref="RecordScanOutcome"/> already gives for Scan's outputs.
 	///
-	/// It replaces rather than appends. An interrupted <c>analyze</c> leaves nothing partial behind and
-	/// re-runs from its start, so a second run must produce the outputs of that run and not the union of
-	/// two. A union would also carry two findings with the same identifier, since identifiers are
-	/// assigned over the whole set.
+	/// IT REPLACES RATHER THAN APPENDS, for the reason given above rather than for convenience.
+	/// Resumption granularity is the stage: an interrupted <c>analyze</c> leaves nothing partial
+	/// behind and re-runs from its start, so a second run must produce the outputs of that run and
+	/// not the union of two. Appending would additionally double the finding set on every ordinary
+	/// re-run over an unchanged repository, which the cascade makes routine - and
+	/// here it would be worse than doubling a path list, because the identifiers are assigned
+	/// over the whole set and a union would carry two findings numbered 001.
 	///
 	/// The caller is the Analysis stage, which has already composed <paramref name="findings"/>
-	/// through <see cref="FindingComposition"/> - so the array is ordered and numbered before it arrives,
-	/// and nothing here re-orders or re-numbers it - and whose <paramref name="analysisSkippedItems"/> is
-	/// its own ledger's snapshot, on the same terms <see cref="RecordScanOutcome"/> documents for Scan's.
+	/// through <see cref="FindingComposition"/> - so the array is ordered by the total ordering and numbered
+	/// sequentially before it arrives, and nothing here re-orders or re-numbers it - and whose
+	/// <paramref name="analysisSkippedItems"/> is its own ledger's snapshot, on the same terms
+	/// <see cref="RecordScanOutcome"/> documents for Scan's.
 	/// </summary>
 	public void RecordAnalysisOutcome(
 		ImmutableArray<Finding> findings,
@@ -262,6 +273,29 @@ public sealed class SessionState
 	/// </summary>
 	public ImmutableArray<SkippedItemTally> MergedSkippedItems() =>
 		SkippedItemTallies.Merge(ScanSkippedItems, AnalysisSkippedItems);
+
+	/// <summary>
+	/// Whether a completed scan selected its candidates under a different enabled-language set than
+	/// <paramref name="currentEnabledLanguages"/>: the configuration changed between sessions. False
+	/// while no scan has completed, because there is then nothing the change could be stale against.
+	/// </summary>
+	public bool ScanUsedDifferentLanguagesThan(ImmutableArray<AssessedLanguage> currentEnabledLanguages) =>
+		IsCompleted(CommandId.Scan) && !ScanEnabledLanguages.SequenceEqual(currentEnabledLanguages);
+
+	/// <summary>
+	/// Records that this process has told the user the scan is stale against the configuration, and says
+	/// whether this call is the first to do so. The statement is made at the earliest point the user can
+	/// act on it - resume, then analyze, then report - and only once, whichever of them comes first.
+	/// Not persisted: a later process says it again, because it is a new session for the user.
+	/// </summary>
+	public bool TryMarkScanConfigurationChangeAnnounced()
+	{
+		bool firstAnnouncement = !_scanConfigurationChangeAnnounced;
+
+		_scanConfigurationChangeAnnounced = true;
+
+		return firstAnnouncement;
+	}
 
 	/// <summary>Whether a workflow stage has completed in this session or an earlier one.</summary>
 	public bool IsCompleted(CommandId workflowCommand) =>

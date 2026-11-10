@@ -5,18 +5,16 @@ using MigrateAuth.Cli.Catalog;
 namespace MigrateAuth.Cli.Lexical;
 
 /// <summary>
-/// THE LEXICAL SCANNER. ONE WALK OVER THE DECODED TEXT, ONE ZONE PER POSITION, DRIVEN ENTIRELY BY A
-/// LEXICAL PROFILE. THERE IS NO SCANNER PER LANGUAGE AND NOTHING HERE NAMES ONE.
+/// THE SCANNER. ONE WALK OVER THE DECODED TEXT, ONE ZONE PER POSITION, DRIVEN ENTIRELY BY A
+/// PROFILE. THERE IS NO SCANNER PER LANGUAGE AND NOTHING HERE NAMES ONE.
 ///
-/// WHAT IT DOES NOT DO. No anchor is tested, no symbol is resolved,
-/// no detection rule is applied and nothing is classified. The output is the mask and the signals
-/// the mask-building discovered, and not one statement about what a zone MEANS to a catalog rule.
+/// WHAT IT DOES NOT DO. No anchor is tested, no symbol is resolved, no detection rule is applied
+/// and nothing is classified. The output is the mask and the signals the mask-building discovered,
+/// and not one statement about what a zone MEANS to a catalog rule.
 ///
-/// AND IT NEVER FILTERS. Dropping every match outside a code zone at the point of scanning would
-/// empty the rubric's entire Low population and leave the Low level unreachable. The mask is built
-/// accurately for every position, INCLUDING inside comments and literal bodies, and what
-/// classification later does with a demoting zone - demote, never discard - is not pre-empted by
-/// refusing to mask there.
+/// AND IT NEVER FILTERS. The mask is built accurately for every position, INCLUDING inside comments
+/// and literal bodies, and what the classifier later does with a demoting zone - demote, never
+/// discard - is not pre-empted by refusing to mask there.
 ///
 /// SCANNING A LITERAL AND SCANNING AN INTERPOLATION HOLE ARE THE SAME PASS OVER ONE POINTER.
 /// <see cref="ScanCodeRegion"/> and <see cref="ScanLiteralBody"/> call each other. They have to:
@@ -32,11 +30,13 @@ namespace MigrateAuth.Cli.Lexical;
 /// IT IS CONSTRUCTED ONCE PER PROFILE AND REUSED. The only state it holds is the rule index,
 /// which is derived from the profile and is immutable; every scan's mutable state lives in a
 /// <see cref="ScanContext"/> created for that one file, so the type is pure with respect to the
-/// file.
+/// file, as per-file analysis requires.
 /// </summary>
 public sealed partial class LexicalScanner
 {
 	private const char _LINE_FEED = '\n';
+	private const char _SPACE = ' ';
+	private const char _TAB = '\t';
 	private const char _WORD_CONNECTOR_CHARACTER = '_';
 
 	private readonly LexicalRuleIndex _index;
@@ -113,16 +113,30 @@ public sealed partial class LexicalScanner
 	{
 		int position = region.Start;
 		bool closed = false;
+		int nestingDepth = 0;
+		bool countedANestedOpening = false;
+		string? nestingOpening = context.NestingIsSuspended ? null : region.EnclosingHole?.InterpolationNestingOpening;
 
 		while (position < region.EndExclusive && !closed && !context.IsAbandoned)
 		{
 			int holeClosingLength = MatchHoleClosingLength(context, region, position);
 
-			if (holeClosingLength > 0)
+			if (holeClosingLength > 0 && nestingDepth > 0)
+			{
+				nestingDepth--;
+				position += holeClosingLength;
+			}
+			else if (holeClosingLength > 0)
 			{
 				context.Mark(position, holeClosingLength, LexicalZone.Delimiter);
 				position += holeClosingLength;
 				closed = true;
+			}
+			else if (nestingOpening is not null && MatchesAt(context.Text, position, nestingOpening, _delimiterComparison))
+			{
+				nestingDepth++;
+				countedANestedOpening = true;
+				position += nestingOpening.Length;
 			}
 			else
 			{
@@ -130,7 +144,7 @@ public sealed partial class LexicalScanner
 			}
 		}
 
-		return new RegionResult { Position = position, ClosedItsConstruct = closed };
+		return new RegionResult { Position = position, ClosedItsConstruct = closed, CountedANestedOpening = countedANestedOpening };
 	}
 
 	/// <summary>
@@ -289,10 +303,9 @@ public sealed partial class LexicalScanner
 	/// <summary>
 	/// THE RECURSION BOUND, CHECKED BEFORE THE DESCENT AND NEVER DISCOVERED BY MAKING IT.
 	///
-	/// The counter counts INTERPOLATION HOLES currently open. Bounding holes
-	/// bounds the whole recursion, and the argument is structural rather than empirical: a
-	/// literal is only ever entered from <see cref="ScanCodeRegion"/>, and a code region deeper
-	/// than the file itself is only ever entered from a hole. Literal frames are therefore always
+	/// The counter counts INTERPOLATION HOLES currently open. Bounding holes bounds the whole
+	/// recursion: a literal is only ever entered from <see cref="ScanCodeRegion"/>, and a code region
+	/// deeper than the file itself is only ever entered from a hole. Literal frames are therefore always
 	/// separated by hole frames, so the deepest possible C# call chain is two frames per level
 	/// plus the outermost - seventeen at the bound of eight, against a stack sized in thousands.
 	///
@@ -355,10 +368,28 @@ public sealed partial class LexicalScanner
 		{
 			PositionalAnchoring.StartOfLine => start == 0 || text[start - 1] == _LINE_FEED,
 			PositionalAnchoring.EndOfLine => endExclusive >= text.Length || text[endExclusive] == _LINE_FEED,
+			PositionalAnchoring.EndOfLineAfterOptionalBlanks => EndsTheLineAfterOptionalBlanks(text, endExclusive),
 			_ => true
 		};
 
 		return satisfied;
+	}
+
+	/// <summary>
+	/// The here-string opener shape. Only spaces and tabs may stand between the delimiter and the end of
+	/// the line, which is the shape of a here-string opener the language accepts. Any other
+	/// character, a carriage return included, makes it not an opener.
+	/// </summary>
+	private static bool EndsTheLineAfterOptionalBlanks(string text, int endExclusive)
+	{
+		int position = endExclusive;
+
+		while (position < text.Length && (text[position] == _SPACE || text[position] == _TAB))
+		{
+			position++;
+		}
+
+		return position >= text.Length || text[position] == _LINE_FEED;
 	}
 
 	/// <summary>
@@ -395,7 +426,8 @@ public sealed partial class LexicalScanner
 	/// an identifier-extent hole's identifier - are line-local by construction in every language
 	/// that has them, and without the window a failed match at one candidate position would scan
 	/// forward through the whole remaining file. In a 2 MB file whose content happens to start
-	/// with the candidate's first character that is quadratic.
+	/// with the candidate's first character that is quadratic, which is the exact cost shape
+	/// the per-file ceilings exist to cap rather than to invite.
 	///
 	/// THE WINDOW BOUNDS HOW MUCH TEXT A STUCK EXPRESSION COULD WALK, NOT WHETHER WALKING IT
 	/// TERMINATES, so the search is charged to the file's lexical budget. Where the budget is spent,
@@ -454,7 +486,17 @@ public sealed partial class LexicalScanner
 		public required int Position { get; init; }
 
 		public required bool ClosedItsConstruct { get; init; }
+
+		/// <summary>Whether the region counted at least one nested opener, which is what makes a hole that never closed a candidate for recovery.</summary>
+		public bool CountedANestedOpening { get; init; }
 	}
+
+	/// <summary>The scalar state a speculative hole read can change and a recovery must restore.</summary>
+	private readonly record struct ScanSnapshot(
+		int ValidThroughPosition,
+		bool IsAbandoned,
+		LexicalAnomalyReason AbandonedFor,
+		int NewlineTerminatedLiteralCount);
 
 	/// <summary>
 	/// EVERY SCAN'S MUTABLE STATE, FOR ONE FILE, AND NOWHERE ELSE. The scanner itself holds only
@@ -489,6 +531,47 @@ public sealed partial class LexicalScanner
 
 		private int NewlineTerminatedLiteralCount { get; set; }
 
+		private int NestingRecoveryCount { get; set; }
+
+		private int NestingSuspensionCount { get; set; }
+
+		/// <summary>Whether bracketed holes read by their first closing: during a recovery re-read, and once the per-file recovery bound is spent.</summary>
+		internal bool NestingIsSuspended =>
+			NestingSuspensionCount > 0 || NestingRecoveryCount >= LexicalEnginePolicy.MAXIMUM_NESTING_RECOVERIES_PER_FILE;
+
+		/// <summary>
+		/// A hole read under nesting may be re-read unless the scan stopped for the lexical budget, which is
+		/// a fact about the file and not a consequence of a misread paren.
+		/// </summary>
+		internal bool CanRecoverFromNesting =>
+			!IsAbandoned || AbandonedFor is not LexicalAnomalyReason.LexicalBudgetExceeded;
+
+		internal ScanSnapshot TakeSnapshot()
+		{
+			return new ScanSnapshot(ValidThroughPosition, IsAbandoned, AbandonedFor, NewlineTerminatedLiteralCount);
+		}
+
+		/// <summary>
+		/// Undoes a speculative read of a hole. Zones are cleared from the hole's start to the end of the
+		/// file because a code position is the zero value and costs no write, so a stale mark would
+		/// otherwise survive the re-read. Bounded by <see cref="LexicalEnginePolicy.MAXIMUM_NESTING_RECOVERIES_PER_FILE"/>.
+		/// </summary>
+		internal void RewindForNestingRecovery(ScanSnapshot snapshot, int holeStart)
+		{
+			ValidThroughPosition = snapshot.ValidThroughPosition;
+			IsAbandoned = snapshot.IsAbandoned;
+			AbandonedFor = snapshot.AbandonedFor;
+			NewlineTerminatedLiteralCount = snapshot.NewlineTerminatedLiteralCount;
+			Array.Clear(Zones, holeStart, Zones.Length - holeStart);
+			NestingRecoveryCount++;
+			NestingSuspensionCount++;
+		}
+
+		internal void ResumeNesting()
+		{
+			NestingSuspensionCount--;
+		}
+
 		internal void Mark(int start, int length, LexicalZone zone)
 		{
 			int from = Math.Clamp(start, 0, Zones.Length);
@@ -498,8 +581,8 @@ public sealed partial class LexicalScanner
 		}
 
 		/// <summary>
-		/// A raw newline inside a literal that does not admit one. It ends the literal and
-		/// is an anomaly, and the recovery is sound - the scanner resumes at a line boundary it
+		/// A raw newline inside a literal that does not admit one. It "ends the literal and
+		/// is an anomaly", and the recovery is sound - the scanner resumes at a line boundary it
 		/// knows the position of - so this records the anomaly WITHOUT abandoning the file.
 		/// </summary>
 		internal void RecordANewlineTerminatedLiteral()
@@ -515,27 +598,27 @@ public sealed partial class LexicalScanner
 		/// </summary>
 		internal void Abandon(LexicalAnomalyReason reason, int boundaryPosition, int fillFrom, LexicalZone fillZone)
 		{
-			if (IsAbandoned)
+			if (!IsAbandoned)
 			{
-				return;
+				IsAbandoned = true;
+				AbandonedFor = reason;
+				ValidThroughPosition = Math.Clamp(boundaryPosition, 0, Zones.Length);
+
+				Mark(fillFrom, Zones.Length - fillFrom, fillZone);
 			}
-
-			IsAbandoned = true;
-			AbandonedFor = reason;
-			ValidThroughPosition = Math.Clamp(boundaryPosition, 0, Zones.Length);
-
-			Mark(fillFrom, Zones.Length - fillFrom, fillZone);
 		}
 
 		internal ZoneMask ToMask()
 		{
 			LexicalAnomalyReason reason = IsAbandoned
 				? AbandonedFor
-				: NewlineTerminatedLiteralCount > 0
-					? LexicalAnomalyReason.NewlineInsideALiteral
-					: LexicalAnomalyReason.None;
+				: NestingRecoveryCount > 0
+					? LexicalAnomalyReason.UnbalancedInterpolationNesting
+					: NewlineTerminatedLiteralCount > 0
+						? LexicalAnomalyReason.NewlineInsideALiteral
+						: LexicalAnomalyReason.None;
 
-			return new ZoneMask(Zones, ValidThroughPosition, reason, NewlineTerminatedLiteralCount);
+			return new ZoneMask(Zones, ValidThroughPosition, reason, NewlineTerminatedLiteralCount, NestingRecoveryCount);
 		}
 	}
 }

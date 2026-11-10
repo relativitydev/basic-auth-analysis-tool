@@ -22,7 +22,7 @@ namespace MigrateAuth.Cli.Tests.Recognition;
 /// exercise go through <see cref="RecognitionHarness"/>, exactly as
 /// <see cref="ExemplarFixtureAnalyzer"/> declares them. Cases that need a marker the shipped
 /// catalog does not declare - a catastrophic pattern - go through <see cref="DemotionSignalProbe"/>,
-/// as <see cref="MatchBoundTests"/> does.
+/// on <see cref="MatchBoundTests"/>'s own precedent.
 /// </summary>
 public sealed class ContentMarkerDemotionTests
 {

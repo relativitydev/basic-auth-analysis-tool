@@ -15,25 +15,28 @@ using Xunit.Abstractions;
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>
-/// The findings cap at volume, through the real analysis path.
+/// THE FINDINGS CAP, AT THE LARGEST SUPPORTED SIZE, THROUGH THE REAL ANALYSIS PATH.
 ///
-/// Not the cap's arithmetic, which <c>FindingsCapTests</c> already covers over synthetic construct
-/// sets, but the claim that a real repository large enough to trip both caps actually does, that the
-/// truncation counter it produces matches what was planted, and that the retained set this run keeps
-/// in memory stays bounded.
+/// This is the volume proof the resource ceilings call for: not the cap's arithmetic, which
+/// <c>FindingsCapTests</c> already covers over synthetic construct sets, but the claim that a real
+/// repository large enough to trip both caps actually does, that the truncation counter it produces
+/// matches what was generated, and that the retained set this run keeps in memory stays bounded -
+/// which is the whole reason a cap exists in the first place.
 ///
-/// Forty files, each offering more matches than the per-file cap, together more than the global
-/// cap. Every file individually trips the per-file cap - three thousand matches against a cap of
+/// FORTY FILES, EACH OFFERING MORE MATCHES THAN THE PER-FILE CAP, TOGETHER MORE THAN THE GLOBAL
+/// CAP. Every file individually trips the per-file cap - three thousand matches against a cap of
 /// two thousand - so the first twenty-five files alone exhaust the fifty-thousand global budget
 /// and the remaining fifteen contribute nothing at all. Both counters are therefore exercised by
-/// one planted tree, and the shape is stated as arithmetic below rather than asserted against a
+/// one generated tree, and the shape is stated as arithmetic below rather than asserted against a
 /// number typed twice.
 ///
-/// What is measured is the retained set, not the whole process. <c>GC.GetTotalMemory(true)</c> is
+/// WHAT IS MEASURED IS THE RETAINED SET, NOT THE WHOLE PROCESS. <c>GC.GetTotalMemory(true)</c> is
 /// sampled immediately before the Analyze stage runs and immediately after, both after a forced
 /// collection, so the delta approximates what this one run added to the managed heap and keeps
-/// reachable. The bound asserted is generous on purpose: the runtime is free to move the number by
-/// allocator and GC generation.
+/// reachable. The
+/// bound asserted is generous on purpose: a tight assertion against a
+/// number the runtime is free to move by allocator and GC generation would fail on a busy machine
+/// for a reason that has nothing to do with the cap.
 /// </summary>
 [Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
 public sealed class FindingsCapVolumeProofTests
@@ -61,7 +64,8 @@ public sealed class FindingsCapVolumeProofTests
 		(_FILE_COUNT - _FITTING_FILE_COUNT) * FindingsCapPolicy.PROVISIONAL_PER_FILE_FINDINGS_CAP;
 
 	/// <summary>
-	/// The memory bound for this proof, two orders of magnitude inside the one-gigabyte memory limit.
+	/// The bound on the retained memory delta: generous on purpose, and well inside the one-gigabyte
+	/// memory limit.
 	/// </summary>
 	private const long _MAXIMUM_RETAINED_MEMORY_DELTA_IN_BYTES = 300L * 1024 * 1024;
 
@@ -115,14 +119,14 @@ public sealed class FindingsCapVolumeProofTests
 		ReportFigures(memoryBeforeAnalyze, memoryAfterAnalyze, retainedMemoryDelta);
 
 		Assert.Equal(StageRunOutcome.Completed, outcome);
-		AssertTheCountersMatchWhatWasPlanted(harness);
+		AssertTheCountersMatchWhatWasGenerated(harness);
 		Assert.True(
 			retainedMemoryDelta < _MAXIMUM_RETAINED_MEMORY_DELTA_IN_BYTES,
 			$"Retained memory delta {retainedMemoryDelta:N0} bytes exceeded the stated bound of {_MAXIMUM_RETAINED_MEMORY_DELTA_IN_BYTES:N0} bytes.");
 	}
 
 	/// <summary>
-	/// AT VOLUME. Sixty files of two thousand constructs each - 120,000 findings offered against
+	/// KEY-ORDERED ADMISSION AT VOLUME. Sixty files of two thousand constructs each - 120,000 findings offered against
 	/// a global cap of 50,000 - are composed in key order and in a shuffled arrival order. The
 	/// admitted set is the key-ordered prefix in both, with the same numbering and the same counters,
 	/// and the time each composition took is recorded.
@@ -143,7 +147,7 @@ public sealed class FindingsCapVolumeProofTests
 		ComposedFindingSet fromShuffled = FindingComposition.ComposeWithCapOutcome(shuffled);
 		shuffledWatch.Stop();
 
-		_output.WriteLine("DR-21 key-ordered admission volume proof");
+		_output.WriteLine("Key-ordered admission volume proof");
 		_output.WriteLine(FormattedLine("Findings offered", _ORDERED_ADMISSION_FILE_COUNT * _ORDERED_ADMISSION_CONSTRUCTS_PER_FILE));
 		_output.WriteLine(FormattedLine("Findings admitted", inOrder.Findings.Length));
 		_output.WriteLine(FormattedLine("Composition in key order (ms)", inOrderWatch.ElapsedMilliseconds));
@@ -158,7 +162,7 @@ public sealed class FindingsCapVolumeProofTests
 	}
 
 	/// <summary>
-	/// THE WORST CASE FOR THE ORDER KEY: 500,000 paths of 150 characters. They are
+	/// THE WORST CASE FOR THE KEY: 500,000 paths of 150 characters. They are
 	/// sorted under the order key with its raw-ordinal tie-break, and the same half-million files -
 	/// one construct each, offered in a permuted order - go through global-cap admission, which must
 	/// keep only the 50,000 smallest keys. Duration and peak working set are recorded for each.
@@ -172,7 +176,7 @@ public sealed class FindingsCapVolumeProofTests
 		OrderingFigures sorting = MeasureSortingOfHalfAMillionPaths(harness);
 		OrderingFigures admission = MeasureAdmissionOfHalfAMillionFiles(harness);
 
-		_output.WriteLine("DR-21 and DR-22 ordering proof, 500,000 paths of 150 characters");
+		_output.WriteLine("Ordering proof, 500,000 paths of 150 characters");
 		_output.WriteLine(FormattedFigures("Sort under the order key with tie-break", sorting));
 		_output.WriteLine(FormattedFigures("Global-cap admission over 500,000 files in permuted order", admission));
 
@@ -286,7 +290,7 @@ public sealed class FindingsCapVolumeProofTests
 
 	private readonly record struct OrderingFigures(TimeSpan Duration, long PeakWorkingSetInBytes);
 
-	private static void AssertTheCountersMatchWhatWasPlanted(PipelineHarness harness)
+	private static void AssertTheCountersMatchWhatWasGenerated(PipelineHarness harness)
 	{
 		Assert.Equal(_EXPECTED_RETAINED_COUNT, harness.State.Findings.Length);
 		Assert.True(harness.State.FindingsCapOutcome.IsTruncated);
@@ -298,7 +302,7 @@ public sealed class FindingsCapVolumeProofTests
 		Assert.Equal(_EXPECTED_GLOBAL_OMITTED_COUNT, harness.State.FindingsCapOutcome.GlobalOmittedCount);
 
 		// >= 100,000 findings attempted is the volume proof's own floor, independent of the exact
-		// shape planted above.
+		// shape generated above.
 		Assert.True(_TOTAL_RECOGNIZED_COUNT >= 100_000);
 	}
 
@@ -311,7 +315,7 @@ public sealed class FindingsCapVolumeProofTests
 
 	private void ReportFigures(long memoryBeforeAnalyze, long memoryAfterAnalyze, long retainedMemoryDelta)
 	{
-		_output.WriteLine("DR-07 findings-cap volume proof");
+		_output.WriteLine("Findings-cap volume proof");
 		_output.WriteLine(FormattedLine("Findings attempted (total recognized)", _TOTAL_RECOGNIZED_COUNT));
 		_output.WriteLine(FormattedLine("Findings retained", _EXPECTED_RETAINED_COUNT));
 		_output.WriteLine(FormattedLine("Per-file cap tripped file count", _EXPECTED_PER_FILE_CAP_TRIPPED_FILE_COUNT));

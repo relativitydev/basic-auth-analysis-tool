@@ -24,7 +24,13 @@ public enum DetectedEncoding
 	Utf32LittleEndian = 5,
 
 	/// <summary>Four bytes per unit, high byte first. Only ever with a mark.</summary>
-	Utf32BigEndian = 6
+	Utf32BigEndian = 6,
+
+	/// <summary>
+	/// No mark, not valid UTF-8, not two-byte: read as Windows-1252, the last resort. Reported
+	/// per file so that a decode which was a guess is never presented as a certainty.
+	/// </summary>
+	Windows1252 = 7
 }
 
 /// <summary>What a decode produced, or why there is nothing.</summary>
@@ -46,24 +52,33 @@ public readonly record struct DecodedContent
 /// <summary>
 /// THE DECODE, IN THE ORDER IT HAS TO HAPPEN.
 ///
-/// The administration shell of one of the three platforms writes its scripts in a two-byte
-/// encoding BY DEFAULT, so for that language those files are the norm rather than the exception.
-/// Decoded wrongly they become garbage, the zone mask corrupts, and findings vanish with no
-/// warning at all.
+/// Some platforms write their scripts in a two-byte encoding by default, so those files are
+/// common rather than exceptional. Decoded wrongly they become garbage, the zone mask corrupts,
+/// and findings vanish with no warning at all.
 ///
 /// STRICT UTF-8 VALIDATION IS NOT A SUFFICIENT DISCRIMINATOR. A two-byte encoding holding ASCII
-/// is VALID UTF-8, because NUL is a legal code point: strict validation SUCCEEDS and returns text
-/// with a NUL between every character.
+/// is VALID UTF-8, because NUL is a legal code point: strict validation SUCCEEDS and returns
+/// text with a NUL between every character. So a decode that PRODUCES a NUL has discriminated
+/// wrongly - source text does not contain one - and falls through to the next attempt. A file
+/// that is genuinely UTF-8 and genuinely contains a null byte therefore falls through, fails the
+/// retry, and is reported undecodable rather than read.
 ///
-/// So a decode that PRODUCES a NUL has discriminated wrongly - source text does not contain one
-/// - and falls through to the next attempt. That single rule is what makes the ladder below
-/// work, and it also creates an edge case: a file that is genuinely UTF-8 and genuinely contains
-/// a null byte falls through, fails the retry, and is reported undecodable rather than read. A
-/// file with a null in it is either not source or not the encoding it claims, and both are
-/// better counted than read wrongly.
+/// THE LAST RESORT IS WINDOWS-1252, AND IT IS A GUESS THAT IS REPORTED AS ONE. A file that is not
+/// marked, not valid UTF-8 and not markless two-byte is treated as a legacy single-byte file in
+/// code page 1252.
 ///
-/// LEGACY CODE PAGES ARE OUT OF SCOPE; undecodable files are counted, so their volume is
-/// visible.
+/// A SINGLE-BYTE CODE PAGE DECODES ANY BYTE SEQUENCE, so the step cannot discriminate by failing
+/// and the discrimination has to be put in front of it, or the Undecodable category would
+/// become unreachable and every binary file would be read as garbage. It is attempted only for
+/// bytes that look like text in a single-byte code page: no null byte anywhere in the file,
+/// no control character other than tab, line feed, form feed and carriage return, and none of
+/// the five bytes Windows-1252 leaves undefined. A file that holds one of those is not
+/// Windows-1252, and decoding it as 1252 would read it as mojibake that matches nothing, so it
+/// is reported undecodable instead.
+///
+/// As a consequence, a UTF-8 file with one malformed sequence is read as Windows-1252, with its
+/// non-ASCII characters wrong, and is reported as a Windows-1252 file; and a binary file
+/// containing no null byte and no control character is read as text.
 /// </summary>
 public static class FileDecoding
 {
@@ -93,6 +108,18 @@ public static class FileDecoding
 
 	private const char _NULL_CHARACTER = '\0';
 
+	private const int _WINDOWS_1252_CODE_PAGE = 1252;
+
+	private const byte _FIRST_PRINTABLE_BYTE = 0x20;
+	private const byte _TAB_BYTE = 0x09;
+	private const byte _LINE_FEED_BYTE = 0x0A;
+	private const byte _FORM_FEED_BYTE = 0x0C;
+	private const byte _CARRIAGE_RETURN_BYTE = 0x0D;
+	private const byte _DELETE_BYTE = 0x7F;
+
+	/// <summary>The five bytes Windows-1252 leaves undefined.</summary>
+	private static readonly byte[] _windows1252UndefinedBytes = [0x81, 0x8D, 0x8F, 0x90, 0x9D];
+
 	private static readonly byte[] _utf8Mark = [0xEF, 0xBB, 0xBF];
 	private static readonly byte[] _utf32LittleEndianMark = [0xFF, 0xFE, 0x00, 0x00];
 	private static readonly byte[] _utf32BigEndianMark = [0x00, 0x00, 0xFE, 0xFF];
@@ -114,9 +141,18 @@ public static class FileDecoding
 		new(bigEndian: true, byteOrderMark: false, throwOnInvalidCharacters: true);
 
 	/// <summary>
+	/// Windows-1252 from the code page provider that ships in the shared framework - no package.
+	/// Invariant globalization does not affect it: the provider carries its own tables,
+	/// and Native AOT keeps them because the type is referenced here directly. The fallbacks throw,
+	/// so that a byte the table cannot map is undecodable and never a replacement character.
+	/// </summary>
+	private static readonly Encoding _strictWindows1252 = CreateStrictWindows1252();
+
+	/// <summary>
 	/// The ladder. A byte order mark settles the question outright; without one, strict UTF-8
-	/// answers it unless it produces a null; and a null sends the file to the two-byte retry,
-	/// which either identifies the byte order or gives up.
+	/// answers it unless it produces a null; a null or an invalid sequence sends the file to the
+	/// two-byte retry, which either identifies the byte order or gives up; and a file still
+	/// unplaced gets the Windows-1252 last resort if, and only if, it looks like single-byte text.
 	/// </summary>
 	public static bool TryDecode(byte[] bytes, out DecodedContent content)
 	{
@@ -130,7 +166,9 @@ public static class FileDecoding
 		}
 		else
 		{
-			decoded = TryDecodeAsUtf8(bytes, out content) || TryDecodeAsTwoByte(bytes, out content);
+			decoded = TryDecodeAsUtf8(bytes, out content)
+				|| TryDecodeAsTwoByte(bytes, out content)
+				|| TryDecodeAsWindows1252(bytes, out content);
 		}
 
 		return decoded;
@@ -233,6 +271,60 @@ public static class FileDecoding
 		}
 
 		return decoded;
+	}
+
+	/// <summary>
+	/// THE LAST RESORT. Only bytes that look like single-byte text reach the decoder, because the
+	/// decoder itself accepts everything; see the class comment for each refusal and its reason.
+	/// </summary>
+	private static bool TryDecodeAsWindows1252(byte[] bytes, out DecodedContent content)
+	{
+		bool decoded = false;
+		content = default;
+
+		if (LooksLikeSingleByteText(bytes))
+		{
+			decoded = TryDecodeWith(bytes, 0, _strictWindows1252, DetectedEncoding.Windows1252, out content);
+		}
+
+		return decoded;
+	}
+
+	/// <summary>
+	/// Over the WHOLE file rather than the probe window: a null or a control byte anywhere is
+	/// evidence that this is not text, and the scan is a single pass over bytes already in memory.
+	/// </summary>
+	private static bool LooksLikeSingleByteText(byte[] bytes)
+	{
+		bool looksLikeText = true;
+
+		foreach (byte value in bytes)
+		{
+			if (IsRefusedBySingleByteStep(value))
+			{
+				looksLikeText = false;
+				break;
+			}
+		}
+
+		return looksLikeText;
+	}
+
+	private static bool IsRefusedBySingleByteStep(byte value)
+	{
+		bool isAllowedControl = value is _TAB_BYTE or _LINE_FEED_BYTE or _FORM_FEED_BYTE or _CARRIAGE_RETURN_BYTE;
+		bool isControl = value < _FIRST_PRINTABLE_BYTE || value == _DELETE_BYTE;
+
+		return (isControl && !isAllowedControl) || _windows1252UndefinedBytes.Contains(value);
+	}
+
+	private static Encoding CreateStrictWindows1252()
+	{
+		return CodePagesEncodingProvider.Instance.GetEncoding(
+			_WINDOWS_1252_CODE_PAGE,
+			EncoderFallback.ExceptionFallback,
+			DecoderFallback.ExceptionFallback)
+			?? throw new InvalidOperationException("The Windows-1252 code page is not available from the framework's code page provider.");
 	}
 
 	private static bool LooksLikeTwoByteText(byte[] bytes, out bool bigEndian)

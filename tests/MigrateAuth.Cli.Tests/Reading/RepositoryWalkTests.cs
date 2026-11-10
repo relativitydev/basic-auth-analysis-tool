@@ -9,16 +9,18 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reading;
 
 /// <summary>
-/// THE WALK'S DENIAL AND UNLISTABLE-DIRECTORY BEHAVIOUR.
+/// THE WALK'S DENIAL AND UNLISTABLE-DIRECTORY BEHAVIOUR, AS FAR AS ONE PLATFORM CAN CARRY THEM.
 ///
 /// A denied file or directory never aborts the walk and never disappears silently; an unlistable
 /// directory is reported as ONE DIRECTORY OF UNKNOWN CONTENTS and never as a file count; and an
 /// equivalent permission condition produces the same message shape, skip behaviour and
 /// skipped-item count on every platform.
 ///
-/// The product discovers a denial by ATTEMPTING the operation, so nothing in it knows what a
-/// permission model is, and the same code path runs on all three platforms. The cause of a denial,
-/// the running identity, and access-time side effects all differ between platforms and are not
+/// THE THIRD OF THOSE IS PROVEN HERE ONLY ON WINDOWS, and saying so is part of the evidence. The
+/// mechanism is what makes the claim portable: the product discovers a denial by ATTEMPTING the
+/// operation, so nothing in it knows what a permission model is, and the same code path runs on
+/// all three. What the mechanism does not cover is not claimed here - the
+/// cause of a denial, the running identity, and access-time side effects all differ and are not
 /// equalized.
 /// </summary>
 public sealed class RepositoryWalkTests
@@ -231,10 +233,10 @@ public sealed class RepositoryWalkTests
 
 	/// <summary>
 	/// A path far past the platform's historical limit is ENUMERATED AND READ rather than
-	/// skipped: a deep file must not be analyzed on one platform and silently missing on another.
-	/// The binary declares long-path awareness in its manifest for this reason, and this test is what
-	/// would notice if the declaration were dropped and the framework's own handling were not enough
-	/// on its own.
+	/// skipped, which is the outcome the walk is meant to have: a deep file must not be analyzed on one
+	/// platform and silently missing on another. The binary declares long-path awareness in its
+	/// manifest for this reason, and this test is what would notice if the declaration were
+	/// dropped and the framework's own handling were not enough on its own.
 	/// </summary>
 	[Fact]
 	public void ADeepPathIsWalkedAndReadRatherThanSkipped()
@@ -254,7 +256,7 @@ public sealed class RepositoryWalkTests
 
 	/// <summary>
 	/// The walk yields files as it finds them rather than building the tree first. The assertion
-	/// is on the shape of the sequence, because the consequence at volume - half a million files
+	/// is on the shape of the sequence, because the consequence on the largest repositories - half a million files
 	/// never held at once - is not directly observable in a test.
 	/// </summary>
 	[Fact]
@@ -293,7 +295,7 @@ public sealed class RepositoryWalkTests
 
 	/// <summary>
 	/// Two walks of the same unchanged tree reach the same set of files. It is the set that the
-	/// determinism requirement fixes; the ORDER of the output is imposed where output is produced,
+	/// determinism requirement fixes; the ORDER of the output belongs to the total ordering and is imposed where output is produced,
 	/// not by the walk.
 	/// </summary>
 	[Fact]

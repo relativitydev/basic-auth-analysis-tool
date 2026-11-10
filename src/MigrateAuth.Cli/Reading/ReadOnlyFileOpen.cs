@@ -18,7 +18,7 @@ public enum FileOpenResult
 	/// different things to different callers, and the CALLER assigns the skipped-item category:
 	/// during the walk a file that vanished between enumeration and opening is a hole like any
 	/// other, while in Analysis a candidate path recorded during Scan that is no longer there is
-	/// MissingCandidate, which <c>Pipeline/AnalyzeStage.cs</c> raises. Deciding
+	/// MissingCandidate, which the skipped-item enumeration declares and <c>Pipeline/AnalyzeStage.cs</c> raises. Deciding
 	/// that here would force this reader to raise a category it does not own.
 	/// </summary>
 	Missing = 2,

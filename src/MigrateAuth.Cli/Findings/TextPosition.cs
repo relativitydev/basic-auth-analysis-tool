@@ -3,10 +3,10 @@ namespace MigrateAuth.Cli.Findings;
 /// <summary>
 /// A LINE AND A COLUMN, BOTH ONE-BASED, AS A READER OF THE REPORT WOULD COUNT THEM.
 ///
-/// The column is published as a field rather than kept inside the sort key, for two reasons:
-/// two matches of the same class on the same line otherwise produce findings
+/// The column is published as a field rather than kept inside the sort key, for
+/// two reasons: two matches of the same class on the same line otherwise produce findings
 /// indistinguishable in the artifact except by identifier, and the ordering that GENERATES the
-/// identifiers would not be reconstructible from the artifact.
+/// identifiers was not reconstructible from the artifact a consumer compares against.
 ///
 /// The pair is a type rather than two loose integers so that the two can never be handed over in
 /// the wrong order - which a pair of same-typed parameters invites and which no compiler catches.
@@ -41,11 +41,12 @@ public readonly record struct TextPosition
 /// holding characters outside the basic multilingual plane would measure, and later sort,
 /// differently under any other unit. The anchor offsets this converts are in the same unit.
 ///
-/// THE COST IS LINEAR IN THE OFFSET. A carried scan position would make a file's conversions
-/// linear in the file instead, because the constructs of one file arrive in ascending anchor
-/// order - but it would also make this stateful, and a stateful converter is one whose answer
-/// depends on what it was asked before. The file size ceiling bounds a single file, and findings
-/// are sparse within one, so this stays a function whose answer depends on its arguments alone.
+/// THE COST IS LINEAR IN THE OFFSET AND THAT IS ACCEPTED RATHER THAN OVERLOOKED. A carried scan
+/// position would make a file's conversions linear in the file instead, because the constructs of
+/// one file arrive in ascending anchor order - but it would also make this stateful, and a
+/// stateful converter is one whose answer depends on what it was asked before. The per-file
+/// ceiling bounds a single file, and findings are sparse within one; the trade is taken in favour
+/// of a function whose answer depends on its arguments alone.
 /// </summary>
 public static class TextPositions
 {

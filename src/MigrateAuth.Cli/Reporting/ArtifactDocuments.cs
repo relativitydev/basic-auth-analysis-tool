@@ -30,16 +30,15 @@ public sealed record ArtifactCoverageRowDocument
 
 	/// <summary>
 	/// What this language's analyzer declares it does not attempt to recognize,
-	/// sorted ordinally by <see cref="ArtifactDeclaredUnsupportedConstructDocument.Construct"/>.
-	/// Empty for a language with no analyzer, exactly as
+	/// sorted ordinally by <see cref="ArtifactDeclaredUnsupportedConstructDocument.Construct"/>
+	/// (ordinal order). Empty for a language with no analyzer, exactly as
 	/// <see cref="PatternClassesSearched"/> is zero for the same reason.
 	/// </summary>
 	public ArtifactDeclaredUnsupportedConstructDocument[] DeclaredUnsupportedConstructs { get; init; } = [];
 }
 
 /// <summary>
-/// Section 1 of the data artifact as a structured field. The catalog's declared scope defines the
-/// recall denominator, so a grader that cannot see this section cannot compute one.
+/// Report section 1 as a structured field: the catalog's declared scope, readable by a consumer.
 /// </summary>
 public sealed record ArtifactCoverageDocument
 {
@@ -90,7 +89,7 @@ public sealed record ArtifactInventoryRowDocument
 	public string? NotAssessedReason { get; init; }
 }
 
-/// <summary>Section 2 of the data artifact as a structured field.</summary>
+/// <summary>Report section 2 as a structured field.</summary>
 public sealed record ArtifactScanSummaryDocument
 {
 	/// <summary>Every file the inventory pass reached.</summary>
@@ -118,6 +117,12 @@ public sealed record ArtifactScanSummaryDocument
 	public ArtifactExcludedFoldersDocument ExcludedFolders { get; init; } = new();
 
 	/// <summary>
+	/// The files read as Windows-1252, the last step of the decode ladder, which is a guess and is
+	/// reported as one. These files were read, so they are not in <c>skippedItems</c>.
+	/// </summary>
+	public ArtifactLegacyEncodedFilesDocument LegacyEncodedFiles { get; init; } = new();
+
+	/// <summary>
 	/// True when the enabled languages of the scan this report describes differ from the session's
 	/// current enabled languages, which is when the Markdown report and the console say to re-run
 	/// 'scan'. The rows above then describe the earlier scan. Only the enabled languages are
@@ -143,15 +148,35 @@ public sealed record ArtifactExcludedFoldersDocument
 }
 
 /// <summary>
-/// Section 3 of the data artifact, one of the eleven skipped-item categories. The count is whole and
-/// the path list is bounded, and the two are separate fields so that a consumer cannot mistake the
-/// second for the first.
+/// The files read as a legacy code page: the count is whole and the path list is bounded, and the two
+/// are separate fields so that a consumer cannot mistake the second for the first.
+/// </summary>
+public sealed record ArtifactLegacyEncodedFilesDocument
+{
+	/// <summary>The detected encoding every listed file was read as.</summary>
+	public string Encoding { get; init; } = string.Empty;
+
+	/// <summary>How many files were read as that encoding. Never truncated.</summary>
+	public int Count { get; init; }
+
+	/// <summary>How many are counted above and not listed below.</summary>
+	public int OmittedPathCount { get; init; }
+
+	/// <summary>At most a hundred, relative to the repository and ordered ordinally.</summary>
+	public string[] Paths { get; init; } = [];
+}
+
+/// <summary>
+/// Report section 3, one of the eleven skipped-item categories. The count is whole and the path list is
+/// bounded, and the two are separate fields so that a consumer cannot mistake the second for the
+/// first.
 /// </summary>
 public sealed record ArtifactSkippedItemDocument
 {
 	/// <summary>
-	/// Which of the eleven, as a stable identifier. Never rewritten for readability - see
-	/// <see cref="Description"/> for the client-facing text.
+	/// Which of the eleven, as the STABLE IDENTIFIER a consumer keys its match-bound validity
+	/// check on. Never rewritten for readability - see <see cref="Description"/> for the client-facing
+	/// text.
 	/// </summary>
 	public string Category { get; init; } = string.Empty;
 
@@ -178,7 +203,7 @@ public sealed record ArtifactSkippedItemDocument
 /// <summary>
 /// The truncation counter as a structured field. A consumer that reads
 /// <see cref="ArtifactDocument.Findings"/> without this field cannot tell a complete result from a
-/// capped one: a truncated result is declared truncated, never presented as complete.
+/// capped one; a truncated result is declared truncated, never presented as complete.
 /// </summary>
 public sealed record ArtifactFindingsCapDocument
 {
@@ -205,12 +230,14 @@ public sealed record ArtifactFindingsCapDocument
 }
 
 /// <summary>
-/// One finding, with the seven finding-record fields (`id`, `filePath`, `line`, `language`,
-/// `patternClass`, `confidence`, `recommendation`), plus the declared extensions and the
-/// envelope's own `securityNote`.
+/// One finding, exactly as the finding record names its seven fields (`id`, `filePath`,
+/// `line`, `language`, `patternClass`, `confidence`, `recommendation`), plus the declared
+/// extensions and the report envelope's own `securityNote`.
 ///
-/// Never the matched text, because a secret's value is never reported. Nothing here originates in the
+/// NEVER THE MATCHED TEXT, because a secret's value is never reported. Nothing here originates in the
 /// analyzed file except the relative path.
+///
+/// The fingerprint and the literal-credential signal are carried as declared extensions.
 /// </summary>
 public sealed record ArtifactFindingDocument
 {
@@ -238,8 +265,9 @@ public sealed record ArtifactFindingDocument
 	public string Language { get; init; } = string.Empty;
 
 	/// <summary>
-	/// The finding record's `patternClass`, carried as its identifier rather than its display name, so
-	/// that it stays stable for consumers that key on it.
+	/// The finding record's `patternClass`, carried as its IDENTIFIER. The identifier is chosen over
+	/// the name because measurements run against this artifact and a name is prose that gets
+	/// improved.
 	/// </summary>
 	public string PatternClass { get; init; } = string.Empty;
 
@@ -249,31 +277,32 @@ public sealed record ArtifactFindingDocument
 	/// <summary>A declared extension: established or unknown. Read from the rule, never computed.</summary>
 	public string DestinationCertainty { get; init; } = string.Empty;
 
-	/// <summary>A declared extension: the literal-credential signal.</summary>
+	/// <summary>A declared extension, the literal-credential signal.</summary>
 	public bool LiteralCredentialSignal { get; init; }
 
-	/// <summary>A declared extension: the finding's content-free fingerprint.</summary>
+	/// <summary>The content-free identity, a declared extension.</summary>
 	public string Fingerprint { get; init; } = string.Empty;
 
 	/// <summary>
 	/// The finding record's `recommendation`: the same text <see cref="MarkdownReportRenderer"/> renders
-	/// for this finding, rendered at write time and held by nobody. Non-null for High and Medium -
-	/// the four template pieces in order for the template route, the generic narrative for
-	/// the generic route. Null for Low: a Low finding's null is the manual-review signal, and there is no
-	/// separate flag for it.
+	/// for this finding, rendered at write time and held by nobody. NON-NULL for High and Medium -
+	/// the four template pieces in template order for the template route, the generic narrative for
+	/// the generic route. NULL for Low, per the record's own contract: a Low finding's null IS
+	/// the manual-review signal, and there is no separate flag for it.
 	/// </summary>
 	public string? Recommendation { get; init; }
 
 	/// <summary>
-	/// The security note, promoted to its own field so that `recommendation` carries only the migration
-	/// advice. Null when the literal-credential signal did not fire, at every confidence level including
-	/// Low.
+	/// The fifth template piece, promoted to its own field so that `recommendation`
+	/// carries only the migration advice the record asks for. NULL when the literal-credential
+	/// signal did not fire, at every confidence level including Low - the one warning that survives
+	/// a construct the rubric could not stand behind.
 	/// </summary>
 	public string? SecurityNote { get; init; }
 
 	/// <summary>
 	/// A declared extension: the OAuth 2.0 flow the recommendation targets,
-	/// <c>ClientCredentials</c> or <c>AuthorizationCode</c>. Null for a Low finding, which stays in
+	/// <c>ClientCredentials</c> or <c>AuthorizationCode</c>. NULL for a Low finding, which stays in
 	/// manual review with no flow. Flat on the finding, beside the seven finding record fields.
 	/// </summary>
 	public string? Flow { get; init; }
@@ -363,8 +392,8 @@ public sealed record ArtifactRepositoryConfigurationEffectDocument
 }
 
 /// <summary>
-/// Section 5 of the data artifact as a structured field. Without the catalog version two reports are
-/// not comparable.
+/// Report section 5 as a structured field. Without the catalog version two reports are not
+/// comparable, and clients will be running different versions.
 /// </summary>
 public sealed record ArtifactProvenanceDocument
 {
@@ -382,7 +411,7 @@ public sealed record ArtifactProvenanceDocument
 	/// <summary>The catalog version, numbered independently of the product.</summary>
 	public string CatalogVersion { get; init; } = string.Empty;
 
-	/// <summary>The audited repository as a label. Never a path.</summary>
+	/// <summary>The audited repository as a LABEL. Never a path, because no absolute path leaves the process.</summary>
 	public string RepositoryLabel { get; init; } = string.Empty;
 
 	/// <summary>The canonical names of the languages this session assessed.</summary>
@@ -423,15 +452,18 @@ public sealed record ArtifactProvenanceDocument
 }
 
 /// <summary>
-/// The data artifact as one document: the handling notice and its five sections.
+/// THE DATA ARTIFACT AS ONE DOCUMENT: THE HANDLING NOTICE AND THE REPORT'S FIVE SECTIONS.
 ///
-/// It is the read shape, and the write path does not use it. The artifact is written field by
+/// IT IS THE READ SHAPE, AND THE WRITE PATH DOES NOT USE IT. The artifact is written field by
 /// field with a <see cref="System.Text.Json.Utf8JsonWriter"/> and the findings array element by
-/// element, so that the finding set never exists as one object graph in memory.
+/// element, so that the finding set never exists as one object graph in memory - which is what
+/// streaming means here. Serializing an instance of THIS type would build exactly that graph.
 ///
-/// It is the schema the artifact claims to have: a consumer - and the test that round-trips a written
-/// artifact back through the same context - reads one of these, so the property names the writer
-/// emits by hand are checked against a declared shape.
+/// It exists anyway, and for a reason stronger than convenience: it is the schema the artifact
+/// claims to have. A consumer - and the test that round-trips a written artifact back through the
+/// same context - reads one of these, so the property names the writer emits by hand are checked
+/// against a declared shape rather than asserted by a string comparison that would pass on a
+/// document nobody could parse.
 /// </summary>
 public sealed record ArtifactDocument
 {
@@ -449,14 +481,15 @@ public sealed record ArtifactDocument
 
 	/// <summary>
 	/// The truncation counter over <see cref="Findings"/>. Carried as its own field rather than
-	/// folded into Section 4, because it describes findings that are not in the array below and a
+	/// folded into Section 4, because it describes findings that are NOT in the array below and a
 	/// consumer reading only the array has no other way to learn they ever existed.
 	/// </summary>
 	public ArtifactFindingsCapDocument FindingsCap { get; init; } = new();
 
 	/// <summary>
-	/// Section 4, in the total finding order rather than grouped. The report groups by destination
-	/// certainty; the artifact carries the field on every finding so a consumer can make the same split.
+	/// Section 4, in the report's total order rather than grouped. The report groups by destination certainty
+	/// because a client acts on the split; the artifact carries the field on every finding so a
+	/// consumer can make the same split without the order being decided for it.
 	/// </summary>
 	public ArtifactFindingDocument[] Findings { get; init; } = [];
 
@@ -466,8 +499,9 @@ public sealed record ArtifactDocument
 
 /// <summary>
 /// Serialization is generated at build time with an explicitly declared context, never by
-/// reflection. Under ahead-of-time compilation a reflection-based serializer compiles and publishes,
-/// and then fails at run time on the client's machine at the last stage of the flow.
+/// reflection. Under ahead-of-time compilation a reflection-based serializer has the worst failure
+/// mode available - it compiles, it publishes, and it fails on the client's machine at the last
+/// stage of the flow.
 ///
 /// Every type serialized directly by the writer is registered here by name, so a document type
 /// added without a registration fails to compile at its call site rather than at run time on a

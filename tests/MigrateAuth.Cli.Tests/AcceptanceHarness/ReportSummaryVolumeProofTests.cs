@@ -23,9 +23,10 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// the memory limit every other volume proof in this suite is held to - one gigabyte, sampled
 /// as the peak working set of the process (<see cref="PeakWorkingSetSampler"/>).
 ///
-/// THERE IS NO NUMERIC BOUND ON THE SIZE OF A REPORT FILE to hold this to: the design bounds the memory
-/// the writer needs and not the length of what it writes. The size of the report and of the table
-/// inside it are printed with the test output.
+/// THERE IS NO NUMERIC BOUND ON THE SIZE OF A REPORT FILE to hold this to: the memory
+/// the writer needs is bounded and not the length of what it writes, and the length is what a person's disk and a
+/// reader's patience decide. The size of the report and of the table inside it are printed with the
+/// test output so that the figure is on the record.
 ///
 /// RUN ALONE, like the other volume proofs, because the working set is process-wide.
 /// </summary>
@@ -102,7 +103,7 @@ public sealed class ReportSummaryVolumeProofTests
 
 	private void ReportFigures(CountingTextWriter writer, long peakWorkingSet)
 	{
-		_output.WriteLine("Report volume proof with the findings summary table (band V2)");
+		_output.WriteLine("Report volume proof with the findings summary table (largest supported size)");
 		_output.WriteLine(FormattedLine("Findings reported", _FINDING_COUNT));
 		_output.WriteLine(FormattedLine("Summary table rows", writer.SummaryRowCount));
 		_output.WriteLine(FormattedLine("Markdown report size (bytes)", writer.TotalBytes));

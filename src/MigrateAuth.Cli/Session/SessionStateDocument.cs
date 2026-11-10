@@ -11,7 +11,7 @@ namespace MigrateAuth.Cli.Session;
 /// read is the tolerant one; this is the hostile one, and a file carrying fields we do
 /// not understand is a file we cannot claim to have validated.
 ///
-/// The file is written unindented and read by streaming. At the volume the state is sized for
+/// THE FILE IS WRITTEN UNINDENTED AND READ BY STREAMING. At the volume the state is sized for
 /// the indentation is bytes that only a human reader would use, and nobody reads this file.
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -34,7 +34,7 @@ internal sealed record SessionStateDocument
 	public int? CatalogVersionRevision { get; init; }
 
 	/// <summary>
-	/// The audited repository as a label. The file never carries a traversable path,
+	/// The audited repository as a label. The file may not carry a traversable path,
 	/// and a label is enough for a human to tell one checkout's state from another's.
 	/// </summary>
 	public string? RepositoryRootLabel { get; init; }
@@ -46,9 +46,9 @@ internal sealed record SessionStateDocument
 	public string[]? CandidateRelativePaths { get; init; }
 
 	/// <summary>
-	/// The persisted finding set. Absent in a document this build did not write, which cannot arrive
-	/// here anyway: a document at another schema version starts a fresh session before any of these are
-	/// read.
+	/// The third part of the state, which schema version 2 was declared to admit. Absent in a document this
+	/// build did not write, which cannot arrive here anyway: a document at another schema version
+	/// starts a fresh session before any of these are read.
 	/// </summary>
 	public PersistedFindingDocument[]? Findings { get; init; }
 
@@ -68,7 +68,7 @@ internal sealed record SessionStateDocument
 	public PersistedSkippedItemTallyDocument[]? AnalysisSkippedItems { get; init; }
 
 	/// <summary>
-	/// The truncation counter, as Analysis last left it. Null on the
+	/// The findings-cap truncation counter, as Analysis last left it. Null on the
 	/// same terms as <see cref="ScanSummary"/>: <c>Save</c> always writes it once a session exists,
 	/// and it reads as null only in a document this build did not write that way.
 	/// </summary>
@@ -84,7 +84,7 @@ internal sealed record SessionStateDocument
 	public string[]? ScanEnabledLanguages { get; init; }
 
 	/// <summary>
-	/// The language name Scan's first-line attribution gave each candidate,
+	/// SCHEMA VERSION 5. The language name Scan's first-line attribution gave each candidate,
 	/// parallel to <see cref="CandidateRelativePaths"/> and the same length. Absent reads as empty, which
 	/// is accepted only beside an empty candidate set. A parallel array rather than an object per
 	/// candidate, because the candidate set is the one term that grows with the repository and a
@@ -93,17 +93,17 @@ internal sealed record SessionStateDocument
 	public string[]? CandidateLanguages { get; init; }
 
 	/// <summary>
-	/// The effective default flow Analysis applied, by its declared name. Null
+	/// SCHEMA VERSION 5. The effective default flow Analysis applied, by its declared name. Null
 	/// on the same terms as <see cref="ScanSummary"/>, and null together with
 	/// <see cref="DefaultFlowOrigin"/> or not at all.
 	/// </summary>
 	public string? DefaultFlow { get; init; }
 
-	/// <summary>Where <see cref="DefaultFlow"/> came from: <c>BuiltInDefault</c> or <c>Profile</c>.</summary>
+	/// <summary>SCHEMA VERSION 5. Where <see cref="DefaultFlow"/> came from: <c>BuiltInDefault</c> or <c>Profile</c>.</summary>
 	public string? DefaultFlowOrigin { get; init; }
 
 	/// <summary>
-	/// The flow-signal evaluation counters as Analysis last left
+	/// SCHEMA VERSION 5. The flow-signal evaluation counters as Analysis last left
 	/// them. Null on the same terms as <see cref="ScanSummary"/>.
 	/// </summary>
 	public PersistedFlowEvaluationDiagnosticsDocument? FlowEvaluationDiagnostics { get; init; }
@@ -143,7 +143,7 @@ internal sealed record PersistedScanSummaryDocument
 	public PersistedLanguageInventoryRowDocument[]? Rows { get; init; }
 
 	/// <summary>
-	/// How many files were attributed by their extension because first-line
+	/// SCHEMA VERSION 5. How many files were attributed by their extension because first-line
 	/// detection tripped the lexical budget. Absent reads as zero, and it never exceeds
 	/// <see cref="FileCount"/>: a fallback is a counted file.
 	/// </summary>
@@ -160,6 +160,19 @@ internal sealed record PersistedScanSummaryDocument
 	/// and re-checked for containment on read, on the same terms as a skipped item's paths.
 	/// </summary>
 	public string[]? ExcludedFolderPaths { get; init; }
+
+	/// <summary>
+	/// SCHEMA VERSION 8. How many files the decode ladder read as Windows-1252. Absent reads as zero,
+	/// it never exceeds <see cref="FileCount"/>, and the listed paths never outnumber it: a listed
+	/// file is a counted one.
+	/// </summary>
+	public int? LegacyEncodedFileCount { get; init; }
+
+	/// <summary>
+	/// SCHEMA VERSION 8. At most the reading ceiling of those files, relative to the repository root
+	/// and re-checked for containment on read, on the same terms as a skipped item's paths.
+	/// </summary>
+	public string[]? LegacyEncodedFilePaths { get; init; }
 }
 
 /// <summary>One language's row of <see cref="PersistedScanSummaryDocument.Rows"/>.</summary>
@@ -197,7 +210,7 @@ internal sealed record PersistedSkippedItemTallyDocument
 	public string[]? EnumeratedPaths { get; init; }
 }
 
-/// <summary>The truncation counter, flattened to the persisted shape.</summary>
+/// <summary>The findings-cap truncation counter, flattened to the persisted shape.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record PersistedFindingsCapOutcomeDocument
 {
@@ -221,26 +234,26 @@ internal sealed record PersistedFindingsCapOutcomeDocument
 }
 
 /// <summary>
-/// One finding, as the state file carries it. It is a separate shape from
+/// ONE FINDING, AS THE STATE FILE CARRIES IT. It is a separate shape from
 /// <see cref="Findings.Finding"/> rather than that type serialized, and every difference between
 /// the two is deliberate.
 ///
-/// Every member is nullable for the reason the document above gives: the file is untrusted input,
+/// EVERY MEMBER IS NULLABLE FOR THE REASON THE DOCUMENT ABOVE GIVES: the file is untrusted input,
 /// so "absent" must be a value the validator can see rather than a default that passes for a real
 /// one. A <see cref="Findings.Finding"/> declares every member <c>required</c>, which is the
 /// opposite discipline and the right one for a value the engine built.
 ///
-/// It carries no derived value. The identifier is not here because
+/// IT CARRIES NO DERIVED VALUE. The identifier is not here because
 /// <see cref="Findings.FindingIdentifiers.Of"/> renders it from the index; the fingerprint's path
 /// and pattern class are not here because they are the finding's own path and pattern class by
 /// construction; the order key is not here because every one of its terms already is. A second
 /// copy of a derived value is the copy that disagrees, and on a file an attacker can edit it is
 /// also a second thing to validate for consistency with the first.
 ///
-/// And it carries nothing from the analyzed file. Every member is either a number, a closed
-/// vocabulary name, a catalog identifier, or the relative path - which is exactly the restriction
-/// <see cref="Findings.Finding"/> already holds, so persisting it is a mechanical step rather than a
-/// filtering one.
+/// AND IT CARRIES NOTHING FROM THE ANALYZED FILE. Every member is either a number, a closed
+/// vocabulary name, a catalog identifier, or the relative path, the one path form allowed - which is
+/// exactly the restriction <see cref="Findings.Finding"/> already holds, so persisting it is a
+/// mechanical step rather than a filtering one.
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record PersistedFindingDocument
@@ -276,16 +289,16 @@ internal sealed record PersistedFindingDocument
 	public int? OccurrenceOrdinal { get; init; }
 
 	/// <summary>
-	/// What the finding's file established about the flow, by its declared
+	/// SCHEMA VERSION 5. What the finding's file established about the flow, by its declared
 	/// name. Present on a High or Medium finding and null on a Low one, as on the finding itself.
 	/// </summary>
 	public string? FlowEvidence { get; init; }
 
-	/// <summary>The flow Analysis assigned, by its declared name. Null exactly when <see cref="FlowEvidence"/> is.</summary>
+	/// <summary>SCHEMA VERSION 5. The flow Analysis assigned, by its declared name. Null exactly when <see cref="FlowEvidence"/> is.</summary>
 	public string? Flow { get; init; }
 
 	/// <summary>
-	/// Why <see cref="Flow"/> was assigned, by its declared name. Null exactly
+	/// SCHEMA VERSION 5. Why <see cref="Flow"/> was assigned, by its declared name. Null exactly
 	/// when <see cref="FlowEvidence"/> is. The note the report prints is derived from the decision and
 	/// the flow and is never persisted.
 	/// </summary>
@@ -302,8 +315,8 @@ internal sealed record PersistedFindingDocument
 
 /// <summary>
 /// Serialization is generated at build time with an explicitly declared context. Under
-/// ahead-of-time compilation a reflection-based serializer compiles and publishes, and then fails on
-/// the client's machine.
+/// ahead-of-time compilation a reflection-based serializer has the worst failure mode
+/// available - it compiles, it publishes, and it fails on the client's machine.
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(SessionStateDocument))]

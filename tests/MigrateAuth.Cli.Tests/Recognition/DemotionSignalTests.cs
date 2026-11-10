@@ -8,12 +8,11 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Recognition;
 
 /// <summary>
-/// THE FILE DEMOTION SIGNALS, SPLIT BY SHAPE: THE BASE'S PATH-SHAPED ONE AND THE ANALYZER'S
+/// FILE DEMOTION SIGNALS, SPLIT BY SHAPE: THE ENGINE'S PATH-SHAPED ONE AND THE ANALYZER'S
 /// LANGUAGE-SHAPED ONES, BOTH REACHING THE SAME COMPOSITION.
 ///
-/// The base's single entry is a <c>Deployment/</c> folder, which commonly holds minified build
-/// output. It is a demotion and not an exclusion, because in a client repository a folder of that
-/// name can also hold deployment scripts.
+/// The engine's path-shaped set is EMPTY. The <c>Deployment/</c> folder is one of <c>CSharp</c>'s own
+/// language-shaped folder signals, and it stays a demotion and never an exclusion.
 ///
 /// The negative case is as load-bearing as the positives. Demotion is the primary lever for
 /// meeting the false-positive threshold, and a lever that fires on every file is not a lever.
@@ -28,6 +27,18 @@ public sealed class DemotionSignalTests
 	private const string _ANALYZER_DECLARED_FOLDER_PATH = "src/exemplar-generated/module.ex1";
 	private const string _ANALYZER_DECLARED_FILE_NAME_PATH = "source/module.spec.ex1";
 	private const string _FOLDER_MERELY_CONTAINING_THE_SIGNAL_PATH = "src/predeployment/module.ex1";
+	private const string _CSHARP_DEPLOYMENT_FOLDER_PATH = "Deployment/Module.cs";
+	private const string _CSHARP_DEPLOYMENT_FOLDER_PATH_IN_OTHER_CASING = "src/deployment/Module.cs";
+	private const string _CSHARP_FOLDER_MERELY_CONTAINING_THE_SIGNAL_PATH = "src/predeployment/Module.cs";
+	private const string _CSHARP_CREDENTIAL_CONSTRUCTION_IN_CODE = """
+		class A
+		{
+			void B()
+			{
+				var credentials = new UsernamePasswordCredentials(options.UserName, options.Password);
+			}
+		}
+		""";
 
 	private const string _CREDENTIAL_CONSTRUCTION_IN_CODE = """
 		let credentials = NewExemplarCredentials(operatorName, "hunter2")
@@ -44,14 +55,33 @@ public sealed class DemotionSignalTests
 	}
 
 	/// <summary>
-	/// The base's own signal, which exists before any analyzer does.
+	/// The shared engine does not demote the <c>Deployment</c> folder, so an analyzer that declares no
+	/// such signal of its own (the reference analyzer here) reads the same construct at its own level.
 	/// </summary>
 	[Theory]
 	[InlineData(_DEPLOYMENT_FOLDER_PATH)]
 	[InlineData(_DEPLOYMENT_FOLDER_PATH_IN_OTHER_CASING)]
-	public void TheBasesDeploymentFolderSignalDemotes(string relativePath)
+	public void TheEngineNoLongerDemotesTheDeploymentFolderForAnAnalyzerThatDeclaresNoSuchSignal(string relativePath)
 	{
-		Assert.Equal(ConfidenceLevel.Low, LevelUnder(relativePath));
+		Assert.Equal(ConfidenceLevel.High, LevelUnder(relativePath));
+	}
+
+	/// <summary>
+	/// The signal lives in <c>CSharp</c>'s language-shaped folder signals, matched without
+	/// regard to case, and reaches the composition through the same door as any analyzer-declared one.
+	/// </summary>
+	[Theory]
+	[InlineData(_CSHARP_DEPLOYMENT_FOLDER_PATH)]
+	[InlineData(_CSHARP_DEPLOYMENT_FOLDER_PATH_IN_OTHER_CASING)]
+	public void CSharpDemotesTheDeploymentFolderCaseInsensitively(string relativePath)
+	{
+		Assert.Equal(ConfidenceLevel.Low, CSharpLevelUnder(relativePath));
+	}
+
+	[Fact]
+	public void CSharpDeploymentSignalMatchesWholeFolderNamesOnly()
+	{
+		Assert.Equal(ConfidenceLevel.High, CSharpLevelUnder(_CSHARP_FOLDER_MERELY_CONTAINING_THE_SIGNAL_PATH));
 	}
 
 	/// <summary>
@@ -79,7 +109,7 @@ public sealed class DemotionSignalTests
 	}
 
 	/// <summary>
-	/// A property of the type rather than of a comment: the base's set is not suppliable
+	/// A property of the type rather than of a comment: the engine's set is not suppliable
 	/// through the analyzer contract, so no catalog can add to it or take from it.
 	/// </summary>
 	[Fact]
@@ -91,8 +121,8 @@ public sealed class DemotionSignalTests
 	}
 
 	/// <summary>
-	/// A demotion narrows what is reported and the repository-resolved configuration file has
-	/// no field that carries one, so the base's set carries no way to be supplied one: no public
+	/// A demotion narrows what is reported and the effective configuration gives the repository-resolved file
+	/// no field that carries one, so the engine's set carries no way to be supplied one: no public
 	/// constructor, and no setter on anything it holds.
 	/// </summary>
 	[Fact]
@@ -100,19 +130,28 @@ public sealed class DemotionSignalTests
 	{
 		Assert.Empty(typeof(PathShapedDemotionSignals).GetConstructors());
 		Assert.NotNull(PathShapedDemotionSignals.TheBaseSet);
-		Assert.Single(PathShapedDemotionSignals.TheBaseSet.FolderNameSignals);
+		Assert.Empty(PathShapedDemotionSignals.TheBaseSet.FolderNameSignals);
 	}
 
 	/// <summary>
 	/// The generated-marker category is declared and EMPTY, which is a different statement from
-	/// missing. No text has been established as a generated marker, and an invented marker here would
-	/// put an unmeasured value into the primary lever for the false-positive threshold.
+	/// missing: the classification rules name the category and name no text that would be one.
 	/// </summary>
 	[Fact]
-	public void TheBasesGeneratedMarkerCategoryIsDeclaredAndDeliberatelyEmpty()
+	public void TheEnginesGeneratedMarkerCategoryIsDeclaredAndDeliberatelyEmpty()
 	{
 		Assert.True(PathShapedDemotionSignals.TheBaseSet.GenerationMarkerExpressions.IsEmpty);
 		Assert.Empty(PathShapedDemotionSignals.TheBaseSet.FileNameSignals);
+	}
+
+	private static ConfidenceLevel CSharpLevelUnder(string relativePath)
+	{
+		CSharpRecognitionHarness harness = new();
+
+		ImmutableArray<RecognizedConstruct> recognized =
+			harness.Recognize(_CSHARP_CREDENTIAL_CONSTRUCTION_IN_CODE, relativePath);
+
+		return Assert.Single(recognized).Level;
 	}
 
 	private static ConfidenceLevel LevelUnder(string relativePath)

@@ -27,25 +27,28 @@ public sealed class SessionStateVolumeProofCollection
 }
 
 /// <summary>
-/// THE SESSION STATE AT VOLUME, WRITTEN AND READ BY THE REAL STORE.
+/// THE SESSION STATE AT THE LARGEST SUPPORTED SIZE, WRITTEN AND READ BY THE REAL STORE.
 ///
 /// The document is the one term of the product that grows with the repository: a path per candidate
 /// and a finding per retained construct. The worst case is 500,000 persisted candidate paths
 /// beside 50,000 findings, and two proofs stand on it.
 ///
 /// The first proof puts 100,000 flow-bearing findings in a state and reloads it. The global findings cap is
-/// 50,000, so 100,000 is TWICE THE CAP: headroom, not a number the tool can produce.
+/// 50,000, so 100,000 is TWICE THE CAP: the headroom convention, not a number the tool can produce
+/// today.
 ///
 /// The second puts the same 100,000 findings beside 500,000 candidate paths of 150 ASCII characters,
-/// writes the state, and reloads it under the ceiling
-/// (<see cref="SessionStateStore.MAXIMUM_STATE_FILE_LENGTH_IN_BYTES"/>), and the same run measures the
-/// peak working set and the duration of the save and of the load against the one-gigabyte memory limit.
+/// writes the state, and reloads it. The size of that file is what the ceiling
+/// (<see cref="SessionStateStore.MAXIMUM_STATE_FILE_LENGTH_IN_BYTES"/>) is sized from - the size
+/// rounded up to the next 16 MiB - and the same run measures the peak working set and the duration
+/// of the save and of the load against the one-gigabyte memory limit.
 ///
-/// The synthetic state carries every term a state carries, in the shape the engine produces it, so
-/// nothing is left out that would make the file smaller than a real one. The working set is sampled
-/// (see <see cref="PeakWorkingSetSampler"/>) in this process, with the save measured while the state it
-/// writes is live, as it is when a stage commits, and the load measured after that state has been
-/// released, as it is at the start of a session. The figures are printed with the test output.
+/// WHAT THE FIGURES ARE. The synthetic state carries every term a state carries, in the shape the
+/// engine produces it, so nothing is left out that would make the file smaller than a real one. The
+/// working set is sampled (see <see cref="PeakWorkingSetSampler"/>) in this process, with the save
+/// measured while the state it writes is live, as it is when a stage commits, and the load measured
+/// after that state has been released, as it is at the start of a session. The figures are printed
+/// with the test output; record them from a run of these tests alone.
 /// </summary>
 [Collection(COLLECTION_NAME)]
 public sealed class SessionStateVolumeProofTests
@@ -80,8 +83,8 @@ public sealed class SessionStateVolumeProofTests
 	}
 
 	/// <summary>
-	/// A state holding 100,000 findings with flow fields is written and reloaded under the ceiling.
-	/// 100,000 is twice the global cap and therefore a headroom proof.
+	/// A state holding 100,000 findings with flow fields is written and
+	/// reloaded under the ceiling. 100,000 is twice the global cap and therefore a headroom proof.
 	/// </summary>
 	[Fact]
 	public void AStateHolding100000FlowBearingFindingsIsWrittenAndReloadedUnderTheCeiling()
@@ -111,9 +114,10 @@ public sealed class SessionStateVolumeProofTests
 	}
 
 	/// <summary>
-	/// 500,000 candidate paths of 150 characters and 100,000 flow-bearing findings are written and
-	/// reloaded under the ceiling; the ceiling is the measured size rounded up to the next 16 MiB; and
-	/// the peak working set of the save and of the load stays below 1 GB.
+	/// 500,000 candidate paths of 150 characters
+	/// and 100,000 flow-bearing findings are written and reloaded under the ceiling; the ceiling is
+	/// the measured size rounded up to the next 16 MiB; and the peak working set of the save and of
+	/// the load stays below 1 GB.
 	/// </summary>
 	[Fact]
 	public void FiveHundredThousandCandidatePathsAndOneHundredThousandFindingsFitTheCeilingAndBothOperationsStayUnderOneGigabyte()
@@ -171,7 +175,7 @@ public sealed class SessionStateVolumeProofTests
 	{
 		long roundedUpLength = (fileLength + _ROUNDING_UNIT_IN_BYTES - 1) / _ROUNDING_UNIT_IN_BYTES * _ROUNDING_UNIT_IN_BYTES;
 
-		_output.WriteLine("Session state volume proof (band V2: DR-25, DR-52, DR-64)");
+		_output.WriteLine("Session state volume proof (largest supported size)");
 		_output.WriteLine($"Platform: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
 		_output.WriteLine(FormattedLine("Candidate paths", _CANDIDATE_COUNT));
 		_output.WriteLine(FormattedLine("Characters per candidate path", _CANDIDATE_PATH_LENGTH));

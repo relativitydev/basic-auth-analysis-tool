@@ -16,7 +16,7 @@ internal enum LexicalRuleKind
 /// <summary>
 /// ONE THING THAT CAN OPEN AT A POSITION, FLATTENED ACROSS THE THREE RULE COLLECTIONS.
 ///
-/// It exists because the engine's first lexical rule - the longest opening wins - is stated over the
+/// It exists because the first engine rule - the longest opening wins - is stated over the
 /// profile's rules and not over one collection of them. <see cref="LexicalProfile"/> orders each
 /// of its three collections internally and cannot order them against each other, so a line
 /// comment opening of two characters and a quote opening of one have no relative order until
@@ -57,9 +57,8 @@ internal sealed record LexicalRuleCandidate
 /// THE PROFILE'S RULES, MERGED, ORDERED LONGEST OPENING FIRST, AND BUCKETED BY THE CHARACTER
 /// THEY START WITH.
 ///
-/// The bucketing keeps the cost of a profile from scaling with its size: without it, every rule
-/// is tried at every character, and a profile whose literal prefixes expand to many quote rules
-/// scans many times slower than a small one.
+/// The bucketing keeps the cost of a scan from scaling with the number of rules in a profile:
+/// without it every rule would be tried at every character.
 ///
 /// IT RE-SORTS NOTHING THE PROFILE ALREADY ORDERED. Each of the three collections arrives in the
 /// engine's own order and this type never reads an author's order, which is unreachable by
@@ -187,8 +186,8 @@ internal sealed class LexicalRuleIndex
 	/// <summary>
 	/// A COMMENT OPENER THAT IS A WORD IS A KEYWORD, AND EVERYTHING ELSE IS A DELIMITER.
 	///
-	/// An opener carrying <see cref="LineCommentRule"/>'s whole-word flag is compared under the
-	/// keyword case-sensitivity rule, and every punctuation opener under the delimiter one.
+	/// An opener that only opens a comment where it stands as a whole word is compared under the
+	/// keyword case rule, and every punctuation opener under the delimiter one.
 	/// </summary>
 	private static CaseSensitivity SensitivityFor(LexicalProfile profile, bool requiresWordBoundary)
 	{
@@ -206,19 +205,17 @@ internal sealed class LexicalRuleIndex
 		LexicalRuleCandidate candidate,
 		CaseSensitivity sensitivity)
 	{
-		if (candidate.OpeningText.Length == 0)
+		if (candidate.OpeningText.Length > 0)
 		{
-			return;
-		}
+			char openingCharacter = candidate.OpeningText[0];
 
-		char openingCharacter = candidate.OpeningText[0];
+			AddTo(buckets, openingCharacter, candidate);
 
-		AddTo(buckets, openingCharacter, candidate);
-
-		if (sensitivity is CaseSensitivity.Insensitive)
-		{
-			AddTo(buckets, char.ToUpperInvariant(openingCharacter), candidate);
-			AddTo(buckets, char.ToLowerInvariant(openingCharacter), candidate);
+			if (sensitivity is CaseSensitivity.Insensitive)
+			{
+				AddTo(buckets, char.ToUpperInvariant(openingCharacter), candidate);
+				AddTo(buckets, char.ToLowerInvariant(openingCharacter), candidate);
+			}
 		}
 	}
 

@@ -49,9 +49,7 @@ public sealed class AnalyzeStageTests
 		Assert.Empty(harness.State.Findings);
 	}
 
-	/// <summary>
-	/// The findings, the third part of the session state, reach the session state.
-	/// </summary>
+	/// <summary>The third part of the data invariant reaching the session state.</summary>
 	[Fact]
 	public void TheFindingSetReachesTheSessionState()
 	{
@@ -71,7 +69,7 @@ public sealed class AnalyzeStageTests
 	}
 
 	/// <summary>
-	/// The session state holds findings WITHOUT rendered recommendations, and this is the check that it
+	/// The invariant's phrase is "findings WITHOUT rendered recommendations", and this is the check that it
 	/// holds structurally rather than by discipline: <see cref="Finding"/> exposes no member that
 	/// could carry rendered text, so a recommendation cannot be persisted even by mistake. The
 	/// assertion is over the type's own surface rather than over one instance's values, because a
@@ -168,7 +166,7 @@ public sealed class AnalyzeStageTests
 
 	/// <summary>
 	/// The terms <c>RecordScanOutcome</c> already established for the candidate set: a second run
-	/// replaces rather than appends. Here it matters more than there - numbering runs over the whole
+	/// replaces rather than appends. Here it matters more than there - the numbering runs over the whole
 	/// set, so a union would carry two findings numbered 001.
 	/// </summary>
 	[Fact]
@@ -187,7 +185,7 @@ public sealed class AnalyzeStageTests
 	}
 
 	/// <summary>
-	/// THE TENTH SKIPPED-ITEM CATEGORY.
+	/// THE TENTH SKIPPED-ITEM CATEGORY, RAISED BY THIS STAGE.
 	///
 	/// <c>RepositoryFileReader</c> declines to raise it in its own doc comment, because the
 	/// situation belongs to the persisted candidate set rather than to the walk. A candidate deleted
@@ -271,7 +269,7 @@ public sealed class AnalyzeStageTests
 	/// <summary>
 	/// The literal-credential signal, established from the ZONE of the credential argument. It
 	/// travels the whole pipeline here rather than being asserted inside recognition, because the
-	/// recommendation's security note rides on the signal and this test is what connects the two.
+	/// signal is what the fifth piece of the recommendation rides on and this test is what connects the two.
 	/// </summary>
 	[Fact]
 	public void ALiteralCredentialInSourceSetsTheSignalOnTheFinding()
@@ -287,7 +285,7 @@ public sealed class AnalyzeStageTests
 
 	/// <summary>
 	/// The Low class, which exists here so that the Suggest stage's manual-review route has
-	/// something to route. It is a finding like any other: it is assigned a level and nothing
+	/// something to route. It is a finding like any other: classification assigns it a level and nothing
 	/// filters it out of the analysis.
 	/// </summary>
 	[Fact]
@@ -300,6 +298,20 @@ public sealed class AnalyzeStageTests
 		harness.RunAndCommit(CommandId.Analyze);
 
 		Assert.Equal(ConfidenceLevel.Low, Assert.Single(harness.State.Findings).Level);
+	}
+
+	/// <summary>The start line agrees in number: one candidate is "1 candidate file".</summary>
+	[Fact]
+	public void TheStartLineAgreesInNumberForASingleCandidate()
+	{
+		using PipelineHarness harness = PipelineHarness.Create();
+		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
+
+		harness.RunAndCommit(CommandId.Scan);
+		harness.Run(CommandId.Analyze);
+
+		Assert.Contains("analyze: analyzing 1 candidate file.", harness.Transcript, StringComparison.Ordinal);
+		Assert.DoesNotContain("1 candidate files", harness.Transcript, StringComparison.Ordinal);
 	}
 
 	/// <summary>
@@ -318,7 +330,7 @@ public sealed class AnalyzeStageTests
 	}
 
 	/// <summary>
-	/// THE FINDINGS CAP, EXERCISED THROUGH THE REAL PIPELINE RATHER THAN THROUGH A SYNTHETIC FIXTURE.
+	/// THE PER-FILE FINDINGS CAP, EXERCISED THROUGH THE REAL PIPELINE RATHER THAN THROUGH A SYNTHETIC FIXTURE.
 	///
 	/// One real file, scanned and recognized through the actual reader, scanner and recognition
 	/// engine, offering more matches than the per-file cap allows. What is under test here is the
@@ -422,7 +434,7 @@ public sealed class AnalyzeStageTests
 	}
 
 	/// <summary>
-	/// From the other end: the name a candidate carries after a real Scan is the one that
+	/// The other end of that: the name a candidate carries after a real Scan is the one that
 	/// attributed it, and it survives a save and a load unchanged.
 	/// </summary>
 	[Fact]
@@ -491,7 +503,7 @@ public sealed class AnalyzeStageTests
 			string.Format(CultureInfo.InvariantCulture, AnalyzeConsoleReport.FINDINGS_BY_CONFIDENCE_MESSAGE_FORMAT, 0, 0, 0),
 			harness.Transcript,
 			StringComparison.Ordinal);
-		Assert.DoesNotContain(ConsoleFindingsTable.BuildHeaderLine(), harness.Transcript, StringComparison.Ordinal);
+		Assert.DoesNotContain(ConsoleFindingsTable.ColumnHeadings[1], harness.Transcript, StringComparison.Ordinal);
 	}
 
 	/// <summary>The confidence summary, over a set that actually carries a High and a Low finding.</summary>
@@ -524,7 +536,10 @@ public sealed class AnalyzeStageTests
 		harness.RunAndCommit(CommandId.Scan);
 		harness.RunAndCommit(CommandId.Analyze);
 
-		Assert.Contains(ConsoleFindingsTable.BuildHeaderLine(), harness.Transcript, StringComparison.Ordinal);
+		Assert.Contains(
+			ConsoleFindingsTable.BuildHeaderLine(harness.State.Findings, harness.Catalog),
+			harness.Transcript,
+			StringComparison.Ordinal);
 		Assert.Contains(PipelineLanguageAnalyzer.TEMPLATED_PATTERN_CLASS, harness.Transcript, StringComparison.Ordinal);
 	}
 
@@ -569,14 +584,14 @@ public sealed class AnalyzeStageTests
 	}
 
 	/// <summary>
-	/// THROUGH THE REAL PIPELINE. A literal credential planted in source produces a
+	/// THROUGH THE REAL PIPELINE. A literal credential placed in source produces a
 	/// warning line naming the finding's location and pattern class, citing the Secret Management
-	/// guide - and never the planted secret itself, anywhere in the transcript.
+	/// guide - and never the placed secret itself, anywhere in the transcript.
 	/// </summary>
 	[Fact]
 	public void ALiteralCredentialFindingProducesAWarningLineAndNeverTheSecretItself()
 	{
-		const string plantedSecret = "a-literal-secret";
+		const string placedSecret = "a-literal-secret";
 
 		using PipelineHarness harness = PipelineHarness.Create();
 		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
@@ -590,7 +605,7 @@ public sealed class AnalyzeStageTests
 		Assert.Contains(finding.Identifier, harness.Transcript, StringComparison.Ordinal);
 		Assert.Contains(PipelineLanguageAnalyzer.TEMPLATED_PATTERN_CLASS, harness.Transcript, StringComparison.Ordinal);
 		Assert.Contains(SecretManagementPointer.PART_B_NAME, harness.Transcript, StringComparison.Ordinal);
-		Assert.DoesNotContain(plantedSecret, harness.Transcript, StringComparison.Ordinal);
+		Assert.DoesNotContain(placedSecret, harness.Transcript, StringComparison.Ordinal);
 	}
 
 	/// <summary>The complement: a finding with no literal credential produces no warning line at all.</summary>
@@ -627,7 +642,9 @@ public sealed class AnalyzeStageTests
 		Assert.Equal(offeredCount, harness.State.Findings.Length);
 
 		string transcript = harness.Transcript;
-		string headerLine = ConsoleFindingsTable.BuildHeaderLine();
+		string headerLine = ConsoleFindingsTable.BuildHeaderLine(
+			harness.State.Findings.Take(ConsoleFindingsTable.MAXIMUM_CONSOLE_TABLE_ROWS),
+			harness.Catalog);
 
 		int headerIndex = transcript.IndexOf(headerLine, StringComparison.Ordinal);
 		string tableFindingsPointerLine = string.Format(

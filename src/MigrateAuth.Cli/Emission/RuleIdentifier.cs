@@ -45,9 +45,9 @@ public readonly partial record struct RuleIdentifier
 	}
 
 	/// <summary>
-	/// Generated at build time rather than constructed at run time, as every other expression in
-	/// this product is: under ahead-of-time compilation a runtime-constructed expression is
-	/// interpreted.
+	/// Generated at build time rather than constructed at run time, for the same reason as
+	/// every other expression in this product: under ahead-of-time compilation a
+	/// runtime-constructed expression is interpreted.
 	/// </summary>
 	[GeneratedRegex(@"^[A-Z]{2,6}-[0-9]{3}$", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
 	private static partial Regex CatalogIdentifierShape();

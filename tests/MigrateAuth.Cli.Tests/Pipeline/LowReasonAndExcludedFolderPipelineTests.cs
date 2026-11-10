@@ -16,7 +16,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// recognition records the reason where the level is composed, composition carries it, the report and
 /// the artifact print it, and the session state keeps it across a resume.
 ///
-/// The three planted files each hold one construct that reads Low for a different single reason, and one
+/// The three prepared files each hold one construct that reads Low for a different single reason, and one
 /// more holds a High construct that must state none, so a reason can only be read off the signal that
 /// actually proposed it.
 /// </summary>
@@ -41,7 +41,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 	[Fact]
 	public void EachLowFindingStatesTheOneReasonThatMadeItLow()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		ImmutableArray<Finding> findings = harness.State.Findings;
 
@@ -54,7 +54,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 	[Fact]
 	public void TheReasonsAreInTheMarkdownReportAndTheDataArtifact()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		string report = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport);
 		ArtifactDocument artifact = ReadArtifact(harness);
@@ -69,7 +69,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 	[Fact]
 	public void TheReasonsAndTheExcludedFoldersSurviveAResume()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		SessionStateLoad reloaded = harness.ReloadState();
 
@@ -84,7 +84,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 	[Fact]
 	public void TheExcludedFoldersAreInTheReportAndTheArtifactAndNotAmongTheSkippedItems()
 	{
-		using PipelineHarness harness = RunTheWorkflowOverThePlantedTree();
+		using PipelineHarness harness = RunTheWorkflowOverThePreparedTree();
 
 		string report = harness.ReadWrittenArtifact(OutputArtifactKind.MarkdownReport);
 		ArtifactExcludedFoldersDocument excluded = ReadArtifact(harness).ScanSummary.ExcludedFolders;
@@ -97,7 +97,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 		Assert.Contains("Skipped files: 0.", report, StringComparison.Ordinal);
 	}
 
-	private static PipelineHarness RunTheWorkflowOverThePlantedTree()
+	private static PipelineHarness RunTheWorkflowOverThePreparedTree()
 	{
 		PipelineHarness harness = PipelineHarness.Create();
 

@@ -10,10 +10,11 @@ using MigrateAuth.Cli.Recognition;
 namespace MigrateAuth.Cli.Tests.Fixtures;
 
 /// <summary>
-/// Every expression this catalog hands over, generated at build time: the generator needs a
-/// constant pattern and produces a method, not data, so a profile carrying expressions as strings
-/// and a profile carrying build-time generated expressions cannot both exist. Under ahead-of-time
-/// compilation the alternative is also interpreted rather than compiled.
+/// Every expression this catalog hands over, generated at build time. This is what the analyzer contract
+/// means by already constructed: the generator needs a constant pattern and produces a
+/// method, not data, so a profile carrying expressions as strings and a profile carrying
+/// build-time generated expressions cannot both exist. Under ahead-of-time compilation the
+/// alternative is also interpreted rather than compiled.
 /// </summary>
 internal static partial class ExemplarPatternExpressions
 {
@@ -32,7 +33,7 @@ internal static partial class ExemplarPatternExpressions
 	public static partial Regex HandAssembledHeader();
 
 	/// <summary>
-	/// The overlapping construct subsumption exists for: a client built FROM a credential
+	/// The overlapping construct that subsumption exists for: a client built FROM a credential
 	/// object, whose span necessarily contains the start of the credential construction the other
 	/// rule recognizes.
 	///
@@ -99,7 +100,7 @@ internal static partial class ExemplarPatternExpressions
 	public static partial Regex FirstLineDetection();
 
 	/// <summary>
-	/// The identifier-extent interpolation hole. The hole has no closing token at all: its
+	/// An identifier-extent interpolation hole. The hole has no closing token at all: its
 	/// end is wherever this expression stops matching from the character after the sigil.
 	/// </summary>
 	[GeneratedRegex(
@@ -404,7 +405,7 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 
 	/// <summary>
 	/// Two invented constructs, so both languages this analyzer declares - the
-	/// not-one-to-one profile-to-language relation - show the same entries: the coverage is a
+	/// not-one-to-one relation between analyzer and language - show the same entries: the coverage is a
 	/// property of this analyzer's catalog, not of either declared name on its own.
 	/// </summary>
 	private static FrozenSet<DeclaredUnsupportedCoverage> BuildDeclaredUnsupportedCoverage()
@@ -458,8 +459,8 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// Anchored at its type name and carrying its credential at argument two, which is why the
-	/// credential position cannot be the anchor offset.
+	/// Anchored at its type name and carrying its credential at argument two, which is the
+	/// case that shows why the credential position cannot be the anchor offset.
 	/// </summary>
 	private static DetectionRule BuildCredentialTypeRule()
 	{
@@ -508,9 +509,9 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// The overlapping class: a legacy client constructed with a credential object
-	/// matches both the client class and the credential class. Its span contains the start of the
-	/// credential construction, so one planted pattern is recognized twice unless the subsumption
+	/// The overlapping class: "a legacy client constructed with a credential object
+	/// matches both the client class and the credential class". Its span contains the start of the
+	/// credential construction, so one placed pattern is recognized twice unless the subsumption
 	/// relation below says which of the two is the one to emit.
 	///
 	/// It declares no preselection anchor of its own, and that is not an omission: the expression
@@ -647,15 +648,17 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// The subsumption relations. Two declared triples, and the pair that is deliberately NOT declared.
+	/// Two declared triples, and the pair that is deliberately NOT declared.
 	///
-	/// The legacy client subsumes the credential type, the one relation this profile can actually
-	/// exercise: the client's span contains the start of the credential construction, so both classes
-	/// recognize one planted pattern and exactly one of them is emitted.
+	/// The legacy client subsumes the credential type, which is the worked example of the rule and the
+	/// one relation this profile can actually exercise: the client's span contains the start of the
+	/// credential construction, so both classes recognize one placed pattern and exactly one of
+	/// them is emitted.
 	///
 	/// The credential type subsumes the hand-assembled header on the same terms. Nothing is
-	/// declared between the legacy client and the hand-assembled header: absent a declared relation
-	/// both classes are emitted, so an omission is visible in the output rather than silent.
+	/// declared between the legacy client and the hand-assembled header, and that gap is the other
+	/// half of the rule: absent a declared relation both classes are emitted, so an omission is
+	/// visible in the output rather than silent.
 	/// </summary>
 	private static FrozenSet<SubsumptionRule> BuildSubsumptionRelation()
 	{

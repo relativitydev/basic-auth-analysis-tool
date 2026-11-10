@@ -11,14 +11,15 @@ namespace MigrateAuth.Cli.Tests.Findings;
 /// FILE. Two fingerprints are equal exactly when all three parts are, and nothing in either of
 /// them came from the file's text.
 ///
-/// THE ORDINAL'S BEHAVIOUR HAS TWO HALVES AND BOTH ARE PINNED HERE:
+/// THE ORDINAL'S BEHAVIOUR IS A PROPERTY WITH TWO HALVES AND BOTH ARE PINNED HERE:
 ///
-/// - IT SURVIVES INSERTING OR DELETING LINES. Offsets move, line numbers move, the
+/// - IT SURVIVES INSERTING OR DELETING LINES, which is the most frequent change between two runs
+///   and the iterative flow the mechanism exists for. Offsets move, line numbers move, the
 ///   fingerprint does not.
 /// - IT DOES NOT SURVIVE INSERTING OR DELETING AN OCCURRENCE OF THE SAME CLASS EARLIER IN THE SAME
-///   FILE. Every later occurrence of that class shifts by one, and the set that results is still
-///   internally consistent - contiguous from one, in recognition order, with no two occurrences
-///   sharing a fingerprint.
+///   FILE. Every later occurrence of that class shifts by one, so two occurrences that swap order
+///   are not recognized as swapped, and the set that results is still internally consistent -
+///   contiguous from one, in recognition order, with no two occurrences sharing a fingerprint.
 /// </summary>
 public sealed class FindingFingerprintTests
 {
@@ -115,7 +116,7 @@ public sealed class FindingFingerprintTests
 	}
 
 	/// <summary>
-	/// THE STABILITY UNDER LINE EDITS. The same three constructs, with eleven lines inserted above them, so
+	/// THE HEADLINE CLAIM. The same three constructs, with eleven lines inserted above them, so
 	/// that every offset and every line number moves and nothing else does. The line numbers are
 	/// asserted to have moved, because a test where they had not would prove nothing.
 	/// </summary>
@@ -135,12 +136,13 @@ public sealed class FindingFingerprintTests
 	}
 
 	/// <summary>
-	/// THE LIMIT, PINNED AS EXPLICITLY AS THE STABILITY. A new occurrence of the same class is
+	/// THE CONCESSION, PINNED AS EXPLICITLY AS THE CLAIM. A new occurrence of the same class is
 	/// inserted before the existing ones, and what is asserted is:
 	///
 	/// - the occurrence BEFORE the insertion point keeps its fingerprint;
 	/// - each occurrence AFTER it shifts by one, so it no longer carries the fingerprint it had,
-	///   and the fingerprint it had now names the occurrence one place earlier. Both halves
+	///   and the fingerprint it had now names the occurrence one place earlier - two occurrences that
+	///   swapped order are not recognized as swapped. Both halves
 	///   are asserted, because "the fingerprint changed" and "the old fingerprint went somewhere
 	///   specific" are different claims and only the second one describes the scheme;
 	/// - and the resulting set is still internally consistent: ordinals contiguous from one, in

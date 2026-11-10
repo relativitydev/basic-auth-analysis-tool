@@ -13,11 +13,12 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The report's shape, graded on the empty run.
+/// The report's shape, checked on the empty run.
 ///
 /// A repository with zero candidate files must produce a VALID report stating zero findings, and
-/// validity is unassertable against a shape nobody specified. These tests are that shape - five
-/// sections, in order, present when empty - plus two rules: the groups are named for what is
+/// validity is unassertable against a shape nobody
+/// specified. These tests are that shape - five sections, in order, present when empty - plus the
+/// two rules the report design stresses most: the groups are named for what is
 /// known, and the second group is never "not Relativity".
 /// </summary>
 public sealed class MarkdownReportTests
@@ -42,8 +43,8 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>
-	/// A missing "skipped items" heading and a "skipped items: none" heading say opposite things to
-	/// a reader.
+	/// The half of the shape that carries the decision: a missing "skipped items" heading and a
+	/// "skipped items: none" heading say opposite things to a reader.
 	/// </summary>
 	[Fact]
 	public void TheSkippedItemsSectionStatesZeroRatherThanBeingAbsent()
@@ -87,8 +88,9 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>
-	/// The second group is "not established" and must never be rendered as "not Relativity", because
-	/// the engine establishes nothing about those findings in either direction.
+	/// The finding model and the report structure both insist on this, and the latter states it as a
+	/// prohibition: the second group is "not established" and must never be rendered as "not Relativity", because the engine
+	/// establishes nothing about those findings in either direction.
 	/// </summary>
 	[Fact]
 	public void TwoFindingsOfDifferentCertaintyLandInDifferentGroupsNamedForWhatIsKnown()
@@ -122,8 +124,8 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>
-	/// The confidence filter removes rows and what is left is never renumbered, so the filtered
-	/// report shows a gap in its sequence. The gap is the cost of a stable identifier.
+	/// The threshold filter removes rows and renumbering what is left is forbidden, so the filtered
+	/// report shows a gap in its sequence. The gap is the declared cost of a stable identifier.
 	/// </summary>
 	[Fact]
 	public void TheThresholdHidesALowFindingAndLeavesTheOtherIdentifiersUntouched()
@@ -171,7 +173,8 @@ public sealed class MarkdownReportTests
 	{
 		string report = RenderOne(ConfidenceLevel.Low, ReportHarness.TEMPLATED_PATTERN_CLASS, literalCredentialSignal: false);
 
-		Assert.Contains(RecommendationRenderer.MANUAL_REVIEW_TEXT, report, StringComparison.Ordinal);
+		Assert.Contains(RecommendationRenderer.MANUAL_REVIEW_LEAD_TEXT, report, StringComparison.Ordinal);
+		Assert.Contains("\"Judging a Low-confidence match\" in Part C for C# of the Migration Documentation.", report, StringComparison.Ordinal);
 		Assert.DoesNotContain(ReportHarness.TEMPLATE_SOURCE_FORM, report, StringComparison.Ordinal);
 	}
 
@@ -212,7 +215,7 @@ public sealed class MarkdownReportTests
 		Assert.True(uppercaseIndex < lowercaseIndex);
 	}
 
-	/// <summary>The zero case states itself explicitly, on the report's "present when empty" convention.</summary>
+	/// <summary>The zero case states itself explicitly, on the report's own "present when empty" convention.</summary>
 	[Fact]
 	public void TheCoverageSectionSaysNoneDeclaredWhenNothingIs()
 	{
@@ -225,7 +228,7 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>The alpha label written out, so the assertion does not compare the constant with itself.</summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.1.1-alpha";
+	private const string _EXPECTED_ALPHA_VERSION = "0.2.0-alpha";
 
 	[Fact]
 	public void TheProvenanceCarriesTheAlphaLabelledToolVersionLiteral()
@@ -238,9 +241,9 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>
-	/// The provenance carries the tool version, the catalog version, the scanned path AS A LABEL and
-	/// the applied filters. The label matters: no absolute path appears in anything the product emits,
-	/// and the repository root is the one path with no relative form.
+	/// The provenance holds the tool version, the catalog version, the scanned path AS A LABEL and the
+	/// applied filters. The label matters: no absolute path is permitted in
+	/// anything the product emits, and the repository root is the one path with no relative form.
 	/// </summary>
 	[Fact]
 	public void TheProvenanceCarriesBothVersionsAndTheRepositoryAsALabel()
@@ -311,7 +314,7 @@ public sealed class MarkdownReportTests
 	}
 
 	/// <summary>
-	/// The truncation invariant, over the Markdown report: a truncated result is declared truncated and
+	/// The cap invariant, over the Markdown report: a truncated result is declared truncated and
 	/// never presented as complete, with the omission counts a reader needs to judge the hole.
 	/// </summary>
 	[Fact]
@@ -489,6 +492,81 @@ public sealed class MarkdownReportTests
 			3);
 
 		Assert.Contains(expectedSummary, report, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// A Markdown renderer reads a line placed directly against a table's last row as one more row.
+	/// Section 2 puts sentences after its inventory table (the unassessed-languages summary and the
+	/// stale-scan note), so every line after a table row must be another row or a blank line.
+	/// </summary>
+	[Fact]
+	public void NoParagraphFollowsATableRowWithoutABlankLine()
+	{
+		LanguageInventoryRow assessedRow = new()
+		{
+			LanguageName = AssessedLanguages.CanonicalName(AssessedLanguage.CSharp),
+			FileCount = 1,
+			LineCount = 10,
+			CandidateFileCount = 1,
+			ShareOfFilesPercentage = 50.0
+		};
+
+		LanguageInventoryRow unassessedRow = new()
+		{
+			LanguageName = AssessedLanguages.CanonicalName(AssessedLanguage.Go),
+			FileCount = 1,
+			LineCount = 5,
+			CandidateFileCount = 0,
+			ShareOfFilesPercentage = 25.0
+		};
+
+		LanguageInventoryRow disabledRow = new()
+		{
+			LanguageName = AssessedLanguages.CanonicalName(AssessedLanguage.VBNet),
+			FileCount = 1,
+			LineCount = 5,
+			CandidateFileCount = 0,
+			ShareOfFilesPercentage = 25.0
+		};
+
+		ReportContent content = ReportHarness.EmptyContent(
+			ReportHarness.CatalogWithCSharpOnly(),
+			ReportHarness.ConfigurationWith(ConfidenceLevel.Low)) with
+		{
+			ScanSummary = new ScanSummary
+			{
+				FileCount = 4,
+				LineCount = 25,
+				CandidateFileCount = 1,
+				Rows = [assessedRow, unassessedRow, disabledRow]
+			},
+			ScanEnabledLanguages = [.. AssessedLanguages.AllInDeclaredOrder.Where(language => language != AssessedLanguage.VBNet)]
+		};
+
+		string report = Render(content);
+
+		Assert.True(content.ScanEnabledLanguagesDifferFromSession);
+		Assert.Contains(MarkdownReportRenderer.SCAN_ENABLED_LANGUAGES_STALE_MESSAGE, report, StringComparison.Ordinal);
+		Assert.Contains(
+			string.Format(CultureInfo.InvariantCulture, MarkdownReportRenderer.UNASSESSED_LANGUAGES_SUMMARY_FORMAT, 1, 4),
+			report,
+			StringComparison.Ordinal);
+		Assert.Contains(
+			string.Format(CultureInfo.InvariantCulture, MarkdownReportRenderer.DISABLED_LANGUAGES_SUMMARY_FORMAT, 1, 4),
+			report,
+			StringComparison.Ordinal);
+
+		string[] lines = report.Split('\n');
+
+		for (int position = 0; position < lines.Length - 1; position++)
+		{
+			if (lines[position].StartsWith('|'))
+			{
+				Assert.True(
+					lines[position + 1].StartsWith('|') || lines[position + 1].Length == 0,
+					$"The line after the table row '{lines[position]}' is '{lines[position + 1]}'.");
+			}
+		}
 	}
 
 	private static string RenderOne(ConfidenceLevel level, string patternClass, bool literalCredentialSignal)

@@ -104,7 +104,7 @@ public sealed class LexicalBudgetTests
 	];
 
 	/// <summary>
-	/// Every Regex-typed member of the analyzer contract, by declaring type and name. The structural
+	/// Every Regex-typed member of the language analyzer contract, by declaring type and name. The structural
 	/// test below is only as complete as this list, so a test asserts the list is the contract's
 	/// whole set: an expression added to the contract fails there until it has been considered.
 	/// </summary>

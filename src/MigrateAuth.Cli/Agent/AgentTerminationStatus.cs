@@ -1,15 +1,12 @@
 namespace MigrateAuth.Cli.Agent;
 
 /// <summary>
-/// HOW A LAUNCHED AGENT ENDED. There are exactly five outcomes.
-///
-/// They are five and not two because each carries a different consequence for the session. Not
-/// finding the agent is a configuration problem the user can act on; an exit code is the agent's
-/// own verdict and belongs to the agent; a signal says the environment killed it; a cancellation
-/// is the user changing their mind and is not a failure at all - the same reading
-/// <see cref="MigrateAuth.Cli.Session.StageRunOutcome.Cancelled"/> already takes; and a timeout is
-/// an agent that hung and would otherwise block the session, which collapsed into "failed" is
-/// indistinguishable from an agent that ran and lost.
+/// HOW A LAUNCHED AGENT ENDED. There are five outcomes because each carries a different consequence
+/// for the session. Not finding the agent is a configuration problem the user can act on; an exit
+/// code is the agent's own verdict and belongs to the agent; a signal says the environment killed it;
+/// a cancellation is the user changing their mind and is not a failure at all - the same reading
+/// <see cref="MigrateAuth.Cli.Session.StageRunOutcome.Cancelled"/> already takes; and a timeout is an
+/// agent that hung and was not waited on further, which is not the same as an agent that ran and lost.
 /// </summary>
 public enum AgentTerminationOutcome
 {
@@ -41,7 +38,8 @@ public enum AgentTerminationOutcome
 /// to check the outcome first would conclude the agent succeeded from an agent that was never
 /// found. Nullable removes that reading: absent is not a value that can be mistaken for one.
 ///
-/// THERE IS NO MESSAGE FIELD and there deliberately is not. The console text that reports each of these five is decided where the console surface is; a message chosen here would be a second place it is decided.
+/// THERE IS NO MESSAGE FIELD: the text that reports each of these five belongs to the console
+/// surface, not to this type.
 ///
 /// NOTHING HERE ORIGINATES IN THE ANALYZED REPOSITORY, and nothing can: the type's whole content is
 /// one enumeration value and two integers produced by the operating system.

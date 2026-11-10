@@ -7,7 +7,8 @@
 #   sha256sums.sh --output <file> [--hash-lines <file>]... [--artifact <file>]...
 #
 #   --hash-lines  a file of lines in sha256sum format ("<64 hex characters>  <file name>"), as build-release writes them
-#   --artifact    a file whose SHA-256 is computed here and listed under its own file name
+#   --artifact    a file whose SHA-256 is computed here and listed under its own file name; the computed value must be a
+#                 well-formed hash, and when a "<file>.sha256" hash line sits beside the artifact it must name the same hash
 #
 # A file name that appears twice is an error. The output is written with LF line endings.
 # Exit codes: 0 written, 1 an input was invalid, 2 invalid arguments.
@@ -17,6 +18,8 @@ set -u
 readonly EXIT_FAILED=1
 readonly EXIT_USAGE=2
 readonly HASH_LINE_PATTERN='^[0-9a-f]{64}  [^ /\\][^/\\]*$'
+readonly HASH_PATTERN='^[0-9a-f]{64}$'
+readonly SIDECAR_SUFFIX=".sha256"
 readonly SORT_LOCALE="C"
 
 output_path=""
@@ -58,8 +61,21 @@ collect_lines() {
 	done
 	for file in "${artifact_files[@]+"${artifact_files[@]}"}"; do
 		[ -f "$file" ] || { echo "artifact not found: $file" >&2; return 1; }
-		echo "$(hash_of_file "$file")  $(basename "$file")"
+		verified_artifact_line "$file" || return 1
 	done
+}
+
+# Prints the hash line of one artifact after checking the computed hash is well formed and agrees with the hash line
+# recorded beside the artifact, when there is one.
+verified_artifact_line() {
+	local file="$1" computed recorded
+	computed="$(hash_of_file "$file")"
+	echo "$computed" | grep -Eq "$HASH_PATTERN" || { echo "could not compute a valid SHA-256 for artifact: $file" >&2; return 1; }
+	if [ -f "$file$SIDECAR_SUFFIX" ]; then
+		recorded="$(head -n 1 "$file$SIDECAR_SUFFIX" | tr -d '\r' | cut -d ' ' -f 1)"
+		[ "$recorded" = "$computed" ] || { echo "hash mismatch for artifact $file: computed $computed, recorded ${recorded:-<none>} in $file$SIDECAR_SUFFIX" >&2; return 1; }
+	fi
+	echo "$computed  $(basename "$file")"
 }
 
 main() {

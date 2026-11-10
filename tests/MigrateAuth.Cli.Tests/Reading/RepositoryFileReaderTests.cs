@@ -1,3 +1,5 @@
+using System.Text;
+
 using MigrateAuth.Cli.Reading;
 
 using Xunit;
@@ -8,11 +10,12 @@ namespace MigrateAuth.Cli.Tests.Reading;
 /// READING ONE FILE, AND THE FIVE WAYS IT DOES NOT HAPPEN.
 ///
 /// The fixture is reconciled as a whole in <see cref="WalkVolumeTests"/>; these are the
-/// individual conditions, each planted on its own so that a failure names which one moved.
+/// individual conditions, each seeded on its own so that a failure names which one moved.
 /// </summary>
 public sealed class RepositoryFileReaderTests
 {
 	private const string _FILE_NAME = "subject.cs";
+	private const int _WINDOWS_1252_CODE_PAGE = 1252;
 
 	[Fact]
 	public void AnOrdinaryFileIsReadDecodedAndMeasured()
@@ -50,6 +53,26 @@ public sealed class RepositoryFileReaderTests
 		Assert.DoesNotContain(
 			fixture.Ledger.TallyOf(SkippedItemCategory.Undecodable).EnumeratedPaths,
 			path => string.Equals(path.Value, RepositoryFixture.TWO_BYTE_FILE_NAME, StringComparison.Ordinal));
+	}
+
+	/// <summary>
+	/// The half of the criterion a decode-only test would miss: the file is READ, so it is not among
+	/// the skipped items, and the result says it was decoded as Windows-1252.
+	/// </summary>
+	[Fact]
+	public void AWindows1252FileIsReadAndReportedAsSuchAndNotSkipped()
+	{
+		using RepositoryFixture fixture = RepositoryFixture.CreateEmpty();
+		const string content = "// Autor: José Peña\nvar header = \"Basic\";\n";
+
+		fixture.WriteBytes(_FILE_NAME, CodePagesEncodingProvider.Instance.GetEncoding(_WINDOWS_1252_CODE_PAGE)!.GetBytes(content));
+
+		FileReadResult result = Assert.Single(fixture.WalkAndRead());
+
+		Assert.True(result.WasRead);
+		Assert.Equal(content, result.NormalizedText);
+		Assert.Equal(DetectedEncoding.Windows1252, result.Encoding);
+		Assert.False(fixture.Ledger.RecordedAnything);
 	}
 
 	[Fact]

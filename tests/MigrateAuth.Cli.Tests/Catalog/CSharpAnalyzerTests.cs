@@ -12,7 +12,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
-/// The `CSharp` analyzer's structural tests. CS-001..CS-009 and CS-019 against
+/// The `CSharp` analyzer's structural half. CS-001..CS-009 and CS-019 against
 /// the catalog, through the real embedded analyzer and the real recognition
 /// engine - never through a hand-built <see cref="RecognizedConstruct"/>, because what is under
 /// test is whether the regular expressions the analyzer declares actually recognize the forms the catalog
@@ -59,7 +59,7 @@ public sealed class CSharpAnalyzerTests
 	];
 
 	// ------------------------------------------------------------------------------------------
-	// The golden criterion: the analyzer fits the contract with no engine change.
+	// Golden criterion: the analyzer fits the contract with no engine change.
 	// ------------------------------------------------------------------------------------------
 
 	[Fact]
@@ -1401,13 +1401,14 @@ public sealed class CSharpAnalyzerTests
 	}
 
 	// ------------------------------------------------------------------------------------------
-	// Recognition runs sequentially, one worker, degree 1. That is not independently testable as a
-	// claim about parallelism, so this asserts the observable consequence: the same input recognized
-	// twice, through two fresh engine instances, produces the identical ordered sequence every time.
+	// Recognition runs sequentially, one worker, degree 1 - not independently
+	// testable as a claim about parallelism, so this asserts the
+	// observable consequence: the same input recognized twice, through two fresh engine
+	// instances, produces the identical ordered sequence every time.
 	// ------------------------------------------------------------------------------------------
 
 	[Fact]
-	public void RecognitionIsDeterministicAcrossRepeatedRunsPerDR27AndER22()
+	public void RecognitionIsDeterministicAcrossRepeatedRuns()
 	{
 		CSharpRecognitionHarness harness = new();
 		const string source = """

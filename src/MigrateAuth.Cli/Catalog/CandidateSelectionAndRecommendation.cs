@@ -37,7 +37,7 @@ public sealed record RecommendationTemplate
 /// Contract element 5, second half, indexed by pattern class AND by the OAuth 2.0 flow the finding
 /// targets. It returns null where the class carries no template for that flow - a Low
 /// class is routed to manual review, and a High or Medium class with no entry for the finding's flow
-/// falls back to the language's declared text for that flow and then to the base's generic text for
+/// falls back to the language's declared text for that flow and then to the generic text for
 /// it.
 /// </summary>
 public delegate RecommendationTemplate? RecommendationTemplateProvider(string patternClassIdentifier, CredentialFlow flow);
@@ -64,11 +64,11 @@ public sealed class CandidateSelectionAndRecommendation
 
 	/// <summary>
 	/// OPTIONAL: this
-	/// language's own text for the generic recommendation route, per flow, read in place of the base's text for
+	/// language's own text for the generic recommendation route, per flow, read in place of the generic text for
 	/// that flow (<see cref="Reporting.GenericRecommendationProvider.CLIENT_CREDENTIALS_GENERIC_TEXT"/>
 	/// or <see cref="Reporting.GenericRecommendationProvider.AUTHORIZATION_CODE_GENERIC_TEXT"/>) when a
 	/// High or Medium finding of this language has no template for its flow. Null when the analyzer
-	/// declares none, and a flow absent from a declared dictionary keeps the base's text for that flow.
+	/// declares none, and a flow absent from a declared dictionary keeps the generic text for that flow.
 	///
 	/// A DICTIONARY KEYED BY FLOW, not two properties, so that a third flow added to
 	/// <see cref="CredentialFlow"/> is a key rather than a change to the contract's surface.

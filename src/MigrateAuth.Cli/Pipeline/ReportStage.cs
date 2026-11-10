@@ -10,9 +10,9 @@ using MigrateAuth.Cli.Writing;
 namespace MigrateAuth.Cli.Pipeline;
 
 /// <summary>
-/// What the Report stage is built from. It carries only what belongs to the WRITE - the catalog,
-/// the configuration, the label, the artifact boundary, the fallback provider, the console and the
-/// clock. The report's sections draw on every earlier stage at once; they do it by way of
+/// What the Report stage is built from: only what belongs to the WRITE - the catalog, the
+/// configuration, the label, the artifact boundary, the fallback provider, the console and the
+/// clock. The report's five sections draw on every earlier stage at once; they do it by way of
 /// <see cref="SessionState"/>, which <see cref="ReportStage.Run"/> receives directly, rather than by
 /// way of a session-scoped object threaded through this record.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed record ReportStageContext
 	/// <summary>
 	/// The audited repository AS A LABEL. It is a string rather than a
 	/// <see cref="RepositoryFolderPath"/> because that type also carries the canonical path, and
-	/// no absolute path may appear in anything the product emits - the root being the one path
+	/// no absolute path is permitted in anything the product emits - the root being the one path
 	/// with no relative form. A stage that held the folder could print it.
 	/// </summary>
 	public required string RepositoryLabel { get; init; }
@@ -51,13 +51,14 @@ public sealed record ReportStageContext
 /// <summary>
 /// THE LAST WIRED STAGE, AND IT DECIDES NOTHING ABOUT WHAT A REPORT SAYS.
 ///
-/// It assembles one <see cref="ReportContent"/> from the session and hands it to both renderers:
-/// it reads, it composes one value, it calls two renderers through one writer, and it prints what
-/// it wrote.
+/// The report's five sections, the parallel data artifact, the confidence threshold, the
+/// recommendation routing and the streaming write live elsewhere. This stage assembles one
+/// <see cref="ReportContent"/> from the session and hands it to both renderers: it reads, it
+/// composes one value, it calls two renderers through one writer, and it prints what it wrote.
 ///
 /// THE FINDING SET IT PASSES ON IS THE COMPLETE ONE. <see cref="ReportContent"/> requires it and
-/// says why: the threshold filter runs at RENDER time over the full set, so the identifiers in the
-/// report are the ones assigned over the whole. Filtering here would make a finding's identifier a
+/// says why: the filter runs at RENDER time over the full set, so the identifiers in the report
+/// are the ones assigned over the whole. Filtering here would make a finding's identifier a
 /// function of a configuration file. The threshold reaches the renderers through the configuration
 /// on the content, which is the only route it has.
 ///
@@ -65,25 +66,32 @@ public sealed record ReportStageContext
 /// a property of the code rather than a thing a maintainer keeps true.
 ///
 /// AND A REFUSED WRITE IS A FAILED STAGE, NEVER A SILENT ONE. The write boundary can refuse - a
-/// destination that stopped being writable mid-session, or a thousand same-named files - and that
-/// is sent to the prompt with the session intact rather than terminating: the completed stages
+/// destination that stopped being writable mid-session, or a thousand same-named files - and the session
+/// sends that to the prompt with the session intact rather than terminating: the completed stages
 /// are still valid and the user can fix a permission in seconds. What it must not do is report
 /// completion, because <c>report</c> completing means a report exists.
 /// </summary>
 public sealed class ReportStage
 {
-	/// <summary>Said before the write, naming how many of the full set the threshold admits.</summary>
+	/// <summary>
+	/// Said before the write, naming how many of the full set the threshold admits. It is the
+	/// stage's first line, so it opens with the stage name as the first line of every other stage
+	/// does.
+	/// </summary>
 	public const string REPORTING_MESSAGE_FORMAT =
-		"Reporting {0:N0} of {1:N0} findings at minimum confidence level {2}.";
+		_STAGE_NAME + ": reporting {0:N0} of {1:N0} findings at minimum confidence level {2}.";
 
-	/// <summary>Said for each file written, naming it so the user can find it.</summary>
-	public const string ARTIFACT_WRITTEN_MESSAGE_FORMAT = "Written: {0}.";
+	/// <summary>
+	/// Said for each file written, naming it and the output folder it is in so the user can find it.
+	/// The folder is named by its label, the only form permitted in output, never by its path.
+	/// </summary>
+	public const string ARTIFACT_WRITTEN_MESSAGE_FORMAT = "Written: {0} (in the output folder {1}).";
 
 	/// <summary>Said when the boundary refused a write. The refusal's own message follows it.</summary>
 	public const string ARTIFACT_NOT_WRITTEN_MESSAGE = $"{_STAGE_NAME}: the report could not be written.";
 
 	/// <summary>
-	/// Said once, before the write, when the enabled-language set Scan's own last completed run
+	/// Said once, before the write, and only when neither resume nor <c>analyze</c> said it already, when the enabled-language set Scan's own last completed run
 	/// used differs from this session's current configuration - the console twin of
 	/// <see cref="Reporting.MarkdownReportRenderer.SCAN_ENABLED_LANGUAGES_STALE_MESSAGE"/>, kept apart
 	/// from it on the same terms every other duplicated-by-design console/report pair in this product
@@ -130,7 +138,7 @@ public sealed class ReportStage
 		{
 			DateOnly runDate = DateOnly.FromDateTime(_context.TimeProvider.GetLocalNow().DateTime);
 
-			outcome = WriteBothArtifacts(BuildContent(state, runDate), runDate);
+			outcome = WriteBothArtifacts(state, BuildContent(state, runDate), runDate);
 		}
 
 		return outcome;
@@ -181,10 +189,10 @@ public sealed class ReportStage
 		};
 	}
 
-	private StageRunOutcome WriteBothArtifacts(ReportContent content, DateOnly artifactDate)
+	private StageRunOutcome WriteBothArtifacts(SessionState state, ReportContent content, DateOnly artifactDate)
 	{
-		AnnounceScanEnabledLanguagesStalenessIfAny(content);
 		AnnounceTheReportedSet(content);
+		AnnounceScanEnabledLanguagesStalenessIfAny(state, content);
 
 		ArtifactWriteResult markdown = _context.ArtifactWriter.WriteShareableArtifactStreaming(
 			OutputArtifactKind.MarkdownReport,
@@ -216,9 +224,9 @@ public sealed class ReportStage
 	/// sequence comparison sufficient rather than a set comparison: both sides are already built by
 	/// filtering the same declared order.
 	/// </summary>
-	private void AnnounceScanEnabledLanguagesStalenessIfAny(ReportContent content)
+	private void AnnounceScanEnabledLanguagesStalenessIfAny(SessionState state, ReportContent content)
 	{
-		if (content.ScanEnabledLanguagesDifferFromSession)
+		if (content.ScanEnabledLanguagesDifferFromSession && state.TryMarkScanConfigurationChangeAnnounced())
 		{
 			_context.Output.WriteLine(SCAN_ENABLED_LANGUAGES_STALE_MESSAGE);
 		}
@@ -252,7 +260,8 @@ public sealed class ReportStage
 			_context.Output.WriteLine(string.Format(
 				CultureInfo.InvariantCulture,
 				ARTIFACT_WRITTEN_MESSAGE_FORMAT,
-				result.FileNameWritten));
+				result.FileNameWritten,
+				result.DestinationLabel));
 		}
 		else
 		{

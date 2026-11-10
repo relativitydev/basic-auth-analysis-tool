@@ -11,8 +11,8 @@ namespace MigrateAuth.Cli.Configuration;
 /// unrepresentable.
 ///
 /// THIS DOCUMENT IS THE TOLERANT READ, and the contrast with the session state file is
-/// deliberate. The configuration read is tolerant of unknown fields and of version differences:
-/// a field a later release adds is ignored rather than making the whole file
+/// deliberate. The configuration read must be tolerant of unknown fields and of
+/// version differences: a field a later release adds is ignored rather than making the whole file
 /// malformed. <see cref="ConfigurationFileReader"/> builds this record key by key from the parsed
 /// file, so that a key holding a value it cannot use is ignored on its own as well, and the file's
 /// other keys still apply. The session state document is the hostile read and disallows exactly
@@ -44,7 +44,7 @@ internal sealed record ConfigurationDocument
 	public string? MinimumConfidenceLevel { get; init; }
 
 	/// <summary>
-	/// Where the report and the data artifact are written. Read from the user profile
+	/// Where the report and the data artifact are written. It is read from the user profile
 	/// only: a copy of it in the repository's own file is recorded as ignored, because the
 	/// audited object does not decide where its audit lands.
 	/// </summary>

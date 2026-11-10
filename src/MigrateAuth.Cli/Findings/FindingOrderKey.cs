@@ -1,24 +1,24 @@
 namespace MigrateAuth.Cli.Findings;
 
 /// <summary>
-/// THE TOTAL ORDERING KEY: relative path normalized to forward slashes, compared ORDINALLY; then
+/// THE TOTAL KEY: relative path normalized to forward slashes, compared ORDINALLY; then
 /// line; then column; then pattern class identifier; then, as a final tie-break, the raw
 /// path compared ordinally.
 ///
 /// IT IS GLOBAL AND NOT PER FILE. Subsumption reduction already orders within one file, and that
-/// is this key restricted to a constant first term - but the numbering runs over
+/// is this key restricted to a constant first term - but the numbering this key governs runs over
 /// every file in the repository at once, and a sequence assembled by concatenating per-file runs
 /// would depend on the order the walk happened to return directories in.
 ///
 /// ORDINAL COMPARISON IS NECESSARY AND INSUFFICIENT. Comparing ordinally makes the SEQUENCE
 /// reproducible; it says nothing about the SET, which still depends on the platform in two
-/// declared ways: the Unicode form of the path, which <see cref="NormalizedPathKey"/>
-/// does not change and which is therefore a declared limit, and the match bound, which
-/// is a declared exception counted in its own skipped category.
+/// named ways: the Unicode form of the path, which <see cref="NormalizedPathKey"/> does not
+/// change, and the match bound, which is counted in its own skipped category.
 ///
-/// THE LAST TERM IS THE CLASS IDENTIFIER AND NOT THE CLASS NAME: a name is prose and prose gets
-/// improved, so the day someone sharpens a class name every finding of that class would move in
-/// the order and the identifiers would move with it.
+/// THE LAST TERM IS THE CLASS IDENTIFIER AND NOT THE CLASS NAME. A name is prose and prose
+/// gets improved, so the
+/// day someone sharpens a class name every finding of that class moves in the order and the
+/// identifiers a consumer compares against move with it.
 /// </summary>
 public readonly record struct FindingOrderKey : IComparable<FindingOrderKey>
 {
@@ -46,7 +46,8 @@ public readonly record struct FindingOrderKey : IComparable<FindingOrderKey>
 	///
 	/// Both string comparisons are ordinal, which keeps the order
 	/// free of locale data - a culture-sensitive comparison would place the same two paths
-	/// differently on two machines with different installed locales.
+	/// differently on two machines with different installed locales, which is the failure the
+	/// whole ordering rule exists to prevent.
 	/// </summary>
 	public int CompareTo(FindingOrderKey other)
 	{

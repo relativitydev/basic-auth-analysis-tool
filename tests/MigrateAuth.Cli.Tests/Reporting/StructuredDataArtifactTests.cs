@@ -22,16 +22,17 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 ///
 /// THE ROUND TRIP IS THE LOAD-BEARING TEST HERE. The document is written field by field with a
 /// <see cref="System.Text.Json.Utf8JsonWriter"/> so that the finding set never exists as one
-/// object graph - which is what makes a property name a string the writer types rather than a name
-/// the serializer derives. Reading it back through the SAME context is what checks those strings
-/// against a declared shape; a substring assertion would pass on a document no consumer could parse.
+/// object graph - which is what the writing contract requires and what makes a property name a string the writer
+/// types rather than a name the serializer derives. Reading it back through the SAME context is
+/// what checks those strings against a declared shape; a substring assertion would pass on a
+/// document no consumer could parse.
 /// </summary>
 public sealed class StructuredDataArtifactTests
 {
 	private static readonly DateOnly _artifactDate = new(2026, 9, 18);
 
 	/// <summary>The alpha label written out, so the assertion does not compare the constant with itself.</summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.1.1-alpha";
+	private const string _EXPECTED_ALPHA_VERSION = "0.2.0-alpha";
 
 	[Fact]
 	public void TheProvenanceCarriesTheAlphaLabelledToolVersionLiteral()
@@ -137,7 +138,7 @@ public sealed class StructuredDataArtifactTests
 	}
 
 	/// <summary>
-	/// The truncation invariant, over the artifact: a truncated result declares itself truncated rather
+	/// The cap invariant, over the artifact: a truncated result declares itself truncated rather
 	/// than reading as complete. Every field is asserted so that a consumer reading only this
 	/// section, and never the findings array, can still tell how many were omitted and why.
 	/// </summary>
@@ -170,7 +171,7 @@ public sealed class StructuredDataArtifactTests
 	}
 
 	[Fact]
-	public void AFindingCarriesTheSectionThreeOneContractAndDR12sThreeExtensions()
+	public void AFindingCarriesItsFieldsAndTheThreeExtensions()
 	{
 		ImmutableArray<Finding> findings =
 		[
@@ -202,8 +203,9 @@ public sealed class StructuredDataArtifactTests
 	}
 
 	/// <summary>
-	/// The finding record type has no display-name property at all - the naming promise is a report
-	/// and console concern, and the artifact keys on the pattern class identifier alone.
+	/// The finding record type has no display-name property at all - the
+	/// display name is a report and console concern, and the artifact keys on the
+	/// pattern class identifier alone.
 	/// </summary>
 	[Fact]
 	public void TheFindingRecordCarriesNoDisplayNameFieldAndKeysOnTheIdentifierAlone()
@@ -294,8 +296,9 @@ public sealed class StructuredDataArtifactTests
 	}
 
 	/// <summary>
-	/// Both shareable artifacts carry the handling notice, and the artifact carries it as a FIELD
-	/// rather than as text prepended to the bytes - which would make the document invalid JSON.
+	/// Both shareable artifacts must carry the handling notice, and the data artifact must
+	/// carry it as a FIELD rather than as text prepended to the bytes - which would make the
+	/// document invalid for the consumers it exists to serve.
 	/// </summary>
 	[Fact]
 	public void TheArtifactWrittenThroughTheStreamingWriterIsValidJsonWithTheNoticeAsAField()
@@ -325,9 +328,9 @@ public sealed class StructuredDataArtifactTests
 	}
 
 	/// <summary>
-	/// `category` is the engine's own stable identifier, byte for byte against
-	/// <see cref="ReportVocabulary.NameOf(SkippedItemCategory)"/>, and the `description` field
-	/// carries the client-facing text beside it.
+	/// `category` stays the engine's own stable identifier, byte for byte against
+	/// <see cref="ReportVocabulary.NameOf(SkippedItemCategory)"/> - a consumer keys on it -
+	/// and the `description` field carries the client-facing text beside it rather than replacing it.
 	/// </summary>
 	[Fact]
 	public void EverySkippedItemCarriesItsStableCategoryAlongsideAClientDescription()

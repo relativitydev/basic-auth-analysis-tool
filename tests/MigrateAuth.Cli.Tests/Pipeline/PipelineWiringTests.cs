@@ -14,7 +14,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// <summary>
 /// THE FOUR STAGES END TO END, PLUS THE ONE THAT MUST NOT HAVE CHANGED.
 ///
-/// The zero-candidate acceptance condition is "a repository with zero candidate
+/// The acceptance condition of the whole language-agnostic engine is "a repository with zero candidate
 /// files across all eight languages completes all four stages and produces a valid report stating
 /// zero findings, with exit code 0". It is the first test here.
 /// </summary>
@@ -72,7 +72,7 @@ public sealed class PipelineWiringTests
 	}
 
 	/// <summary>
-	/// The five report sections are present in a report over a repository that produced nothing, which
+	/// The report's five sections are present in a report over a repository that produced nothing, which
 	/// is what "present when empty" means. The section headings are
 	/// asserted here only as evidence that the stage rendered a whole document rather than a
 	/// truncated one.
@@ -94,9 +94,10 @@ public sealed class PipelineWiringTests
 	}
 
 	/// <summary>
-	/// The findings, the third part of the session state, survive a process restart. The
+	/// The third part of the data invariant surviving a process restart, which is what persisting it was for. The
 	/// state is reloaded through the store exactly as a new process would read it, and the finding
-	/// comes back with every term the engine assigned, the flow evidence, flow and decision included.
+	/// comes back with every term the engine assigned, the flow evidence, flow and decision
+	/// included.
 	/// </summary>
 	[Fact]
 	public void FindingsSurviveAReloadOfTheSessionState()
@@ -118,12 +119,8 @@ public sealed class PipelineWiringTests
 	}
 
 	/// <summary>
-	/// THE SCAN AND ANALYSIS SECTIONS SURVIVE A RESUME.
-	///
-	/// The inventory, the skipped-item tallies and the findings-cap outcome are persisted, so a session
-	/// resumed after the process that scanned and analyzed has exited renders the scan and analysis
-	/// sections from what that process found. A reload recovers exactly what the still-running
-	/// process holds.
+	/// A session resumed after the process that scanned and analyzed has exited reads back the inventory, the
+	/// skipped-item tallies and the findings-cap outcome exactly as the still-running process holds them.
 	/// </summary>
 	[Fact]
 	public void AResumedSessionRecoversTheScanSummaryAndTheSkippedItemTallies()
@@ -187,10 +184,11 @@ public sealed class PipelineWiringTests
 	}
 
 	/// <summary>
-	/// THE STAGE THAT MUST NOT HAVE CHANGED. <c>ai-assist</c> is a workflow command like the
-	/// four above it, so it is the one most easily wired by accident. It must still resolve to
-	/// <see cref="AiAssistNotAvailableStageRunner"/>, still say so in its own client-facing words, and
-	/// still report <see cref="StageRunOutcome.NotAvailable"/> rather than <see cref="StageRunOutcome.Completed"/>.
+	/// THE STAGE THAT MUST NOT HAVE BEEN TOUCHED. <c>ai-assist</c> is a workflow command like the
+	/// four above it, so it is the one most easily wired by accident - and the isolation boundary leaves its launcher
+	/// to the AI-assisted review feature. It must still resolve to <see cref="AiAssistNotAvailableStageRunner"/>,
+	/// still say so in its own client-facing words, and still report
+	/// <see cref="StageRunOutcome.NotAvailable"/> rather than <see cref="StageRunOutcome.Completed"/>.
 	/// </summary>
 	[Fact]
 	public void AiAssistStillResolvesToTheNotAvailableRunner()

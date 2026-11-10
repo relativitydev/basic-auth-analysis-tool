@@ -128,6 +128,24 @@ The response contains the secret under `data.data`. In C#, the same request is a
 
 Give the token a policy that can read this one path and nothing else.
 
+### PowerShell: SecretManagement, stored credential files and SecureString
+
+A PowerShell script has three more places a secret commonly lives, and each has a limit worth knowing before you choose it.
+
+**The SecretManagement module.** The `Microsoft.PowerShell.SecretManagement` module reads a secret from a registered vault through one command, `Get-Secret`, whatever the vault is. The vault itself is a separate extension module that you register once: Microsoft publishes one for a local store, `Microsoft.PowerShell.SecretStore`, and there is an extension for Azure Key Vault. The migration tool recognizes `Get-Secret`, `Get-StoredCredential` and `Get-AutomationPSCredential` as evidence that a script's credential is fixed, which makes Client Credentials the recommended flow. The example uses placeholders.
+
+```powershell
+$clientSecret = Get-Secret -Name '<secret-name>' -Vault '<vault-name>' -AsPlainText
+```
+
+`Get-Secret` returns a `SecureString` unless you ask for plain text, and the OAuth2 token request needs the plain text, so read it at the moment you build the request and do not keep it in a variable longer than the request needs. **NSerio guidance:** on an unattended host, give the account the script runs as access to the vault and to nothing else, as for the other vaults above.
+
+**A credential saved with `Export-Clixml`.** `Export-Clixml` writes a credential object to a file, and `Import-Clixml` reads it back. On Windows the password in the file is encrypted with the Windows data-protection API, so only the same user on the same machine can read it back (documented by Microsoft). On Linux and macOS the file is **not protected**: the secret is stored in a form anyone who can read the file can recover (documented by Microsoft). A saved credential file is therefore a convenience for one user on one Windows machine, not a secret store for a script that runs on a shared build agent, in a container or on another platform. Keep the file out of the repository, as for any local secret file.
+
+**A `SecureString`.** `ConvertTo-SecureString -AsPlainText -Force` does not protect anything: it wraps a plain-text value that is already in memory, and when that value was written into the script as a literal, the secret is in the source. The tool treats a literal argument as a hardcoded credential and not as evidence of either flow, and it counts the call as evidence of a fixed credential only when its argument comes from a variable, an environment read or a call. Read the value from the environment or a secret store, and convert it only if a command needs a `SecureString`, as `Invoke-RestMethod -Authentication Bearer -Token` does on PowerShell 7.
+
+For Authorization Code, a script that asks a person with `Get-Credential` or `Read-Host -AsSecureString` stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
+
 ### Relativity Secret Store
 
 The Relativity Secret Store is for code that runs inside Relativity, such as custom pages, agents and event handlers, where the code is already trusted by the platform and should not carry a credential of its own. Use it there in place of an external vault.
@@ -190,6 +208,13 @@ git grep -nE "NetworkCredential\(|UsernamePasswordCredentials\("
 rg -n "NetworkCredential\(|UsernamePasswordCredentials\("
 ```
 
+Search for a PowerShell script that turns a literal into a `SecureString`, which hides nothing:
+
+```bash
+git grep -nEi "ConvertTo-SecureString\s+[\"'][^\"']+[\"']\s+-AsPlainText"
+rg -n -i "ConvertTo-SecureString\s+[\"'][^\"']+[\"']\s+-AsPlainText"
+```
+
 Search for a client secret assigned to a literal:
 
 ```bash
@@ -228,6 +253,17 @@ string clientId = Environment.GetEnvironmentVariable("RELATIVITY_CLIENT_ID")
 	?? throw new InvalidOperationException("RELATIVITY_CLIENT_ID is not set.");
 string clientSecret = Environment.GetEnvironmentVariable("RELATIVITY_CLIENT_SECRET")
 	?? throw new InvalidOperationException("RELATIVITY_CLIENT_SECRET is not set.");
+```
+
+In PowerShell the same read is:
+
+```powershell
+$clientId = $env:RELATIVITY_CLIENT_ID
+$clientSecret = $env:RELATIVITY_CLIENT_SECRET
+
+if (-not $clientId -or -not $clientSecret) {
+	throw 'RELATIVITY_CLIENT_ID and RELATIVITY_CLIENT_SECRET must be set.'
+}
 ```
 
 **Keep local secret files out of the repository.** If you use a local file for development, add it to `.gitignore` before it is created.
@@ -347,7 +383,7 @@ The statements about Relativity in this document come from these public Relativi
 
 - [REST API authentication][rest-authentication]: https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm. It supports the address of the token endpoint, `<host>/Relativity/Identity/connect/token`, and the description of the Context User as usually a member of the Relativity Administrators group, though it could be different depending on the API or operation invoked.
 
-The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation. They are not Relativity statements.
+The Azure Key Vault, AWS Secrets Manager and HashiCorp Vault examples follow those vendors' own public SDK and API documentation, and the PowerShell section follows Microsoft's public documentation of the SecretManagement module and of `Export-Clixml`. They are not Relativity statements.
 
 [oauth2-clients]: https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm
 [client-manager-rest]: https://platform.relativity.com/RelativityOne/Content/BD_Identity/OAuth2_Client_Manager__REST_.htm

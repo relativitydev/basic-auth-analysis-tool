@@ -63,7 +63,7 @@ public sealed class ProfileIsolationTests
 		Assert.NotEqual(realProfileFolder, outcome.IsolatedProfileFolderPath);
 	}
 
-	/// <summary>With no profile, the origin reads BuiltInDefault.</summary>
+	/// <summary>The run's assertion: with no profile, the origin reads BuiltInDefault.</summary>
 	[Fact]
 	public void AProcessRunWithNoProfileReportsTheBuiltInDefaultFlowOrigin()
 	{

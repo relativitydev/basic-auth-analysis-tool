@@ -14,16 +14,14 @@ namespace MigrateAuth.Cli.Agent;
 /// signature would still read as correct. Passing a case instead makes the text unreachable except
 /// as one of the three constants compiled into the binary.
 ///
-/// THE THREE CASES ARE THE THREE RECOMMENDATION ROUTES, reused rather than reinvented -
+/// THE THREE CASES ARE THE RECOMMENDATION CATALOG'S THREE ROUTES, reused rather than reinvented -
 /// <see cref="RecommendationKind"/> already divides findings by exactly the question an agent needs
 /// answered: has this construct been characterized, is it routed to a human, or does the catalog not
 /// cover it. A parallel enumeration here would be a second copy of that division and would give the
 /// two somewhere to disagree.
 ///
-/// WHAT THE TEXTS SAY IS AN INSTRUCTION ABOUT HOW FAR TO TRUST THE ENTRY, never migration guidance.
-/// The migration guidance is the catalog's and it is rendered into the report;
-/// repeating it here would make the pack a second place it is written. Assembling a whole pack from
-/// these - a preamble, the findings in order, the file on disk - is the AI-assisted review feature's work.
+/// WHAT THE TEXTS SAY IS AN INSTRUCTION ABOUT HOW FAR TO TRUST THE ENTRY, never migration guidance,
+/// which is the catalog's and is rendered into the report.
 /// </summary>
 public static class PromptPackInstructionText
 {
@@ -35,7 +33,7 @@ public static class PromptPackInstructionText
 	public const string MANUAL_REVIEW_TEXT =
 		"This construct is reported at Low confidence and carries no migration template. Establish from the code whether it authenticates at all before changing anything.";
 
-	/// <summary>Said when no template covers the class, which is the generic recommendation route.</summary>
+	/// <summary>Said when no template covers the class, which is the catalog's generic route.</summary>
 	public const string UNCHARACTERIZED_CONSTRUCT_TEXT =
 		"No template covers this pattern class, so the construct has not been characterized. Design the migration from the code rather than applying a transformation from this pack.";
 
@@ -58,8 +56,9 @@ public static class PromptPackInstructionText
 /// ONE FINDING AS IT APPEARS IN THE PROMPT PACK - and the reason this type exists is its
 /// CONSTRUCTOR, not its properties.
 ///
-/// The content rule: "The pack is built EXCLUSIVELY from the finding record - class, relative
-/// path, line, level - plus static template text. Repository fragments are explicitly forbidden." The four fields below are that list, taken with the same
+/// The pack's content rule: "The pack is built EXCLUSIVELY from the finding record - class, relative
+/// path, line, level - plus static template text. Repository fragments are explicitly forbidden, because
+/// no repository content may leave the process." The four fields below are that list, taken with the same
 /// types <see cref="MigrateAuth.Cli.Findings.Finding"/> carries them in, and the fifth parameter is
 /// a case rather than a text. There is no sixth. Putting a fragment of the analyzed file into a pack
 /// entry would require changing this signature, which is a thing a reviewer sees.
@@ -74,11 +73,12 @@ public static class PromptPackInstructionText
 /// WHY THE PACK IS SINGLED OUT, since <see cref="MigrateAuth.Cli.Findings.Finding"/> already obeys
 /// the same invariant. The pack is the only artifact intended to LEAVE THE MACHINE and the only one
 /// handed to a process that holds both the repository and its own network. Were it to carry
-/// repository text, a comment in the analyzed code - or in a vendored dependency, which the rubric
-/// demotes but does not exclude from reading - would reach an agent that way, and the no-network
+/// repository text, a comment in the analyzed code - or in a vendored dependency, which the confidence rules
+/// demote but does not exclude from reading - would reach an agent that way, and the no-network
 /// guarantee would be honoured to the letter and evaded entirely.
 ///
-/// IT IS AN ENTRY AND NOT A PACK. Assembling entries, writing the file and launching anything are the AI-assisted review feature's work.
+/// IT IS AN ENTRY AND NOT A PACK. Assembling entries, writing the file and launching anything happen
+/// elsewhere.
 /// </summary>
 public sealed record PromptPackFindingEntry
 {
@@ -86,7 +86,7 @@ public sealed record PromptPackFindingEntry
 	public const int FIRST_LINE_NUMBER = 1;
 
 	/// <summary>
-	/// Builds one entry from the four finding-record fields the content rule names plus one static text,
+	/// Builds one entry from the four finding-record fields the rule names plus one static text,
 	/// selected by route and never supplied.
 	/// </summary>
 	public PromptPackFindingEntry(
@@ -128,7 +128,7 @@ public sealed record PromptPackFindingEntry
 	/// <summary>The composed confidence level, carried unchanged and never recomposed here.</summary>
 	public ConfidenceLevel Level { get; }
 
-	/// <summary>Which of the three recommendation routes this finding took, which selects the text below.</summary>
+	/// <summary>Which of the catalog's three routes this finding took, which selects the text below.</summary>
 	public RecommendationKind Guidance { get; }
 
 	/// <summary>

@@ -189,8 +189,8 @@ public sealed class CSharpRecommendationTemplateTests
 
 	/// <summary>
 	/// The encoding rule permits only `{path}` and `{line}` as substitution tokens, and neither
-	/// is intended anywhere in the catalog - every template speaks in generic terms. A stray
-	/// occurrence of either token would be silently "substituted" by
+	/// is intended anywhere in the catalog - every template speaks in the generic terms the
+	/// catalog requires. A stray occurrence of either token would be silently "substituted" by
 	/// <see cref="Reporting.RecommendationRenderer"/> rather than reported, so this is checked here
 	/// instead.
 	/// </summary>

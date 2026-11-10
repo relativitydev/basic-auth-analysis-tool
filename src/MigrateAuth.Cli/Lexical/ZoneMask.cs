@@ -1,7 +1,7 @@
 namespace MigrateAuth.Cli.Lexical;
 
 /// <summary>
-/// WHY A SCAN STOPPED SHORT, OR WHY IT RECOVERED. Some reasons are terminal and one is not,
+/// WHY A SCAN STOPPED SHORT, OR WHY IT RECOVERED. Two of the four are terminal and one is not,
 /// and the difference is the whole of how the unterminated-construct policy differs from
 /// the file-size and line-length ceilings.
 /// </summary>
@@ -32,8 +32,8 @@ public enum LexicalAnomalyReason
 	/// <summary>
 	/// The newline policy, in its <see cref="Catalog.NewlinePolicy.Forbidden"/> and
 	/// <see cref="Catalog.NewlinePolicy.EscapedContinues"/> forms: a RAW newline met inside a
-	/// literal that does not admit one. Such a newline ends the literal and is an
-	/// anomaly - NOT TERMINAL, because the scanner recovers at a
+	/// literal that does not admit one. such a newline "ends the literal and is an
+	/// anomaly", and both halves are honoured - NOT TERMINAL, because the scanner recovers at a
 	/// known line boundary and the mask after it is as sound as the mask before it.
 	/// </summary>
 	NewlineInsideALiteral = 4,
@@ -45,7 +45,14 @@ public enum LexicalAnomalyReason
 	/// regex timeout. TERMINAL: the mask is correct up to the opening of the outermost construct
 	/// being read when the budget tripped and undefined after it.
 	/// </summary>
-	LexicalBudgetExceeded = 5
+	LexicalBudgetExceeded = 5,
+
+	/// <summary>
+	/// The nested-hole recovery. A bracketed interpolation hole that counts nested openers did not return
+	/// to depth zero, so the hole fell back to its first closing token. NOT TERMINAL: the scanner
+	/// re-reads the hole under the first-closing rule and the mask is as sound as one without nesting.
+	/// </summary>
+	UnbalancedInterpolationNesting = 6
 }
 
 /// <summary>
@@ -60,7 +67,7 @@ public enum LexicalAnomalyReason
 /// two regions meet, and recognition running over this mask must trust it only below that value.
 ///
 /// THE UNDEFINED REGION IS STILL FILLED, AND IT IS FILLED IN THE DEMOTING DIRECTION. Every
-/// position carries exactly one zone - and that holds above the boundary
+/// position carries exactly one zone - that is the mask's contract and it holds above the boundary
 /// too - and the value written there is <see cref="LexicalZone.StringBody"/> rather than
 /// <see cref="LexicalZone.Code"/>. A consumer that ignores the boundary therefore errs towards
 /// demoting a finding it should have kept, never towards promoting one it should not have had.
@@ -75,12 +82,14 @@ public sealed class ZoneMask
 		LexicalZone[] zones,
 		int validThroughPosition,
 		LexicalAnomalyReason anomalyReason,
-		int newlineTerminatedLiteralCount)
+		int newlineTerminatedLiteralCount,
+		int unbalancedNestingCount)
 	{
 		_zones = zones;
 		ValidThroughPosition = validThroughPosition;
 		AnomalyReason = anomalyReason;
 		NewlineTerminatedLiteralCount = newlineTerminatedLiteralCount;
+		UnbalancedNestingCount = unbalancedNestingCount;
 	}
 
 	/// <summary>The masked length, in UTF-16 code units, which is the decoded text's own length.</summary>
@@ -103,11 +112,18 @@ public sealed class ZoneMask
 
 	/// <summary>
 	/// How many literals were closed by a raw newline their rule does not admit. It is a counter
-	/// rather than a flag because its VALUE is a diagnostic signal: a profile run over real
+	/// rather than a flag because its VALUE is the tuning signal: a profile run over real
 	/// files with a rising count here is a profile that models its language's newline policy
 	/// wrongly. It never abandons the file.
 	/// </summary>
 	public int NewlineTerminatedLiteralCount { get; }
+
+	/// <summary>
+	/// How many bracketed holes fell back to their first closing because their nesting depth did not
+	/// return to zero (<see cref="LexicalAnomalyReason.UnbalancedInterpolationNesting"/>). Like
+	/// <see cref="NewlineTerminatedLiteralCount"/> it is a recovered anomaly and never abandons the file.
+	/// </summary>
+	public int UnbalancedNestingCount { get; }
 
 	/// <summary>Whether the whole file is masked soundly, which is the common case.</summary>
 	public bool IsCompletelyValid => ValidThroughPosition >= _zones.Length;

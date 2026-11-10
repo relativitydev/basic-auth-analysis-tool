@@ -8,14 +8,14 @@ namespace MigrateAuth.Cli.Recognition;
 /// <summary>
 /// THE FILE-SCOPED SYMBOL TABLE, AND IT IS NOT A NAME-KEYED DICTIONARY.
 ///
-/// A dictionary keyed by name collapses two constants
+/// That distinction is the whole point. A dictionary keyed by name collapses two constants
 /// declared in different scopes and then answers "resolved" with no ambiguity signal, so the
 /// resolve-downward rule never fires because the engine believes it knows. What is recorded here
 /// instead is EVERY declaration of a name, with its position, and resolution succeeds only where
 /// that is unambiguous.
 ///
-/// AMBIGUITY IS DECIDED BY COUNTING, NOT BY SCOPE, because the engine has a zone mask and nothing
-/// else - no block structure, no brace matching, no scope stack:
+/// AMBIGUITY IS DECIDED BY COUNTING, NOT BY SCOPE: the engine has a zone mask and nothing
+/// else - no block structure, no brace matching, no scope stack.
 ///
 /// | In the analyzed file                                 | Verdict         |
 /// |------------------------------------------------------|-----------------|
@@ -24,10 +24,8 @@ namespace MigrateAuth.Cli.Recognition;
 /// | The only declaration positioned AFTER the use         | indeterminate   |
 /// | No declaration of the name                            | indeterminate   |
 ///
-/// A file declaring one name in two genuinely disjoint scopes returns indeterminate where a
-/// scope-aware engine would resolve - a demotion to Medium, which still carries a recommendation.
-/// What it never does is emit a confident wrong answer. The declaration-after-use row is the same
-/// trade: hoisting rules differ by language and the profile vocabulary does not carry them.
+/// A file declaring one name in two disjoint scopes therefore returns indeterminate, never a
+/// resolved value.
 ///
 /// DECLARATIONS ARE COLLECTED IN CODE ZONES ONLY. A constant written inside a comment or quoted
 /// inside a literal is not a declaration, and counting it would let a commented-out line decide a
@@ -37,7 +35,8 @@ public sealed class FileSymbolTable
 {
 	/// <summary>
 	/// The group a profile's constant-declaration expression names its constant in. It is an ENGINE
-	/// CONVENTION rather than a contract field: an expression that omits
+	/// CONVENTION rather than a contract field, which is worth stating plainly: the analyzer contract
+	/// carries the expression and says nothing about its group names, so an expression that omits
 	/// this group yields no declarations at all - and therefore an indeterminate verdict, which is
 	/// the conservative direction and not a silent wrong answer.
 	/// </summary>
@@ -60,16 +59,9 @@ public sealed class FileSymbolTable
 	/// Collects one file's string constant declarations, on no match-bound budget of its own - a
 	/// convenience for a caller with no per-file bound to charge against, such as an isolated test
 	/// exercising symbolic resolution alone. It builds a fresh <see cref="MatchBoundWatch"/> on the
-	/// policy bound and the system clock and discards whether that budget was exceeded.
-	/// <see cref="RecognitionEngine"/> never calls this overload - it calls
-	/// <see cref="TryCollect"/> with the file's own, already-open watch, so this convenience method
-	/// cannot silently let a real scan's symbol-table pass run unbounded.
-	///
-	/// Because this overload runs on <see cref="TimeProvider.System"/> and discards
-	/// <see cref="TryCollect"/>'s own <c>bool</c> result, a caller has no way to tell a complete table
-	/// from a partial one: on an overloaded machine a real wall-clock delay could in principle trip
-	/// the budget mid-enumeration and this method would return a partial <see cref="FileSymbolTable"/>.
-	/// It is meant only for small inputs.
+	/// policy bound and the system clock and discards whether that budget was exceeded, so a caller of
+	/// this overload cannot tell a complete table from a partial one. <see cref="RecognitionEngine"/> never
+	/// calls this overload - it calls <see cref="TryCollect"/> with the file's own, already-open watch.
 	/// </summary>
 	public static FileSymbolTable Collect(LexicalProfile profile, string normalizedText, ZoneMask mask)
 	{
@@ -83,19 +75,14 @@ public sealed class FileSymbolTable
 
 	/// <summary>
 	/// Collects one file's string constant declarations against the file's own match-bound budget.
-	/// Built ONCE per file: the expression is the profile's own and runs over the whole text, so
-	/// rebuilding it per rule would pay that pass against every rule of every candidate file for an
-	/// answer that cannot have changed.
+	/// Built ONCE per file: the expression is the profile's own and runs over the whole text.
 	///
 	/// It enumerates through <see cref="TimedRegexEvaluation"/> exactly as a detection rule does -
 	/// <c>Match</c>, then <c>NextMatch</c> until none remains or the bound trips - so a file whose
 	/// constant-declaration expression alone exhausts the budget is stopped and counted under
 	/// <see cref="Reading.SkippedItemCategory.MatchBoundExceeded"/> before a single detection rule
-	/// ever runs, on the same terms a rule that exhausted it would be.
-	///
-	/// The malformed-match guard (<see cref="RecognitionEngine.RecognizeOneRule"/>) is not applied
-	/// here: a constant-declaration expression that met the SDK 10.0.201 / runtime 10.0.5
-	/// source-generator defect would be caught only by the wall-clock bound above.
+	/// runs. The malformed-match guard of <see cref="RecognitionEngine.RecognizeOneRule"/> does not
+	/// apply here; only the match bound does.
 	/// </summary>
 	internal static bool TryCollect(
 		LexicalProfile profile,
@@ -109,7 +96,7 @@ public sealed class FileSymbolTable
 		ArgumentNullException.ThrowIfNull(mask);
 		ArgumentNullException.ThrowIfNull(matchBoundWatch);
 
-		Dictionary<string, List<Declaration>> declarationsByName = new(StringComparer.Ordinal);
+		Dictionary<string, List<Declaration>> declarationsByName = new(ComparerFor(profile.IdentifierCaseSensitivity));
 		bool completed = !matchBoundWatch.HasBeenExceeded();
 		Match match = completed
 			? TimedRegexEvaluation.Match(matchBoundWatch, profile.ConstantDeclarationExpression, normalizedText)
@@ -125,6 +112,14 @@ public sealed class FileSymbolTable
 		table = new FileSymbolTable(declarationsByName);
 
 		return completed;
+	}
+
+	/// <summary>The name comparer the profile's identifier case sensitivity selects.</summary>
+	private static StringComparer ComparerFor(IdentifierCaseSensitivityMode identifierCaseSensitivity)
+	{
+		return identifierCaseSensitivity == IdentifierCaseSensitivityMode.Insensitive
+			? StringComparer.OrdinalIgnoreCase
+			: StringComparer.Ordinal;
 	}
 
 	/// <summary>
@@ -190,7 +185,7 @@ public sealed class FileSymbolTable
 
 	/// <summary>
 	/// Whether a declaration's own opening position is executable code. The delimiter zone counts
-	/// as code, so this asks the mask's published question rather than
+	/// as code by the scanner's own statement, so this asks the mask's published question rather than
 	/// comparing against a single enum value.
 	/// </summary>
 	private static bool LiesInCode(int position, ZoneMask mask)

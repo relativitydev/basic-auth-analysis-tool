@@ -12,9 +12,9 @@ namespace MigrateAuth.Cli.Tests.Writing;
 /// A temporary folder that is reached through a directory link, reproduced on any platform.
 ///
 /// macOS hands out a temporary folder beneath a folder that is itself a link, so the spelling the
-/// platform returns and the spelling the product reports (links are resolved along the whole
+/// platform returns and the spelling the product reports (the product resolves links along the whole
 /// path) are different strings for one folder. Windows and Linux do not do that by default, so the
-/// condition is planted here with a real link: the fixtures are rooted at a path that goes
+/// condition is created here with a real link: the fixtures are rooted at a path that goes
 /// through it, and what is asserted is that every path a test builds from them is spelled the way
 /// the product spells it.
 /// </summary>

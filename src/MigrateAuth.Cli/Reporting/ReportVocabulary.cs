@@ -26,6 +26,12 @@ namespace MigrateAuth.Cli.Reporting;
 public static class ReportVocabulary
 {
 	/// <summary>
+	/// The name a file read by the decode ladder's last step carries in the report and the data
+	/// artifact: the legacy code page, spelled the way its owner spells it.
+	/// </summary>
+	public const string WINDOWS_1252_ENCODING_NAME = "Windows-1252";
+
+	/// <summary>
 	/// The one sentence Section 2 adds when first-line detection tripped the lexical budget for
 	/// at least one file: the count of files attributed by their extension alone as a result.
 	/// </summary>
@@ -33,20 +39,22 @@ public static class ReportVocabulary
 		"Files attributed by extension because first-line detection exceeded its budget: {0:N0}.";
 
 	/// <summary>
-	/// The label for findings whose destination the construct itself establishes. A construct anchored
-	/// on a credential type from the Relativity SDK packages establishes its destination, and nothing
-	/// else does - in either direction.
+	/// The label for findings whose destination the construct itself establishes.
+	///
+	/// A construct anchored on a credential type from the Relativity SDK packages establishes its
+	/// destination, and nothing else does - in EITHER direction.
 	/// </summary>
 	public const string DESTINATION_ESTABLISHED_LABEL = "established";
 
 	/// <summary>
-	/// The label for the other group: "not established" rather than "not Relativity". The engine can no
-	/// more prove the negative than the positive, and a reader who believed "not Relativity" would discard
-	/// a finding that was Relativity's after all.
+	/// The label for the other group, and it is fixed as "not established" rather than "not
+	/// Relativity". The engine can no more prove the negative than the positive, and the wrong
+	/// label is the expensive kind of wrong: a reader who believes it discards a finding that was
+	/// Relativity's after all.
 	/// </summary>
 	public const string DESTINATION_NOT_ESTABLISHED_LABEL = "not established";
 
-	/// <summary>The value the data artifact carries, one of the declared pair.</summary>
+	/// <summary>The value the data artifact carries, which the finding model declares as one of a pair.</summary>
 	public const string DESTINATION_CERTAINTY_ESTABLISHED_VALUE = "established";
 
 	/// <summary>The artifact's <c>defaultFlowOrigin</c> when no profile set the default flow.</summary>
@@ -55,7 +63,7 @@ public static class ReportVocabulary
 	/// <summary>The artifact's <c>defaultFlowOrigin</c> when the profile set the default flow.</summary>
 	public const string DEFAULT_FLOW_ORIGIN_PROFILE_VALUE = "Profile";
 
-	/// <summary>The other value of the pair. It is "unknown" in the data and "not established" in prose.</summary>
+	/// <summary>The other value of that pair. It is "unknown" in the data and "not established" in prose.</summary>
 	public const string DESTINATION_CERTAINTY_UNKNOWN_VALUE = "unknown";
 
 	/// <summary>
@@ -103,15 +111,7 @@ public static class ReportVocabulary
 	private static readonly FrozenDictionary<SessionStateRejectionReason, string> _sessionStateRejectionReasonDescriptions =
 		BuildSessionStateRejectionReasonDescriptions();
 
-	/// <summary>The group label for a finding's destination certainty, in prose.</summary>
-	public static string LabelOf(DestinationCertainty certainty)
-	{
-		return certainty is DestinationCertainty.Established
-			? DESTINATION_ESTABLISHED_LABEL
-			: DESTINATION_NOT_ESTABLISHED_LABEL;
-	}
-
-	/// <summary>The value a structured consumer reads, one of the declared pair.</summary>
+	/// <summary>The value a structured consumer reads, from the declared pair.</summary>
 	public static string ValueOf(DestinationCertainty certainty)
 	{
 		return certainty is DestinationCertainty.Established
@@ -120,10 +120,11 @@ public static class ReportVocabulary
 	}
 
 	/// <summary>
-	/// What a reader sees where the report or the console table names a finding's pattern class: the
-	/// catalog's display name, looked up by identifier. The identifier rides alongside it in
-	/// parentheses, so a reader can still cross-reference the JSON artifact, which keys every finding on
-	/// the identifier alone.
+	/// What a reader sees where the report or the console table names a finding's
+	/// pattern class: the catalog's display name, looked up by identifier, so the artifact
+	/// stays stable while what a human reads stays legible. The identifier rides alongside it in
+	/// parentheses, kept discoverable rather than dropped, so a reader can still cross-reference the
+	/// JSON artifact, which continues to key every finding on the identifier alone.
 	///
 	/// Falls back to the bare identifier when the catalog carries no rule for it - a finding the
 	/// engine produced always has one, but a caller holding a stale catalog reference should not
@@ -146,8 +147,8 @@ public static class ReportVocabulary
 	}
 
 	/// <summary>
-	/// What a skipped-item tally counts. It is printed beside every count because adding a directory of
-	/// unknown contents into a file count would report a hole of unknown size as a hole of size one.
+	/// What a skipped-item tally counts. It is printed beside every count because adding a directory
+	/// of unknown contents into a file count reports a hole of unknown size as a hole of size one.
 	/// </summary>
 	public static string NameOf(SkippedItemUnit unit)
 	{
@@ -176,26 +177,9 @@ public static class ReportVocabulary
 	}
 
 	/// <summary>
-	/// Which of the three routes produced a recommendation. Declared as data for the same
-	/// reason as everything else here, and additionally because the enumeration's member names are
-	/// implementation vocabulary while these are what a consumer of the artifact reads.
-	/// </summary>
-	public static string NameOf(RecommendationKind kind)
-	{
-		string name = kind switch
-		{
-			RecommendationKind.FromTemplate => "template",
-			RecommendationKind.ManualReview => "manualReview",
-			RecommendationKind.Generic => "generic",
-			_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No report name is declared for this kind.")
-		};
-
-		return name;
-	}
-
-	/// <summary>
-	/// The category's stable identifier, exactly as the data artifact's `category` field carries it.
-	/// It never changes for readability - <see cref="DescriptionOf"/> is where a client reads what the
+	/// The category's STABLE IDENTIFIER, exactly as the data artifact's `category` field carries it.
+	/// A consumer keys its match-bound validity check on this text byte for byte, so it never
+	/// changes for readability - <see cref="DescriptionOf"/> is where a client reads what the
 	/// category means.
 	/// </summary>
 	public static string NameOf(SkippedItemCategory category)
@@ -223,7 +207,7 @@ public static class ReportVocabulary
 		return description;
 	}
 
-	/// <summary>Where an effective configuration value came from, as the provenance record states it.</summary>
+	/// <summary>Where an effective configuration value came from, as the provenance record shows.</summary>
 	public static string NameOf(ConfigurationSource source)
 	{
 		if (!_configurationSourceNames.TryGetValue(source, out string? name))
@@ -236,9 +220,9 @@ public static class ReportVocabulary
 
 	/// <summary>
 	/// The value a structured consumer reads for where the effective default flow came from: a
-	/// closed pair, <c>BuiltInDefault</c> or <c>Profile</c>, rather than the prose
-	/// <see cref="NameOf(ConfigurationSource)"/> gives the other origins. The repository's file and the
-	/// command line are never a source of this field.
+	/// closed pair, <c>BuiltInDefault</c> or <c>Profile</c>. A consumer keys on the first, so it is
+	/// not the prose <see cref="NameOf(ConfigurationSource)"/> gives the other origins. The
+	/// repository's file and the command line are never a source of this field.
 	/// </summary>
 	public static string DefaultFlowOriginValueOf(ConfigurationSource source)
 	{
@@ -321,8 +305,8 @@ public static class ReportVocabulary
 		{
 			ConfigurationFileCondition.Absent => "absent",
 			ConfigurationFileCondition.Accepted => "read and applied",
-			ConfigurationFileCondition.Malformed => "found and malformed, so built-in defaults applied",
-			ConfigurationFileCondition.Unreadable => "found and unreadable, so built-in defaults applied",
+			ConfigurationFileCondition.Malformed => "found and malformed, so not applied",
+			ConfigurationFileCondition.Unreadable => "found and unreadable, so not applied",
 			_ => throw new ArgumentOutOfRangeException(nameof(condition), condition, "No report name is declared for this condition.")
 		};
 

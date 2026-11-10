@@ -26,13 +26,16 @@ public sealed record LanguageInventoryRow
 }
 
 /// <summary>
-/// The inventory, aggregated on the fly and never per file.
+/// the INVENTORY, AGGREGATED ON THE FLY AND NEVER PER FILE.
 ///
-/// It holds running totals keyed by language name, and nothing else; no per-file record is retained.
-/// What this holds grows with the number of distinct languages, which is at most the catalog's own
-/// size plus one - so it is bounded by the binary rather than by the repository.
+/// The scan refuses to retain a per-file record and this is the type that refusal produces: running
+/// totals keyed by language name, and nothing else. For half a million files a per-file record
+/// would be tens of megabytes outliving the whole scan, and it is the one term the per-file ceilings
+/// cannot bound. What this holds instead grows with the number of DISTINCT LANGUAGES, which is at
+/// most the catalog's own size plus one - so it is bounded by the binary rather than by the
+/// repository.
 ///
-/// The share's denominator is files. A share of lines would silently exclude every file that could
+/// THE SHARE'S DENOMINATOR IS FILES. A share of lines would silently exclude every file that could
 /// not be read, since a skipped file has no line count; a share of files has a denominator that is
 /// exact for every enumerated file. The console header names the denominator.
 /// </summary>
@@ -53,14 +56,14 @@ public sealed class LanguageInventory
 
 	/// <summary>
 	/// How many files were attributed by their extension because first-line detection tripped the
-	/// lexical budget. A file counted here is still counted once in its row, under whatever language its
-	/// extension gave it.
+	/// lexical budget. Scan's observability for that budget: a file counted here is still
+	/// counted once in its row, under whatever language its extension gave it.
 	/// </summary>
 	public int FirstLineFallbackCount { get; private set; }
 
 	/// <summary>
 	/// One file's contribution. Everything this stage retains about a file passes through here
-	/// and nothing survives the call.
+	/// and nothing survives the call, which is the mechanical form of that refusal.
 	/// </summary>
 	public void RecordFile(string languageName, long lineCount, bool isCandidate)
 	{
@@ -91,9 +94,10 @@ public sealed class LanguageInventory
 	}
 
 	/// <summary>
-	/// The rows, ordered ordinally by language name, so the same repository produces the same output on
-	/// every platform; a dictionary's enumeration order does not. There is no special case putting the
-	/// unrecognized bucket last.
+	/// The rows, ordered ordinally by language name. The same repository must produce
+	/// the same output on every platform, and a dictionary's enumeration order is not that. There
+	/// is no special case putting the unrecognized bucket last: a rule about one row's position is
+	/// a rule someone has to remember, and ordinal order needs remembering by nobody.
 	/// </summary>
 	public ImmutableArray<LanguageInventoryRow> RowsInReportOrder()
 	{

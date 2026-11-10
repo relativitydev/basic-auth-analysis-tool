@@ -6,9 +6,9 @@ namespace MigrateAuth.Cli.Findings;
 /// <summary>
 /// THE FINDING. THE WHOLE OF WHAT THE PRODUCT KNOWS ABOUT ONE RECOGNIZED CONSTRUCT.
 ///
-/// Its fields: identifier, relative path, line, column, language, pattern class, confidence level,
-/// recommendation template reference, the fingerprint, and the literal-credential signal - plus
-/// the parallel numeric index and the destination certainty.
+/// The fields of a finding: identifier, relative path, line, column, language, pattern class,
+/// confidence level, recommendation template reference, the content-free fingerprint, the
+/// literal-credential signal, the parallel numeric index and the destination certainty.
 ///
 /// NEVER THE MATCHED TEXT. Nothing here originates in the file's
 /// content except the relative path, which is the data invariant's single exemption. That is the
@@ -17,34 +17,37 @@ namespace MigrateAuth.Cli.Findings;
 /// and this is a value in memory that is serialized later. Obeying the invariant here is what
 /// makes that serialization a mechanical step rather than a filtering one.
 ///
-/// THERE IS NO RECOMMENDATION FIELD: <see cref="PatternClass"/> IS the recommendation template
-/// reference, because the template catalog is indexed by pattern class, so a separate field would
-/// hold a second copy of a value already present and give the two somewhere to disagree. A
-/// RENDERED recommendation is not here either - it is produced at write time, which keeps the set
-/// in memory small however many findings it holds.
+/// THERE IS NO RECOMMENDATION FIELD, AND THAT IS THE REFERENCE RATHER THAN ITS ABSENCE. The finding contract
+/// lists a "recommendation template reference" and <see cref="PatternClass"/> IS it: the template
+/// catalog is indexed by pattern class, so a separate field would hold a second copy of
+/// a value already present and give the two somewhere to disagree. A RENDERED recommendation is
+/// deliberately not here either - it is produced at write time, which keeps the set in memory
+/// small however many findings it holds.
 ///
-/// TWO IDENTITIES. <see cref="Identifier"/> and
+/// TWO IDENTITIES, BECAUSE THE FINDING CARRIES TWO. <see cref="Identifier"/> and
 /// <see cref="SequentialIndex"/> are the sequential number, for human reading and reference
 /// WITHIN THE RUN; <see cref="Fingerprint"/> is the content-free identity that survives ACROSS
 /// runs. They answer different questions and neither substitutes for the other.
 ///
-/// IT IS A VALUE TYPE, so that an <see cref="System.Collections.Immutable.ImmutableArray{T}"/>
-/// of findings is ONE contiguous allocation carrying no object headers, rather than one separately
-/// allocated object per finding. The type is immutable, its equality is structural, and it is
-/// never held by identity.
+/// IT IS A VALUE TYPE. The accumulation of findings is sized for the largest repositories: as a
+/// reference record the set is that many separately allocated objects, each with its own header,
+/// traced individually by every collection; as a value record an
+/// <see cref="System.Collections.Immutable.ImmutableArray{T}"/> of them is ONE contiguous
+/// allocation carrying no headers at all. Nothing here argues for reference semantics in
+/// exchange - the type is immutable, its equality is structural, and it is never held by identity.
 /// </summary>
 public readonly record struct Finding
 {
 	/// <summary>
 	/// The sequential identifier, zero-padded to at least three digits. Assigned over
-	/// the FULL ordered set, before the confidence threshold filter removes anything - so a filtered
+	/// the FULL ordered set, before the threshold filter removes anything - so a filtered
 	/// artifact shows gaps, which is the lesser cost against an identifier that would
 	/// otherwise be a function of the reader's configuration.
 	/// </summary>
 	public required string Identifier { get; init; }
 
 	/// <summary>
-	/// The same number unformatted, one-based. The data artifact carries it because
+	/// The same number unformatted, one-based. The data artifact requires it because
 	/// sorting on <see cref="Identifier"/> is lexicographic and places finding 1000 before 999.
 	/// </summary>
 	public required int SequentialIndex { get; init; }
@@ -56,7 +59,7 @@ public readonly record struct Finding
 	public required int Line { get; init; }
 
 	/// <summary>
-	/// The one-based column of that anchor. It is published rather than confined to the
+	/// The one-based column of that anchor. It is published rather than confining it to the
 	/// sort key, so that two matches of one class on one line are distinguishable in the artifact
 	/// and so that the ordering which generated the identifiers is reconstructible from it.
 	/// </summary>
@@ -74,7 +77,7 @@ public readonly record struct Finding
 	public required RuleIdentifier PatternClass { get; init; }
 
 	/// <summary>
-	/// The one level the rubric assigns, composed by minimum over its candidates during recognition and
+	/// The one level the confidence rubric assigns, composed by minimum over its candidates during recognition and
 	/// carried here unchanged. It is never recomposed: a second composition over the candidates is
 	/// precisely the accumulating decrement the minimum rule exists to forbid.
 	/// </summary>
@@ -100,7 +103,7 @@ public readonly record struct Finding
 	public required FindingFingerprint Fingerprint { get; init; }
 
 	/// <summary>
-	/// Why a Low finding is Low: which of the confidence signals proposed the level. Carried beside
+	/// Why a Low finding is Low: which of the confidence rubric's signals proposed the level. Carried beside
 	/// <see cref="Level"/>, never read to compute it, and <see cref="LowConfidenceReasons.None"/> on a
 	/// finding that is not Low.
 	/// </summary>

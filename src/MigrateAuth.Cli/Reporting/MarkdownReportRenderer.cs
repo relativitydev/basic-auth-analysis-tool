@@ -12,28 +12,33 @@ using MigrateAuth.Cli.Writing;
 namespace MigrateAuth.Cli.Reporting;
 
 /// <summary>
-/// The report: five sections, in this order, always.
+/// THE REPORT: FIVE SECTIONS, IN THIS ORDER, ALWAYS.
 ///
-/// Every section is present when empty. A report that omits a section it has nothing to say about is
-/// indistinguishable from one where that stage did not run: a missing "skipped items" heading and a
-/// "skipped items: none" heading say opposite things to a reader. There is no branch below that omits
-/// a heading.
+/// EVERY SECTION IS PRESENT WHEN EMPTY, and that is the load-bearing half of the
+/// design. A report that omits a section it has nothing to say about is indistinguishable from
+/// one where that stage did not run, and for a tool whose worst failure is a clean report meaning
+/// "we did not look", a missing "skipped items" heading and a "skipped items: none" heading say
+/// opposite things to a reader. That is why there is no branch anywhere below that omits a
+/// heading.
 ///
-/// The order is by what a reader needs first, not by pipeline order. Coverage leads because in
+/// THE ORDER IS BY WHAT A READER NEEDS FIRST, NOT BY PIPELINE ORDER. Coverage leads because in
 /// the zero-findings case it is the only section worth reading. Skipped items precede the findings
 /// because they bound what the findings can be trusted to cover. Provenance is last because it is
 /// read when comparing two reports rather than when reading one.
 ///
-/// It writes into the stream and builds no document. Every recommendation is rendered at the
-/// moment it is written and released immediately, so nothing here accumulates.
+/// IT WRITES INTO THE STREAM AND BUILDS NO DOCUMENT. Every recommendation is rendered at the
+/// moment it is written and released immediately, which is what streaming means here. A list of
+/// rendered templates held before the write would hold the whole body in memory, so nothing here
+/// accumulates.
 ///
-/// The confidence threshold is applied here and the numbers are not: identifiers were assigned over
-/// the full set before it, so a filtered report shows gaps in its sequence.
+/// THE THRESHOLD IS APPLIED HERE AND THE NUMBERS ARE NOT. The threshold filter decides which levels
+/// appear; the identifiers were assigned over the full set before it, so a filtered report
+/// shows gaps in its sequence and that is the declared cost rather than a defect.
 ///
-/// Every piece of repository-chosen text is escaped for Markdown on the way in - paths through
-/// <see cref="EmittedPathText.ForDestination"/> and the repository label through its sibling. A file
-/// name is chosen by the repository and may carry markup that closes a code fence, opens a link or
-/// starts a table row.
+/// EVERY PIECE OF REPOSITORY-CHOSEN TEXT IS ESCAPED FOR MARKDOWN on the way in - paths through
+/// <see cref="EmittedPathText.ForDestination"/> and the repository label through its sibling.
+/// A file name is chosen by the repository and may carry markup that closes
+/// a code fence, opens a link or starts a table row.
 /// </summary>
 public static class MarkdownReportRenderer
 {
@@ -41,9 +46,9 @@ public static class MarkdownReportRenderer
 	public const string REPORT_TITLE = "# Basic Authentication assessment";
 
 	/// <summary>
-	/// The findings summary table's heading. It is not one of the report's five sections and carries no
-	/// number: it sits ahead of them, right after the title, so the five keep their numbers and their
-	/// order, and a reader meets the list of findings before the long per-finding entries of section 4.
+	/// The findings summary table's heading. It is not one of the report's five sections and carries no number:
+	/// it sits ahead of them, right after the title, so the five keep their numbers and their order, and
+	/// a reader meets the list of findings before the long per-finding entries of section 4.
 	/// </summary>
 	public const string FINDINGS_SUMMARY_HEADING = "## Findings summary";
 
@@ -66,12 +71,12 @@ public static class MarkdownReportRenderer
 	/// <summary>Report section 5.</summary>
 	public const string PROVENANCE_HEADING = "## 5. Provenance";
 
-	/// <summary>The first destination-certainty group, named for what is known about it.</summary>
+	/// <summary>The first group, named for what is known about it.</summary>
 	public const string ESTABLISHED_GROUP_HEADING = "### Destination established as Relativity";
 
 	/// <summary>
-	/// The second destination-certainty group. It is "not established" and never "not Relativity": the
-	/// engine establishes nothing about these findings in either direction, and a client who reads them
+	/// The second group. It is "not established" and never "not Relativity": the engine
+	/// establishes nothing about these findings in either direction, and a client who reads them
 	/// as out of scope discards work that may not be.
 	/// </summary>
 	public const string NOT_ESTABLISHED_GROUP_HEADING = "### Destination not established";
@@ -121,6 +126,14 @@ public static class MarkdownReportRenderer
 	/// <summary>Section 2's line for the folders the walk does not enter. Always written, with a zero, like every count of the report.</summary>
 	public const string EXCLUDED_FOLDERS_FORMAT =
 		"Folders excluded from the walk and not read: {0:N0}. They are excluded by design and are not skipped items.";
+
+	/// <summary>
+	/// Section 2's line for the files read as Windows-1252, the last step of the decode ladder. Always
+	/// written, with a zero. The files are listed because that decode is a guess: they were read, and
+	/// a character outside ASCII in them may differ from what their author wrote.
+	/// </summary>
+	public const string LEGACY_ENCODED_FILES_FORMAT =
+		"Files read as " + ReportVocabulary.WINDOWS_1252_ENCODING_NAME + ", a legacy code page: {0:N0}. They are not skipped items; characters outside ASCII in them may be misread, and positions count the decoded characters.";
 
 	private const string _SCAN_TOTALS_FORMAT = "Files enumerated: {0:N0}. Lines counted: {1:N0}. Candidate files: {2:N0}.";
 
@@ -172,11 +185,18 @@ public static class MarkdownReportRenderer
 		"The scan used a different set of enabled languages than this session; re-run 'scan' to apply the current configuration.";
 
 	/// <summary>
+	/// Said once under Section 1's coverage table in the same case: its rows describe the languages the
+	/// scan assessed, not the configuration this session now holds.
+	/// </summary>
+	public const string COVERAGE_STALE_MESSAGE =
+		"These rows describe the languages the scan assessed. The configuration of this session enables a different set; re-run 'scan' to apply it.";
+
+	/// <summary>
 	/// The aggregate. Unlike the per-category table beside it, this sum does not distinguish
-	/// <see cref="Reading.SkippedItemCategory.MalformedMatch"/> from the other file-counted categories,
-	/// and a file counted under it is not necessarily empty of findings - see
-	/// <see cref="Reading.SkippedItemLedger"/>. The per-category table is where that distinction is
-	/// visible.
+	/// <see cref="Reading.SkippedItemCategory.MalformedMatch"/> from the other nine file-counted
+	/// categories, and a file counted under it is not necessarily empty of findings - see
+	/// <see cref="Reading.SkippedItemLedger"/>'s own doc comment. The per-category table this string
+	/// sits beside is where that distinction is visible.
 	/// </summary>
 	private const string _SKIPPED_TOTALS_FORMAT =
 		"Skipped files: {0:N0}. Directories whose contents could not be listed: {1:N0}. The two are never added: a directory whose contents could not be listed is a hole of unknown size.";
@@ -204,7 +224,7 @@ public static class MarkdownReportRenderer
 		"Findings capped: this result is TRUNCATED. {0:N0} recognized construct(s) of {1:N0} were omitted - {2:N0} by the per-file cap across {3:N0} file(s), {4:N0} by the global cap. Do not read this report as complete.";
 
 	/// <summary>
-	/// The "state zero" convention applied to the findings caps: said when neither cap tripped. Note:
+	/// The "state zero" convention applied to the findings cap: said when neither cap tripped. Note:
 	/// "below" rather than "above" - this line is written before the finding groups it describes,
 	/// never after them.
 	/// </summary>
@@ -232,7 +252,9 @@ public static class MarkdownReportRenderer
 	private const string _SKIPPED_TABLE_RULE_ROW = "| --- | --- | ---: |";
 
 	/// <summary>
-	/// The run date in the provenance record, labeled "(local)" because the value is the local calendar
+	/// The provenance record's run date.
+	///
+	/// Labeled "(local)" because the value is the LOCAL calendar
 	/// date of the run - the same date <see cref="Writing.OutputArtifactNaming"/> stamps into the
 	/// file name a reader is already looking at, and never a value converted to any other zone.
 	/// </summary>
@@ -251,7 +273,7 @@ public static class MarkdownReportRenderer
 	private const string _ENABLED_LANGUAGES_ORIGIN_LABEL = "Enabled languages resolved from";
 	private const string _OUTPUT_DESTINATION_ORIGIN_LABEL = "Output destination resolved from";
 	private const string _DEFAULT_FLOW_LABEL = "Default flow";
-	private const string _DEFAULT_FLOW_ORIGIN_FORMAT = "{0} (from {1})";
+	private const string _VALUE_WITH_ORIGIN_FORMAT = "{0} (from {1})";
 	private const string _CONFIGURATION_FILE_LABEL_FORMAT = "Configuration file, {0}";
 	private const string _APPLIED_CONFIGURATION_LABEL = "Repository configuration applied";
 	private const string _IGNORED_CONFIGURATION_LABEL = "Repository configuration ignored";
@@ -260,9 +282,11 @@ public static class MarkdownReportRenderer
 	/// <summary>
 	/// The line ending both artifacts are written with, on every platform.
 	///
-	/// Identical content and identical catalog must produce identical output, and a writer left on its
-	/// platform default emits CRLF on one operating system and LF on another - so the same repository
-	/// would produce two files that differ in every line.
+	/// Identical content and an identical catalog must produce identical output, and a
+	/// writer left on its platform default emits CRLF on one operating system and LF on the other
+	/// - so the same repository would produce two files that differ in every line. Running the tool
+	/// twice on ONE machine and would never see it, which is exactly why it is pinned here rather
+	/// than left to be noticed.
 	/// </summary>
 	private const string _PORTABLE_LINE_ENDING = "\n";
 
@@ -497,7 +521,7 @@ public static class MarkdownReportRenderer
 
 	private static void WriteCoverage(TextWriter writer, ReportContent content)
 	{
-		ImmutableArray<LanguageCoverageRow> rows = CoverageStatement.Compose(content.Catalog, content.Configuration);
+		ImmutableArray<LanguageCoverageRow> rows = content.CoverageRows;
 
 		writer.WriteLine(COVERAGE_HEADING);
 		writer.WriteLine();
@@ -513,6 +537,20 @@ public static class MarkdownReportRenderer
 
 		writer.WriteLine();
 		WriteDeclaredUnsupportedConstructs(writer, rows);
+		WriteCoverageStalenessNote(writer, content);
+	}
+
+	/// <summary>
+	/// The rows describe the languages the scan used. When the configuration has since changed, the
+	/// section says so, so the table is not read as the current configuration.
+	/// </summary>
+	private static void WriteCoverageStalenessNote(TextWriter writer, ReportContent content)
+	{
+		if (content.ScanEnabledLanguagesDifferFromSession)
+		{
+			writer.WriteLine(COVERAGE_STALE_MESSAGE);
+			writer.WriteLine();
+		}
 	}
 
 	/// <summary>
@@ -521,8 +559,8 @@ public static class MarkdownReportRenderer
 	/// <see cref="DeclaredUnsupportedCoverage.Construct"/>, from
 	/// <see cref="CoverageStatement.Compose"/>, so nothing is sorted here. The heading is written
 	/// unconditionally and the zero case says so explicitly, on the same "state present when empty"
-	/// convention as every other section - a missing heading and a heading saying "none declared" would
-	/// say opposite things to a reader.
+	/// convention the report already uses for every other section - a missing heading and a heading
+	/// saying "none declared" would say opposite things to a reader.
 	/// </summary>
 	private static void WriteDeclaredUnsupportedConstructs(TextWriter writer, ImmutableArray<LanguageCoverageRow> rows)
 	{
@@ -592,11 +630,37 @@ public static class MarkdownReportRenderer
 
 		if (content.ScanEnabledLanguagesDifferFromSession)
 		{
+			writer.WriteLine();
 			writer.WriteLine(SCAN_ENABLED_LANGUAGES_STALE_MESSAGE);
 		}
 
 		writer.WriteLine();
 		WriteExcludedFolders(writer, summary.ExcludedFolders);
+		WriteLegacyEncodedFiles(writer, summary.LegacyEncodedFiles);
+	}
+
+	/// <summary>
+	/// The files the decode ladder read as Windows-1252, as a whole count and a bounded list of
+	/// relative paths, on the terms the excluded folders are listed.
+	/// </summary>
+	private static void WriteLegacyEncodedFiles(TextWriter writer, LegacyEncodedFileSummary legacyEncodedFiles)
+	{
+		WriteFormatted(writer, LEGACY_ENCODED_FILES_FORMAT, legacyEncodedFiles.OccurrenceCount);
+
+		foreach (RepositoryRelativePath path in legacyEncodedFiles.Paths)
+		{
+			WriteFormatted(writer, _BULLET_FORMAT, EmittedPathText.ForDestination(path, EmissionDestination.Markdown));
+		}
+
+		if (legacyEncodedFiles.OmittedPathCount > 0)
+		{
+			WriteFormatted(
+				writer,
+				_BULLET_FORMAT,
+				string.Format(CultureInfo.InvariantCulture, _TRUNCATION_FORMAT, legacyEncodedFiles.OmittedPathCount, _FILES_WORD));
+		}
+
+		writer.WriteLine();
 	}
 
 	/// <summary>
@@ -661,7 +725,9 @@ public static class MarkdownReportRenderer
 	/// The Markdown twin of <see cref="Scanning.ScanStage.UNASSESSED_ROW_SUFFIX"/>'s
 	/// and <see cref="Scanning.ScanStage.DISABLED_ROW_SUFFIX"/>'s own after-table sentences - see
 	/// <see cref="LanguageAssessment"/> for what "assessed" means here. Each sum counts only its own
-	/// state, never the unrecognized bucket and never the other's state.
+	/// state, never the unrecognized bucket and never the other's state. Each sentence is its own
+	/// paragraph, set off by a blank line, because it follows the inventory table directly and a
+	/// Markdown renderer reads a line placed against a table's last row as one more row.
 	/// </summary>
 	private static void WriteUnassessedLanguagesSummary(
 		TextWriter writer,
@@ -675,11 +741,13 @@ public static class MarkdownReportRenderer
 
 		if (unassessedFileCount > 0)
 		{
+			writer.WriteLine();
 			WriteFormatted(writer, UNASSESSED_LANGUAGES_SUMMARY_FORMAT, unassessedFileCount, totalFileCount);
 		}
 
 		if (disabledFileCount > 0)
 		{
+			writer.WriteLine();
 			WriteFormatted(writer, DISABLED_LANGUAGES_SUMMARY_FORMAT, disabledFileCount, totalFileCount);
 		}
 	}
@@ -696,9 +764,9 @@ public static class MarkdownReportRenderer
 	}
 
 	/// <summary>
-	/// The eleven skipped-item categories, always all eleven, with the count whole and the path list
-	/// bounded. A category with a count of zero is information: it is what lets the report say that no
-	/// file was undecodable rather than leave the reader to infer it from an absence.
+	/// The eleven skipped-item categories, always all eleven, with the count whole and the path list bounded.
+	/// A category with a count of zero is information: it is what lets the report say that no file
+	/// was undecodable rather than leave the reader to infer it from an absence.
 	/// </summary>
 	private static void WriteSkippedItems(TextWriter writer, ReportContent content)
 	{
@@ -765,7 +833,7 @@ public static class MarkdownReportRenderer
 
 	/// <summary>
 	/// Two groups, split by destination certainty, each written by walking the filtered sequence in the
-	/// total finding order. Nothing is sorted here and nothing is collected.
+	/// report's total order. Nothing is sorted here and nothing is collected.
 	/// </summary>
 	private static void WriteFindings(TextWriter writer, ReportContent content, RecommendationRenderer recommendations)
 	{
@@ -876,7 +944,7 @@ public static class MarkdownReportRenderer
 
 	/// <summary>
 	/// One finding and its recommendation, rendered at this point and released with the loop
-	/// iteration. The pattern class renders as the catalog's display name, looked up by
+	/// iteration. The pattern class renders as the finding model asks: the catalog's display NAME, looked up by
 	/// identifier, with the identifier itself kept visible in parentheses so a
 	/// reader can still cross-reference the artifact, which keys on the identifier alone.
 	/// </summary>
@@ -915,7 +983,7 @@ public static class MarkdownReportRenderer
 				writer,
 				_LOW_REASON_ROW_FORMAT,
 				LowReasonVocabulary.REASON_LABEL,
-				LowReasonVocabulary.SentenceOf(finding.LowReasons));
+				LowReasonVocabulary.SentenceOf(finding.LowReasons, finding.PatternClass.Value, finding.Language));
 		}
 	}
 
@@ -975,7 +1043,7 @@ public static class MarkdownReportRenderer
 	/// <summary>
 	/// One template piece as its own CommonMark list item.
 	///
-	/// The trap this guards against: a field whose own first line opens a code fence - CS-001's
+	/// THE TRAP THIS GUARDS AGAINST: a field whose own first line opens a code fence - CS-001's
 	/// source form is exactly this - cannot share the bullet line with its label. `"- Source form:
 	/// ```csharp"` is not a fenced block under CommonMark; the text after the marker is inline
 	/// content on the bullet's own paragraph, and a fence only opens at the start of a line. So
@@ -1032,7 +1100,8 @@ public static class MarkdownReportRenderer
 	}
 
 	/// <summary>
-	/// The provenance section. The scanned path appears as a label and never as a path.
+	/// The provenance section. The scanned path appears as a LABEL and never as a path, which is the
+	/// one form permitted for the repository root.
 	/// </summary>
 	private static void WriteProvenance(TextWriter writer, ReportContent content)
 	{
@@ -1053,7 +1122,11 @@ public static class MarkdownReportRenderer
 			writer,
 			_PROVENANCE_ROW_FORMAT,
 			_MINIMUM_LEVEL_LABEL,
-			$"{ConfidenceLevels.Name(content.Configuration.MinimumConfidenceLevel)} (from {ReportVocabulary.NameOf(provenance.MinimumConfidenceLevelOrigin)})");
+			string.Format(
+				CultureInfo.InvariantCulture,
+				_VALUE_WITH_ORIGIN_FORMAT,
+				ConfidenceLevels.Name(content.Configuration.MinimumConfidenceLevel),
+				ReportVocabulary.NameOf(provenance.MinimumConfidenceLevelOrigin)));
 		WriteFormatted(
 			writer,
 			_PROVENANCE_ROW_FORMAT,
@@ -1070,7 +1143,7 @@ public static class MarkdownReportRenderer
 			_DEFAULT_FLOW_LABEL,
 			string.Format(
 				CultureInfo.InvariantCulture,
-				_DEFAULT_FLOW_ORIGIN_FORMAT,
+				_VALUE_WITH_ORIGIN_FORMAT,
 				CredentialFlows.Name(content.Configuration.DefaultFlow),
 				ReportVocabulary.NameOf(provenance.DefaultFlowOrigin)));
 
@@ -1111,8 +1184,8 @@ public static class MarkdownReportRenderer
 	}
 
 	/// <summary>
-	/// A field of the repository's own file that is never read from a repository is recorded here rather
-	/// than quietly overridden.
+	/// A field of the repository's own file that is never read from a repository is recorded here
+	/// rather than quietly overridden.
 	/// </summary>
 	private static void WriteIgnoredConfigurationFields(TextWriter writer, ConfigurationProvenance provenance)
 	{

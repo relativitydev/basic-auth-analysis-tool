@@ -7,7 +7,7 @@ using MigrateAuth.Cli.Session;
 namespace MigrateAuth.Cli.Configuration;
 
 /// <summary>
-/// The configuration resolution chain.
+/// The resolution chain.
 ///
 /// THE CHAIN. Enabled languages and the confidence threshold resolve from the file in the
 /// scanned repository's root if present, otherwise the file in the user's profile folder,
@@ -30,13 +30,13 @@ namespace MigrateAuth.Cli.Configuration;
 /// file is listed as ignored, with no value.
 ///
 /// ONCE, AND NEVER AGAIN. Pre-flight Validation runs this before <c>scan</c> becomes available and does not
-/// repeat it per stage. The result is a session-scoped constant, which is the property the
-/// provenance record depends on.
+/// repeat it per stage. The result is a session-scoped constant, which is the property the provenance
+/// record depends on.
 /// </summary>
 public static class ConfigurationResolver
 {
 	/// <summary>
-	/// The configuration file name. The same name at both locations, which is what lets one
+	/// The file name the tool fixes. The same name at both locations, which is what lets one
 	/// reader serve the repository root and the user profile.
 	/// </summary>
 	public const string CONFIGURATION_FILE_NAME = ".migrate-auth.json";
@@ -61,7 +61,7 @@ public static class ConfigurationResolver
 
 	/// <summary>
 	/// The chain itself, with both locations supplied. Touches the filesystem only to read the
-	/// two files and decides nothing about them beyond the resolution chain.
+	/// two files and decides nothing about them beyond what the chain states.
 	/// </summary>
 	public static EffectiveConfiguration Resolve(
 		RepositoryFolderPath repositoryFolder,
@@ -198,7 +198,7 @@ public static class ConfigurationResolver
 	/// The command line, then the user profile, then nothing - and the repository's own value is
 	/// never one of the candidates. It is recorded as ignored when present so that a client can
 	/// see the tool declined to be aimed by the thing it is auditing, and the value itself is NOT
-	/// recorded, because a path out of the repository may not be emitted.
+	/// recorded, because a path out of the repository is what must never be emitted.
 	/// </summary>
 	private static ResolvedOutputPath ResolveOutputPath(
 		string? commandLineOutputPathText,

@@ -1,7 +1,9 @@
 using System.Text;
 
 using MigrateAuth.Cli.Catalog;
+using MigrateAuth.Cli.Emission;
 using MigrateAuth.Cli.Reading;
+using MigrateAuth.Cli.Scanning;
 using MigrateAuth.Cli.Session;
 using MigrateAuth.Cli.Tests.Pipeline;
 using MigrateAuth.Cli.Tests.Session;
@@ -28,6 +30,11 @@ public sealed class WorstCaseTreeGeneratorTests
 	private const int _OTHER_SEED = 12;
 	private const int _PROGRESS_BLOCK_FOR_TEST = 100;
 	private const string _GENERATED_FOLDER_NAME = "generated";
+	private const string _POWERSHELL_LANGUAGE_NAME = "PowerShell";
+	private const string _POWERSHELL_SHEBANG_LINE = "#!/usr/bin/env pwsh";
+	private const string _POWERSHELL_SCRIPT_EXTENSION = ".ps1";
+	private const int _POWERSHELL_BASIS_POINTS = 1_000;
+	private const char _LINE_FEED = '\n';
 
 	[Fact]
 	public void TheGeneratorRestatesTheProductCapsAndCeilingsItIsSizedAgainst()
@@ -125,7 +132,11 @@ public sealed class WorstCaseTreeGeneratorTests
 	public void TheTreeHoldsEveryKindAndTheSkippedFilesBreakTheirCeilings()
 	{
 		using TemporaryFolder folder = TemporaryFolder.Create();
-		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { OversizeFileCount = _OVERSIZE_FILE_COUNT };
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with
+		{
+			OversizeFileCount = _OVERSIZE_FILE_COUNT,
+			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS
+		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
 		List<WorstCaseFilePlan> plans = Enumerable.Range(0, options.FileCount).Select(index => WorstCaseTreePlanner.PlanFile(options, index)).ToList();
@@ -139,7 +150,55 @@ public sealed class WorstCaseTreeGeneratorTests
 	}
 
 	[Fact]
-	public void TheAnalyzerRecordsExactlyTheSkippedFilesThatWerePlanted()
+	public void ATreeAskedForNoPowerShellHoldsNoPowerShellFile()
+	{
+		WorstCaseTreeOptions options = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT };
+
+		IEnumerable<WorstCaseFileKind> kinds = Enumerable.Range(0, _SHAPE_FILE_COUNT).Select(index => WorstCaseTreePlanner.KindOf(options, index));
+
+		Assert.DoesNotContain(kinds, kind => kind is WorstCaseFileKind.PowerShellScript or WorstCaseFileKind.PowerShellShebangScript);
+	}
+
+	[Fact]
+	public void ThePowerShellShareReplacesOrdinaryFilesOnlyAndKeepsEveryOtherFileAsItWas()
+	{
+		WorstCaseTreeOptions without = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT };
+		WorstCaseTreeOptions with = without with { PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS };
+		List<(WorstCaseFileKind Before, WorstCaseFileKind After)> pairs =
+		[
+			.. Enumerable.Range(0, _SHAPE_FILE_COUNT).Select(index => (WorstCaseTreePlanner.KindOf(without, index), WorstCaseTreePlanner.KindOf(with, index)))
+		];
+
+		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal(WorstCaseFileKind.Filler, pair.Before));
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.PowerShellScript);
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.PowerShellShebangScript);
+	}
+
+	[Fact]
+	public void TheShebangFormIsExtensionlessAndItsFirstLineAloneAttributesItToPowerShell()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = Enumerable.Range(0, options.FileCount).Select(index => WorstCaseTreePlanner.PlanFile(options, index)).ToList();
+		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(folder.Path);
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		Assert.All(PathsOf(plans, WorstCaseFileKind.PowerShellScript), path => Assert.EndsWith(_POWERSHELL_SCRIPT_EXTENSION, path, StringComparison.Ordinal));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.PowerShellShebangScript), path =>
+		{
+			string firstLine = File.ReadAllText(Path.Combine(folder.Path, path)).Split(_LINE_FEED)[0];
+
+			Assert.Equal(string.Empty, Path.GetExtension(path));
+			Assert.Equal(_POWERSHELL_SHEBANG_LINE, firstLine);
+			Assert.True(RepositoryRelativePath.TryFromScannedPath(repository, path, out RepositoryRelativePath relativePath));
+			Assert.Equal(_POWERSHELL_LANGUAGE_NAME, attribution.Attribute(relativePath, firstLine).LanguageName);
+		});
+	}
+
+	[Fact]
+	public void TheAnalyzerRecordsExactlyTheSkippedFilesThatWereCreated()
 	{
 		using PipelineHarness harness = PipelineHarness.CreateOverTheEmbeddedCatalog();
 		WorstCaseTreeOptions seeded = new() { Seed = _SEED, OutputRoot = harness.RepositoryRootPath, FileCount = 0 };
