@@ -87,20 +87,29 @@ public readonly record struct CredentialPosition
 {
 	private const int _UNRESOLVED_OFFSET = -1;
 
-	private CredentialPosition(string? captureGroupName)
+	private CredentialPosition(string? captureGroupName, bool readsABareWordAsLiteral)
 	{
 		CaptureGroupName = captureGroupName;
+		ReadsABareWordAsLiteral = readsABareWordAsLiteral;
 	}
 
 	/// <summary>The group naming the credential argument, or null when none is declared.</summary>
 	public string? CaptureGroupName { get; }
+
+	/// <summary>
+	/// Whether the credential capture is also literal when it is a bare word: every position of the
+	/// capture trustworthy and Code, StringBody or Delimiter, with at least one non-delimiter
+	/// position. The EXPRESSION, not the engine, guarantees the capture holds no expansion. False for
+	/// every other form.
+	/// </summary>
+	public bool ReadsABareWordAsLiteral { get; }
 
 	public bool IsDeclared => CaptureGroupName is not null;
 
 	/// <summary>No argument of this class is the credential. Also the value of <c>default</c>.</summary>
 	public static CredentialPosition None()
 	{
-		CredentialPosition position = new(captureGroupName: null);
+		CredentialPosition position = new(captureGroupName: null, readsABareWordAsLiteral: false);
 
 		return position;
 	}
@@ -109,7 +118,22 @@ public readonly record struct CredentialPosition
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(captureGroupName);
 
-		CredentialPosition position = new(captureGroupName);
+		CredentialPosition position = new(captureGroupName, readsABareWordAsLiteral: false);
+
+		return position;
+	}
+
+	/// <summary>
+	/// The credential group, whose literal-credential signal also reads a bare word as literal. Only a
+	/// catalog whose expression excludes every expansion from the group may declare it. It is also how a rule
+	/// declares the fifth literal form of the literal-credential signal, a credential position whose captured text is a literal pair
+	/// (<c>user:password</c>) or a literal Basic token: the signal comes from the zone and the text is never decoded.
+	/// </summary>
+	public static CredentialPosition AtBareWordOrLiteralCaptureGroup(string captureGroupName)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(captureGroupName);
+
+		CredentialPosition position = new(captureGroupName, readsABareWordAsLiteral: true);
 
 		return position;
 	}

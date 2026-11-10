@@ -9,10 +9,10 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
 /// THE ACCEPTANCE TEST: A REPOSITORY WITH ALL EIGHT LANGUAGES, THROUGH THE REAL SCAN
-/// STAGE, WITH THREE OF THEM SHIPPING AN ANALYZER.
+/// STAGE, WITH FOUR OF THEM SHIPPING AN ANALYZER.
 ///
-/// The embedded catalog this harness builds carries the real `CSharp`, `PowerShell` and `VBNet` analyzers
-/// and the invented reference profile - nothing for the other five. This class proves each file of those five in this tree is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
+/// The embedded catalog this harness builds carries the real `CSharp`, `PowerShell`, `VBNet` and `Shell` analyzers
+/// and the invented reference profile - nothing for the other four. This class proves each file of those five in this tree is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
 /// from candidate selection, and that the two genuinely unrecognized files - no extension and no
 /// shebang, and a `.txt` file - are the only ones still counted as unrecognized.
 /// </summary>
@@ -44,11 +44,11 @@ public sealed class BaseLanguageInventoryScanTests
 	private const int _TOTAL_FILE_COUNT = 13;
 
 	/// <summary>
-	/// JavaScript, TypeScript and Go carry one file each; Python and Shell carry two - their
-	/// own named-extension file plus the shebang file that resolves to the same language. PowerShell
-	/// also carries two, and is assessed, as is VBNet with its one. 1 + 1 + 1 + 2 + 2 = 7.
+	/// JavaScript, TypeScript and Go carry one file each; Python carries two - its own named-extension
+	/// file plus the shebang file that resolves to the same language. PowerShell and Shell also carry
+	/// two each and are assessed, as is VBNet with its one. 1 + 1 + 1 + 2 = 5.
 	/// </summary>
-	private const int _UNASSESSED_FILE_COUNT = 7;
+	private const int _UNASSESSED_FILE_COUNT = 5;
 
 	private const int _UNRECOGNIZED_FILE_COUNT = 2;
 	private const int _SINGLE_FILE_LANGUAGE_COUNT = 1;
@@ -93,7 +93,7 @@ public sealed class BaseLanguageInventoryScanTests
 	}
 
 	[Fact]
-	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheThreeShippedOnesAreNot()
+	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheFourShippedOnesAreNot()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
@@ -109,7 +109,7 @@ public sealed class BaseLanguageInventoryScanTests
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.PowerShell), assessed: true);
-		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Shell), assessed: false);
+		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Shell), assessed: true);
 	}
 
 	/// <summary>

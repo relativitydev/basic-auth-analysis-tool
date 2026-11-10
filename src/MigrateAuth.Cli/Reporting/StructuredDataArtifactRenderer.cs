@@ -336,6 +336,7 @@ public static class StructuredDataArtifactRenderer
 			Confidence = ConfidenceLevels.Name(finding.Level),
 			DestinationCertainty = ReportVocabulary.ValueOf(finding.DestinationCertainty),
 			LiteralCredentialSignal = finding.LiteralCredentialSignal,
+			TestCode = finding.TestCode,
 			Fingerprint = finding.Fingerprint.Text,
 			Recommendation = RecommendationRenderer.ComposeArtifactText(rendered),
 			SecurityNote = rendered.SecurityNote.Length == 0 ? null : rendered.SecurityNote,

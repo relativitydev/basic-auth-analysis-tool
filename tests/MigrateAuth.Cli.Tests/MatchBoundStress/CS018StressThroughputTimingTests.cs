@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 using MigrateAuth.Cli.Catalog;
-using MigrateAuth.Cli.Recognition;
 using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
@@ -11,19 +10,19 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
 /// CS-018's declared, source-generated expression over the benign
-/// stress shapes. The two right-empty concatenation forms must not re-enter an operand at every
-/// character of every identifier: a single <c>Match</c> call over a zero-match shape at the size
-/// ceiling must stay well inside the match bound rather than throw
-/// <see cref="RegexMatchTimeoutException"/> inside <c>MatchBoundTimingTests</c>.
+/// stress shapes. Each right-empty concatenation form must finish a single <c>Match</c> call over
+/// a zero-match shape at the size ceiling inside the match bound.
 ///
 /// The shapes are scaled down to a fraction of their size and must enumerate within the same
 /// fraction of the bound - the rate a full-size shape needs to finish inside the bound with the
-/// margin the match-bound timing procedure's safety multiple assumes. What this test times - one
-/// rule's own <c>Match</c>/<c>NextMatch</c> enumeration, nothing else - is the quantity the bound
-/// accumulates (see <see cref="RecognitionEnginePolicy"/>).
+/// margin the match-bound timing procedure's safety multiple assumes. The bound accumulates
+/// matching-only time (see <see cref="RecognitionEnginePolicy"/>), and what this test times - one
+/// rule's own <c>Match</c>/<c>NextMatch</c> enumeration, nothing else - is that same quantity.
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
 [Collection(TimingSensitiveStressCollection.NAME)]
-public sealed class CS018StressThroughputTests
+public sealed class CS018StressThroughputTimingTests
 {
 	private const string _CS_018 = "CS-018";
 

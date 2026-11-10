@@ -99,6 +99,12 @@ public readonly record struct Finding
 	/// </summary>
 	public required bool LiteralCredentialSignal { get; init; }
 
+	/// <summary>
+	/// Whether the Test demotion kind fired on the finding's file, at any level, so that the report can say the finding is test code.
+	/// It travels beside <see cref="Level"/>, never into it, is not a Low reason, and is not part of the fingerprint or the identifier.
+	/// </summary>
+	public required bool TestCode { get; init; }
+
 	/// <summary>The content-free identity, which survives between runs as the number does not.</summary>
 	public required FindingFingerprint Fingerprint { get; init; }
 

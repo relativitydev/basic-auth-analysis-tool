@@ -41,6 +41,8 @@ internal static class PublicDocumentChecks
 	public const string PKCE_MARKER = "**PKCE.**";
 	public const string SERVER_SIDE_VARIANT_MARKER = "**Server-side variant.**";
 	public const string DESKTOP_VARIANT_MARKER = "**Desktop variant.**";
+	public const string MANUAL_COPY_VARIANT_MARKER = "**Receive the code, by the manual copy (primary).**";
+	public const string LOOPBACK_LISTENER_VARIANT_MARKER = "**Loopback listener variant (optional, per system).**";
 
 	private const string _FENCE_MARKER = "```";
 	private const string _LABEL_TERMINATOR = ":";
@@ -228,9 +230,9 @@ internal static class PublicDocumentChecks
 	/// <summary>
 	/// The markers of Part C item 2 in one class entry: before, after, token caching and expiry,
 	/// how to confirm the flow, the OAuth2 Client settings and the Part B pointer; and for a Code entry
-	/// also refresh-token handling, PKCE and both variants.
+	/// also refresh-token handling, PKCE and both variants, named as the language's templates label them.
 	/// </summary>
-	public static ImmutableArray<string> ItemTwoProblems(GeneratedBlock block, PartCBlockKey key)
+	public static ImmutableArray<string> ItemTwoProblems(GeneratedBlock block, PartCBlockKey key, DocumentedLanguage language)
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 		string oauth2Client = OAuth2ClientConfigurationBlocks.For(key.Flow);
@@ -246,8 +248,11 @@ internal static class PublicDocumentChecks
 		{
 			AddIfMissing(problems, block, "refresh-token handling", REFRESH_TOKEN_REQUEST_MARKER);
 			AddIfMissing(problems, block, "PKCE", PKCE_MARKER);
-			AddIfMissing(problems, block, "the server-side variant", SERVER_SIDE_VARIANT_MARKER);
-			AddIfMissing(problems, block, "the desktop variant", DESKTOP_VARIANT_MARKER);
+
+			foreach ((string element, string marker) in language.AuthorizationCodeVariantMarkers)
+			{
+				AddIfMissing(problems, block, element, marker);
+			}
 		}
 
 		return problems.ToImmutable();

@@ -96,7 +96,7 @@ public sealed class ContentMarkerDemotionTests
 	[Theory]
 	[InlineData(_CODE_ONLY_MARKER_IN_A_COMMENT, ConfidenceLevel.High)]
 	[InlineData(_CODE_ONLY_MARKER_IN_A_STRING_LITERAL, ConfidenceLevel.High)]
-	[InlineData(_CODE_ONLY_MARKER_IN_CODE, ConfidenceLevel.Low)]
+	[InlineData(_CODE_ONLY_MARKER_IN_CODE, ConfidenceLevel.Medium)]
 	public void ACodeOnlyContentMarkerFiresOnlyWhenItsTextSitsOnCode(string placementLine, ConfidenceLevel expectedLevel)
 	{
 		string source = placementLine + "\n" + _CREDENTIAL_CONSTRUCTION_LINE;
@@ -141,7 +141,8 @@ public sealed class ContentMarkerDemotionTests
 		ContentMarker firingMarker = new()
 		{
 			Expression = new Regex(_BENIGN_FIRING_PATTERN, RegexOptions.CultureInvariant, RecognitionEnginePolicy.MATCH_BOUND),
-			Zone = ContentMarkerZone.AnyZone
+			Zone = ContentMarkerZone.AnyZone,
+			Kind = DemotionKind.Generated
 		};
 		LanguageShapedDemotionSignals demotionSignals = DemotionSignalsWith(firingMarker, BuildCatastrophicMarker());
 
@@ -222,7 +223,8 @@ public sealed class ContentMarkerDemotionTests
 		return new ContentMarker
 		{
 			Expression = new Regex(_CATASTROPHIC_CONTENT_PATTERN, RegexOptions.CultureInvariant, _anExpressionLevelTimeout),
-			Zone = ContentMarkerZone.AnyZone
+			Zone = ContentMarkerZone.AnyZone,
+			Kind = DemotionKind.Generated
 		};
 	}
 }

@@ -64,6 +64,12 @@ public readonly record struct RecognizedConstruct
 	public required bool LiteralCredentialSignal { get; init; }
 
 	/// <summary>
+	/// Whether the Test demotion kind fired on the file, at any level, so that the finding can be marked as test code. It
+	/// travels beside <see cref="Level"/> and never into it, and it is not a Low reason: a reason exists only on a Low finding.
+	/// </summary>
+	public required bool TestCode { get; init; }
+
+	/// <summary>
 	/// Which of the confidence rubric's signals proposed Low, so that a report can say why a Low finding is Low. It
 	/// travels beside <see cref="Level"/> and is never read to compute one; it is
 	/// <see cref="LowConfidenceReasons.None"/> whenever the level is not Low.

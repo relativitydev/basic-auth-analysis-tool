@@ -51,6 +51,13 @@ public sealed record WorstCaseTreeOptions
 	/// </summary>
 	public int VBNetSourceBasisPoints { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are Shell scripts instead, half with the <c>.sh</c> extension and half extensionless with a <c>bash</c>
+	/// shebang, drawn on streams of their own after the Visual Basic share, so every other file keeps its kind. Zero, the default, writes no Shell file, so a tree asked
+	/// for nothing else is byte for byte the tree without this share.
+	/// </summary>
+	public int ShellScriptBasisPoints { get; init; }
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 

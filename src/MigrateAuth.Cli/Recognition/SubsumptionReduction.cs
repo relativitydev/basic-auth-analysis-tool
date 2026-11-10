@@ -26,6 +26,9 @@ internal readonly record struct ClassifiedMatch
 	/// <summary>The literal-credential signal, read off the mask while the match still exists.</summary>
 	internal required bool LiteralCredentialSignal { get; init; }
 
+	/// <summary>Whether the Test demotion kind fired on the file, at any level; it travels beside the level and is never a Low reason.</summary>
+	internal required bool TestCode { get; init; }
+
 	/// <summary>Which signals proposed Low, read where the composition happens and carried beside the level.</summary>
 	internal LowConfidenceReasons LowReasons { get; init; }
 }
@@ -183,6 +186,7 @@ internal static class SubsumptionReduction
 			AnchorOffset = classifiedMatch.AnchorOffset,
 			Level = classifiedMatch.Level,
 			LiteralCredentialSignal = classifiedMatch.LiteralCredentialSignal,
+			TestCode = classifiedMatch.TestCode,
 			LowReasons = classifiedMatch.LowReasons
 		};
 	}

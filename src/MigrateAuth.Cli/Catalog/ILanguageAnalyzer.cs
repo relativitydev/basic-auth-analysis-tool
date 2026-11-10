@@ -4,8 +4,8 @@ namespace MigrateAuth.Cli.Catalog;
 
 /// <summary>
 /// The language analyzer contract: the type surface through which a language catalog
-/// is expressed to the engine. It has exactly six top-level elements, one per member below,
-/// and nothing else.
+/// is expressed to the engine. It has exactly six required top-level elements and one optional seventh,
+/// one per member below, and nothing else.
 ///
 /// 1. <see cref="LexicalProfile"/>
 /// 2. <see cref="LanguageIdentification"/>
@@ -13,6 +13,7 @@ namespace MigrateAuth.Cli.Catalog;
 /// 4. <see cref="DemotionSignals"/>
 /// 5. <see cref="CandidateSelectionAndRecommendation"/>
 /// 6. <see cref="SubsumptionRelation"/>
+/// 7. <see cref="ConstructPrecedence"/>, optional, absent for every shipped profile
 ///
 /// The design also requires that an analyzer never orders, numbers or writes. That is enforced by
 /// the shape of this type rather than by a comment forbidding it:
@@ -50,4 +51,10 @@ public interface ILanguageAnalyzer
 
 	/// <summary>Element 6. The subsumption relation, as declared triples.</summary>
 	FrozenSet<SubsumptionRule> SubsumptionRelation { get; }
+
+	/// <summary>
+	/// Element 7, optional. How several classes reading one statement become one finding. Null, the default, declares
+	/// none.
+	/// </summary>
+	ConstructPrecedence? ConstructPrecedence => null;
 }

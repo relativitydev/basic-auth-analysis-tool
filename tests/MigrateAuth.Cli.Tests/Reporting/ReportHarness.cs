@@ -406,7 +406,8 @@ internal static class ReportHarness
 		AssessedLanguage language = AssessedLanguage.CSharp,
 		CredentialFlow? flow = null,
 		FlowDecision? flowDecision = null,
-		LowConfidenceReasons lowReasons = LowConfidenceReasons.None)
+		LowConfidenceReasons lowReasons = LowConfidenceReasons.None,
+		bool testCode = false)
 	{
 		RepositoryRelativePath path = PathOf(relativePath);
 		RuleIdentifier patternClass = PatternClassOf(patternClassIdentifier);
@@ -423,6 +424,7 @@ internal static class ReportHarness
 			Level = level,
 			DestinationCertainty = certainty,
 			LiteralCredentialSignal = literalCredentialSignal,
+			TestCode = testCode,
 			LowReasons = lowReasons,
 			Flow = flow,
 			FlowDecision = flowDecision,

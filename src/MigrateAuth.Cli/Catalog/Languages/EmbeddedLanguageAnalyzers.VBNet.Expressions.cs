@@ -127,10 +127,21 @@ internal static partial class VBNetPatternExpressions
 	// Credential words: substring words, and whole-token words
 	// ------------------------------------------------------------------------------------------
 
+	/// <summary>
+	/// A name that carries a credential word. The whole-token words have two boundaries: the capital-initial spellings end before anything that is not a lower-case
+	/// letter, the lower-case spellings end only before a capital letter, and the snake and all-capital spellings end where no letter or digit follows.
+	/// </summary>
 	private const string _CREDENTIAL_NAME =
 		@"(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]*(?:password|secret|credential|token)[A-Za-z0-9_]*"
-		+ @"|(?:[A-Za-z0-9]*[a-z0-9])?(?-i:Pass|Pwd|ApiKey)(?![a-z])[A-Za-z0-9_]*"
-		+ @"|(?:[A-Za-z0-9_]*_)?(?:pass|pwd|api_?key|api-key)(?:_[A-Za-z0-9_]*)?(?![A-Za-z0-9]))";
+		+ @"|(?:[A-Za-z0-9]*[a-z0-9])?(?-i:Pass|Pwd|ApiKey)(?-i:(?![a-z]))[A-Za-z0-9_]*"
+		+ @"|(?:[A-Za-z0-9_]*_)?(?:pass|pwd|api_?key|api-key)(?:_[A-Za-z0-9_]*)?(?![A-Za-z0-9])"
+		+ @"|(?:[A-Za-z0-9_]*_)?(?-i:pass|pwd|apikey|apiKey)(?-i:(?=[A-Z]))[A-Za-z0-9_]*)";
+
+	/// <summary>
+	/// The half that stands in the credential position of VB-014 carries a credential word in some segment of its dotted name: read as a
+	/// look-ahead at the start of the half, each segment tested as <see cref="_CREDENTIAL_NAME"/> tests a name. A name test with no window.
+	/// </summary>
+	private const string _CREDENTIAL_WORD_IN_THE_HALF = @"(?=(?:" + _NAME + @"\.)*" + _CREDENTIAL_NAME + @")";
 
 	private const string _SCHEME_WORD = @"[A-Za-z][A-Za-z0-9]*";
 
@@ -180,9 +191,9 @@ internal static partial class VBNetPatternExpressions
 
 	/// <summary>The spellings of an assembled pair that read as one expression: a format with the two placeholders, an interpolation, a concatenation or a join with the colon as an element.</summary>
 	private const string _PAIR_ASSEMBLY =
-		@"(?:String\.Format|Format)[ \t]*\([ \t]*" + _QUOTE + @"\{0\}:\{1\}" + _QUOTE + _COMMA + @"(?<half1>" + _PAIR_HALF + @")" + _COMMA + @"(?<credential>" + _PAIR_HALF + @")" + _GAP_IMPLICIT + @"\)"
-		+ @"|\$" + _QUOTE + @"\{[ \t]*(?<half1>" + _PAIR_HALF + @")[ \t]*\}:\{[ \t]*(?<credential>" + _PAIR_HALF + @")[ \t]*\}" + _QUOTE
-		+ @"|(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _QUOTE + @":" + _QUOTE + @",[ \t]*)?(?<half1>" + _PAIR_HALF + @")[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?(?<credential>" + _PAIR_HALF + @")[ \t]*\)";
+		@"(?:String\.Format|Format)[ \t]*\([ \t]*" + _QUOTE + @"\{0\}:\{1\}" + _QUOTE + _COMMA + @"(?<half1>" + _PAIR_HALF + @")" + _COMMA + @"(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _PAIR_HALF + @")" + _GAP_IMPLICIT + @"\)"
+		+ @"|\$" + _QUOTE + @"\{[ \t]*(?<half1>" + _PAIR_HALF + @")[ \t]*\}:\{[ \t]*(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _PAIR_HALF + @")[ \t]*\}" + _QUOTE
+		+ @"|(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _QUOTE + @":" + _QUOTE + @",[ \t]*)?(?<half1>" + _PAIR_HALF + @")[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _PAIR_HALF + @")[ \t]*\)";
 
 	/// <summary>
 	/// How far the declaration look-arounds of the SDK credential type of VB-001 and VB-002 and of the first argument of VB-016 reach on each side of the
@@ -203,6 +214,26 @@ internal static partial class VBNetPatternExpressions
 		@"(?:Global\.(?:" + _NAME + @"\.)*|(?:" + _NAME + @"\.)+|(?=UsernamePasswordCredentials(?![A-Za-z0-9_]))(?<!" + _OWN_CREDENTIAL_TYPE_DECLARATION + _DECLARATION_REACH_BEHIND + @")(?!" + _DECLARATION_REACH_AHEAD + @"(?:Class|Structure)[ \t]+UsernamePasswordCredentials(?![A-Za-z0-9_])))";
 
 	private const string _OWN_CREDENTIAL_TYPE_DECLARATION = @"\b(?:Class|Structure)[ \t]+UsernamePasswordCredentials(?![A-Za-z0-9_])";
+
+	/// <summary>
+	/// How far the declaration look-arounds of the SDK entry point of VB-010 reach on each side of the candidate, in characters, shorter than
+	/// <see cref="_DECLARATION_REACH_IN_CHARACTERS"/>.
+	/// </summary>
+	private const string _ENTRY_POINT_DECLARATION_REACH_IN_CHARACTERS = "1024";
+
+	private const string _ENTRY_POINT_DECLARATION_REACH_BEHIND = @"[\s\S]{0," + _ENTRY_POINT_DECLARATION_REACH_IN_CHARACTERS + @"}";
+
+	private const string _ENTRY_POINT_DECLARATION_REACH_AHEAD = @"[\s\S]{0," + _ENTRY_POINT_DECLARATION_REACH_IN_CHARACTERS + @"}?";
+
+	/// <summary>
+	/// The qualifier of the SDK entry point of VB-010: the same shape as <see cref="_SDK_CREDENTIAL_TYPE_QUALIFIER"/>. A qualified spelling is read;
+	/// an unqualified one is read unless a Class or Structure of the exact simple name <c>ImportAPI</c> is declared within <see cref="_ENTRY_POINT_DECLARATION_REACH_IN_CHARACTERS"/> characters before or
+	/// after the use. A type whose name merely ends in <c>ImportAPI</c> is a subtype of the entry point and stays read, so the declaration look-arounds run only at the exact name.
+	/// </summary>
+	private const string _SDK_ENTRY_POINT_QUALIFIER =
+		@"(?:Global\.(?:" + _NAME + @"\.)*|(?:" + _NAME + @"\.)+|(?!ImportAPI(?![A-Za-z0-9_]))|(?=ImportAPI(?![A-Za-z0-9_]))(?<!" + _OWN_ENTRY_POINT_TYPE_DECLARATION + _ENTRY_POINT_DECLARATION_REACH_BEHIND + @")(?!" + _ENTRY_POINT_DECLARATION_REACH_AHEAD + _OWN_ENTRY_POINT_TYPE_DECLARATION + @"))";
+
+	private const string _OWN_ENTRY_POINT_TYPE_DECLARATION = @"\b(?:Class|Structure)[ \t]+ImportAPI(?![A-Za-z0-9_])";
 
 	/// <summary>VB-001 · SdkUserNamePasswordCredentials</summary>
 	[GeneratedRegex(

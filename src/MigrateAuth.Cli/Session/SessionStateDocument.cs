@@ -285,6 +285,9 @@ internal sealed record PersistedFindingDocument
 	/// <summary>The literal-credential signal.</summary>
 	public bool? LiteralCredentialSignal { get; init; }
 
+	/// <summary>SCHEMA VERSION 9. Whether the Test demotion kind fired on the finding's file. Required under schema 9: absent refuses the document.</summary>
+	public bool? TestCode { get; init; }
+
 	/// <summary>The third fingerprint component: which occurrence of this class in this file.</summary>
 	public int? OccurrenceOrdinal { get; init; }
 

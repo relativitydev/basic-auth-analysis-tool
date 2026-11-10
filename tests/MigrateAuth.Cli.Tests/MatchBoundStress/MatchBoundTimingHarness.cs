@@ -79,6 +79,13 @@ internal sealed record MatchBoundShapeTiming
 	internal required ImmutableArray<string> NonTerminatingRules { get; init; }
 
 	internal required bool AnExpressionTimedOut { get; init; }
+
+	/// <summary>
+	/// Whether the whole-file figure and the per-rule column were computed. False in GATE MODE, where only the figure the tests assert
+	/// (<see cref="WorstFileMilliseconds"/>) is measured; <see cref="WorstWholeFileMilliseconds"/> and <see cref="WorstRuleMilliseconds"/> are then
+	/// empty by design, and the timing table says so rather than printing them as zero.
+	/// </summary>
+	internal required bool TableFiguresComputed { get; init; }
 }
 
 /// <summary>
@@ -122,11 +129,28 @@ internal static class MatchBoundTimingHarness
 	internal const int WARM_UP_ITERATIONS = 2;
 	internal const int MEASURED_ITERATIONS = 5;
 
+	/// <summary>
+	/// Whether the timing table was asked for: the report variable the calling test names is set to a non-blank path. GATE MODE is its absence: only
+	/// <see cref="TimeEveryAnalyzerExpression"/> (the figure the tests assert) and the termination probe run, and the two passes that feed nothing but
+	/// the table text - <see cref="TimeTheWholeFile"/> and <see cref="TimeEachRule"/> - are skipped. The iteration counts, the statistic and every
+	/// assertion are the same in both modes.
+	/// </summary>
+	internal static bool TimingTableIsRequested(string reportVariableName)
+	{
+		return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(reportVariableName));
+	}
+
 	private const string _STRESS_RELATIVE_PATH_FORMAT = "stress/{0}.cs";
 
-	internal static MatchBoundShapeTiming Measure(CSharpRecognitionHarness harness, MatchBoundStressShape shape)
+	private const string _NOT_MEASURABLE_NON_TERMINATING = "not measurable - enumeration does not terminate";
+
+	private const string _CONSTRUCTS_NOT_COMPUTED_IN_GATE_MODE = "constructs not computed - gate mode";
+
+	private const string _NOT_COMPUTED_IN_GATE_MODE = "not computed - gate mode (set the report variable to record the table)";
+
+	internal static MatchBoundShapeTiming Measure(CSharpRecognitionHarness harness, MatchBoundStressShape shape, bool timingTableRequested)
 	{
-		return Measure(ForCSharp(harness), shape);
+		return Measure(ForCSharp(harness), shape, timingTableRequested);
 	}
 
 	/// <summary>The `CSharp` harness as a target: its shapes stand at <c>stress/{name}.cs</c>.</summary>
@@ -165,7 +189,19 @@ internal static class MatchBoundTimingHarness
 		};
 	}
 
-	internal static MatchBoundShapeTiming Measure(MatchBoundTimingTarget target, MatchBoundStressShape shape)
+	/// <summary>The `Shell` harness as a target: its shapes stand where <see cref="ShellMatchBoundStressSet.RelativePathOf"/> puts them.</summary>
+	internal static MatchBoundTimingTarget ForShell(ShellRecognitionHarness harness)
+	{
+		return new MatchBoundTimingTarget
+		{
+			Analyzer = harness.Analyzer,
+			EmissionPoint = harness.EmissionPoint,
+			ContextFor = (text, path) => harness.ContextFor(text, path),
+			RelativePathOf = ShellMatchBoundStressSet.RelativePathOf
+		};
+	}
+
+	internal static MatchBoundShapeTiming Measure(MatchBoundTimingTarget target, MatchBoundStressShape shape, bool timingTableRequested)
 	{
 		FileRecognitionContext context = target.ContextFor(shape.Text, target.RelativePathOf(shape));
 		ImmutableArray<string> nonTerminating = ProbeTermination(target.Analyzer, context.NormalizedText);
@@ -173,7 +209,7 @@ internal static class MatchBoundTimingHarness
 
 		try
 		{
-			timing = TimeTheShape(target, context, shape, nonTerminating);
+			timing = TimeTheShape(target, context, shape, nonTerminating, timingTableRequested);
 		}
 		catch (RegexMatchTimeoutException)
 		{
@@ -188,7 +224,8 @@ internal static class MatchBoundTimingHarness
 				FlowTrips = 0,
 				WorstRuleMilliseconds = ImmutableSortedDictionary<string, double>.Empty,
 				NonTerminatingRules = nonTerminating,
-				AnExpressionTimedOut = true
+				AnExpressionTimedOut = true,
+				TableFiguresComputed = timingTableRequested
 			};
 		}
 
@@ -199,7 +236,8 @@ internal static class MatchBoundTimingHarness
 		MatchBoundTimingTarget target,
 		FileRecognitionContext context,
 		MatchBoundStressShape shape,
-		ImmutableArray<string> nonTerminating)
+		ImmutableArray<string> nonTerminating,
+		bool timingTableRequested)
 	{
 		bool fileCanBeTimed = nonTerminating.IsEmpty;
 		double worstAnalyzerExpression = 0;
@@ -211,11 +249,13 @@ internal static class MatchBoundTimingHarness
 		for (int iteration = 0; iteration < WARM_UP_ITERATIONS + MEASURED_ITERATIONS; iteration++)
 		{
 			bool measured = iteration >= WARM_UP_ITERATIONS;
-			(double wholeFileMilliseconds, int recognized) = fileCanBeTimed ? TimeTheWholeFile(target, context) : (0, 0);
+			(double wholeFileMilliseconds, int recognized) = fileCanBeTimed && timingTableRequested ? TimeTheWholeFile(target, context) : (0, 0);
 			(double analyzerExpressionMilliseconds, int flowEvaluations, int flowTrips) = fileCanBeTimed
 				? TimeEveryAnalyzerExpression(target, context)
 				: (0, 0, 0);
-			Dictionary<string, double> ruleMilliseconds = TimeEachRule(target.Analyzer, context.NormalizedText, nonTerminating);
+			Dictionary<string, double> ruleMilliseconds = timingTableRequested
+				? TimeEachRule(target.Analyzer, context.NormalizedText, nonTerminating)
+				: [];
 
 			worstAnalyzerExpression = measured
 				? Math.Max(worstAnalyzerExpression, analyzerExpressionMilliseconds)
@@ -231,13 +271,14 @@ internal static class MatchBoundTimingHarness
 			ShapeName = shape.Name,
 			SizeInCharacters = shape.Text.Length,
 			WorstFileMilliseconds = fileCanBeTimed ? worstAnalyzerExpression : null,
-			WorstWholeFileMilliseconds = fileCanBeTimed ? worstWholeFile : null,
+			WorstWholeFileMilliseconds = fileCanBeTimed && timingTableRequested ? worstWholeFile : null,
 			RecognizedConstructs = constructs,
 			FlowEvaluations = flow.Evaluations,
 			FlowTrips = flow.Trips,
 			WorstRuleMilliseconds = worstPerRule.ToImmutableSortedDictionary(StringComparer.Ordinal),
 			NonTerminatingRules = nonTerminating,
-			AnExpressionTimedOut = false
+			AnExpressionTimedOut = false,
+			TableFiguresComputed = timingTableRequested
 		};
 	}
 
@@ -394,30 +435,30 @@ internal static class MatchBoundTimingHarness
 	private static void AppendShape(StringBuilder report, MatchBoundShapeTiming timing)
 	{
 		string fileFigure = timing.WorstFileMilliseconds is double milliseconds
-			? milliseconds.ToString("F1", CultureInfo.InvariantCulture) + " ms"
-			: "not measurable - enumeration does not terminate";
+			? $"{milliseconds.ToString("F1", CultureInfo.InvariantCulture)} ms"
+			: _NOT_MEASURABLE_NON_TERMINATING;
 		string wholeFileFigure = timing.WorstWholeFileMilliseconds is double wholeFileMilliseconds
-			? wholeFileMilliseconds.ToString("F1", CultureInfo.InvariantCulture) + " ms"
-			: "not measurable - enumeration does not terminate";
+			? $"{wholeFileMilliseconds.ToString("F1", CultureInfo.InvariantCulture)} ms"
+			: timing.TableFiguresComputed ? _NOT_MEASURABLE_NON_TERMINATING : _NOT_COMPUTED_IN_GATE_MODE;
+		string constructsFigure = timing.TableFiguresComputed
+			? $"{timing.RecognizedConstructs.ToString(CultureInfo.InvariantCulture)} constructs recognized"
+			: _CONSTRUCTS_NOT_COMPUTED_IN_GATE_MODE;
+		string perRuleFigures = timing.TableFiguresComputed
+			? string.Join(", ", timing.WorstRuleMilliseconds.Select(entry => string.Format(CultureInfo.InvariantCulture, "{0}={1:F1}", entry.Key, entry.Value)))
+			: _NOT_COMPUTED_IN_GATE_MODE;
 
 		report.AppendLine(string.Format(
 			CultureInfo.InvariantCulture,
-			"shape {0}: {1} characters, {2} constructs recognized, worst analyzer-expression {3} (worst whole-file, context only, {4}), non-terminating rules [{5}], expression timeout {6}, flow evaluations {7}, flow trips {8}",
+			"shape {0}: {1} characters, {2}, worst analyzer-expression {3} (worst whole-file, context only, {4}), non-terminating rules [{5}], expression timeout {6}, flow evaluations {7}, flow trips {8}",
 			timing.ShapeName,
 			timing.SizeInCharacters,
-			timing.RecognizedConstructs,
+			constructsFigure,
 			fileFigure,
 			wholeFileFigure,
 			string.Join(", ", timing.NonTerminatingRules),
 			timing.AnExpressionTimedOut ? "fired" : "did not fire",
 			timing.FlowEvaluations,
 			timing.FlowTrips));
-		report.AppendLine("  per rule (ms): " + string.Join(
-			", ",
-			timing.WorstRuleMilliseconds.Select(entry => string.Format(
-				CultureInfo.InvariantCulture,
-				"{0}={1:F1}",
-				entry.Key,
-				entry.Value))));
+		report.AppendLine($"  per rule (ms): {perRuleFigures}");
 	}
 }

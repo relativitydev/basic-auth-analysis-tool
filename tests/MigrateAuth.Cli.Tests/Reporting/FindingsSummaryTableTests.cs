@@ -382,6 +382,10 @@ public sealed class FindingsSummaryTableTests
 	[InlineData(LowConfidenceReasons.CommentOrStringLiteral, "the match sits in a comment or a string literal")]
 	[InlineData(LowConfidenceReasons.DemotedFile, "the file's name, folder or content marks it as a test, sample, generated or deployment file")]
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own")]
+	[InlineData(LowConfidenceReasons.DemotedMockFile, "the file's name, folder or content marks it as a mock, fake or stub, a test double")]
+	[InlineData(LowConfidenceReasons.DemotedSampleFile, "the file's name or folder marks it as a sample or example")]
+	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "the file's name or content marks it as generated code")]
+	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "the file sits in a deployment folder, so it is installation or release tooling")]
 	public void ALowFindingStatesTheReasonItIsLow(LowConfidenceReasons reason, string expectedText)
 	{
 		ReportContent content = ContentOf(
@@ -392,6 +396,74 @@ public sealed class FindingsSummaryTableTests
 
 		Assert.Contains($"- Low because: {expectedText}", report, StringComparison.Ordinal);
 		Assert.Equal([LowReasonVocabulary.ValuesOf(reason).Single()], ReadArtifact(content).Findings.Single().LowReasons!);
+	}
+
+	[Fact]
+	public void ATestCodeFindingCarriesTheMarkerRowBetweenTheHeadingAndTheLowReasonAndTheArtifactFieldAfterTheLiteralCredentialSignal()
+	{
+		ReportContent content = ContentOf(
+			[
+				ReportHarness.FindingAt(
+					1,
+					_LOW_PATH,
+					1,
+					ReportHarness.TEMPLATED_PATTERN_CLASS,
+					ConfidenceLevel.Low,
+					lowReasons: LowConfidenceReasons.DemotedMockFile,
+					testCode: true)
+			],
+			ConfidenceLevel.Low);
+
+		string report = Render(content);
+		string artifact = RenderArtifactText(content);
+		string testCodeRow = $"- {LowReasonVocabulary.TEST_CODE_LABEL}: {LowReasonVocabulary.TEST_CODE_TEXT}";
+
+		int heading = report.IndexOf("### ", report.IndexOf(MarkdownReportRenderer.FINDINGS_SUMMARY_HEADING, StringComparison.Ordinal), StringComparison.Ordinal);
+		int row = report.IndexOf(testCodeRow, StringComparison.Ordinal);
+		int lowReason = report.IndexOf($"- {LowReasonVocabulary.REASON_LABEL}:", StringComparison.Ordinal);
+
+		Assert.True(row > heading);
+		Assert.InRange(row, 0, lowReason - 1);
+		Assert.Equal(1, CountOccurrences(report, testCodeRow));
+		Assert.True(ReadArtifact(content).Findings.Single().TestCode);
+		Assert.Matches(@"""literalCredentialSignal"":\s*false,\s*""testCode"":\s*true", artifact);
+	}
+
+	[Fact]
+	public void AFindingThatIsNotTestCodeWritesNoRowAndCarriesTheFieldAsFalse()
+	{
+		ReportContent content = ContentWithThreeFindings(ConfidenceLevel.Low);
+
+		string report = Render(content);
+		string artifact = RenderArtifactText(content);
+
+		Assert.DoesNotContain(LowReasonVocabulary.TEST_CODE_LABEL, report, StringComparison.Ordinal);
+		Assert.All(ReadArtifact(content).Findings, finding => Assert.False(finding.TestCode));
+		Assert.Equal(3, CountOccurrences(artifact, "\"testCode\""));
+	}
+
+	[Fact]
+	public void AMediumTestCodeFindingCarriesTheRowAndNoLowReason()
+	{
+		ReportContent content = ContentOf(
+			[
+				ReportHarness.FindingAt(
+					1,
+					_MEDIUM_PATH,
+					1,
+					ReportHarness.TEMPLATED_PATTERN_CLASS,
+					ConfidenceLevel.Medium,
+					flow: CredentialFlow.ClientCredentials,
+					flowDecision: FlowDecision.Default,
+					testCode: true)
+			],
+			ConfidenceLevel.Low);
+
+		string report = Render(content);
+
+		Assert.Contains($"- {LowReasonVocabulary.TEST_CODE_LABEL}: {LowReasonVocabulary.TEST_CODE_TEXT}", report, StringComparison.Ordinal);
+		Assert.DoesNotContain(LowReasonVocabulary.REASON_LABEL, report, StringComparison.Ordinal);
+		Assert.Null(ReadArtifact(content).Findings.Single().LowReasons);
 	}
 
 	[Fact]
@@ -629,14 +701,19 @@ public sealed class FindingsSummaryTableTests
 		return [.. cells];
 	}
 
-	private static ArtifactDocument ReadArtifact(ReportContent content)
+	private static string RenderArtifactText(ReportContent content)
 	{
 		using MemoryStream stream = new();
 
 		StructuredDataArtifactRenderer.Render(stream, content, new UnwiredGenericRecommendationProvider());
 
+		return Encoding.UTF8.GetString(stream.ToArray());
+	}
+
+	private static ArtifactDocument ReadArtifact(ReportContent content)
+	{
 		ArtifactDocument? document = JsonSerializer.Deserialize(
-			Encoding.UTF8.GetString(stream.ToArray()),
+			RenderArtifactText(content),
 			ReportJsonContext.Default.ArtifactDocument);
 
 		Assert.NotNull(document);

@@ -26,6 +26,7 @@ public sealed class PowerShellAnalyzerTests
 	private const string _TERM_SEPARATOR = " ";
 
 	private const string _LANGUAGE_NAME = "PowerShell";
+	private const string _SHELL_LANGUAGE_NAME = "Shell";
 
 	private const string _PS_001 = "PS-001";
 	private const string _PS_002 = "PS-002";
@@ -139,17 +140,18 @@ public sealed class PowerShellAnalyzerTests
 	}
 
 	[Fact]
-	public void AnExtensionlessScriptWithAShebangIsAttributedToPowerShellThroughTheAnalyzersOwnRule()
+	public void AnExtensionlessScriptWithAShebangIsAttributedToPowerShellThroughTheAnalyzersOwnRuleAndABashShebangToShell()
 	{
 		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
 		PowerShellRecognitionHarness harness = new();
 
 		AttributedLanguage claimed = attribution.Attribute(harness.PathOf("tools/deploy"), "#!/usr/bin/env pwsh");
-		AttributedLanguage notClaimed = attribution.Attribute(harness.PathOf("tools/other"), "#!/usr/bin/env bash");
+		AttributedLanguage bashScript = attribution.Attribute(harness.PathOf("tools/other"), "#!/usr/bin/env bash");
 
 		Assert.True(claimed.IsRecognized);
 		Assert.Equal(_LANGUAGE_NAME, claimed.LanguageName);
-		Assert.False(notClaimed.IsRecognized);
+		Assert.True(bashScript.IsRecognized);
+		Assert.Equal(_SHELL_LANGUAGE_NAME, bashScript.LanguageName);
 	}
 
 	[Fact]
@@ -822,17 +824,24 @@ public sealed class PowerShellAnalyzerTests
 	[InlineData("src/Module.TESTS.PS1")]
 	[InlineData("test/helper.ps1")]
 	[InlineData("src/Tests/helper.ps1")]
-	[InlineData("mock/helper.ps1")]
-	[InlineData("src/mocks/helper.ps1")]
 	[InlineData("fixtures/helper.ps1")]
 	[InlineData("fixture/helper.ps1")]
-	[InlineData("docs/Samples/helper.ps1")]
-	[InlineData("examples/helper.ps1")]
-	[InlineData("src/SampleUpload.ps1")]
-	[InlineData("src/exampleHelper.ps1")]
-	[InlineData("src/Module.generated.ps1")]
-	[InlineData("src/Module.g.ps1")]
-	public void AFileOrFolderTheLanguageNamesAsTestMockFixtureSampleOrGeneratedIsDemotedToLow(string path)
+	public void AFileOrFolderTheLanguageNamesAsTestOrFixtureIsMediumAndMarkedAsTestCodeWithNoLowReason(string path)
+	{
+		ImmutableArray<RecognizedConstruct> constructs = new PowerShellRecognitionHarness().Recognize(
+			"Invoke-RestMethod -Uri $uri -Credential $c -Authentication Basic",
+			path);
+
+		Assert.Single(constructs);
+		Assert.Equal(ConfidenceLevel.Medium, constructs[0].Level);
+		Assert.True(constructs[0].TestCode, path);
+		Assert.Equal(LowConfidenceReasons.None, constructs[0].LowReasons);
+	}
+
+	[Theory]
+	[InlineData("mock/helper.ps1")]
+	[InlineData("src/mocks/helper.ps1")]
+	public void AMockFolderDemotesToLowWithTheMockReason(string path)
 	{
 		ImmutableArray<RecognizedConstruct> constructs = new PowerShellRecognitionHarness().Recognize(
 			"Invoke-RestMethod -Uri $uri -Credential $c -Authentication Basic",
@@ -840,7 +849,40 @@ public sealed class PowerShellAnalyzerTests
 
 		Assert.Single(constructs);
 		Assert.Equal(ConfidenceLevel.Low, constructs[0].Level);
-		Assert.True(constructs[0].LowReasons.HasFlag(LowConfidenceReasons.DemotedFile), path);
+		Assert.Equal(LowConfidenceReasons.DemotedMockFile, constructs[0].LowReasons);
+		Assert.False(constructs[0].TestCode, path);
+	}
+
+	[Theory]
+	[InlineData("docs/Samples/helper.ps1")]
+	[InlineData("examples/helper.ps1")]
+	[InlineData("src/SampleUpload.ps1")]
+	[InlineData("src/exampleHelper.ps1")]
+	public void ASampleOrExampleNameDemotesToLowWithTheSampleReason(string path)
+	{
+		ImmutableArray<RecognizedConstruct> constructs = new PowerShellRecognitionHarness().Recognize(
+			"Invoke-RestMethod -Uri $uri -Credential $c -Authentication Basic",
+			path);
+
+		Assert.Single(constructs);
+		Assert.Equal(ConfidenceLevel.Low, constructs[0].Level);
+		Assert.Equal(LowConfidenceReasons.DemotedSampleFile, constructs[0].LowReasons);
+		Assert.False(constructs[0].TestCode, path);
+	}
+
+	[Theory]
+	[InlineData("src/Module.generated.ps1")]
+	[InlineData("src/Module.g.ps1")]
+	public void AGeneratedFileNameDemotesToLowWithTheGeneratedReason(string path)
+	{
+		ImmutableArray<RecognizedConstruct> constructs = new PowerShellRecognitionHarness().Recognize(
+			"Invoke-RestMethod -Uri $uri -Credential $c -Authentication Basic",
+			path);
+
+		Assert.Single(constructs);
+		Assert.Equal(ConfidenceLevel.Low, constructs[0].Level);
+		Assert.Equal(LowConfidenceReasons.DemotedGeneratedFile, constructs[0].LowReasons);
+		Assert.False(constructs[0].TestCode, path);
 	}
 
 	[Theory]
@@ -907,7 +949,7 @@ public sealed class PowerShellAnalyzerTests
 			""";
 		PowerShellRecognitionHarness harness = new();
 
-		Assert.Equal(ConfidenceLevel.Low, harness.Recognize(pester).Single().Level);
+		Assert.Equal(ConfidenceLevel.Medium, harness.Recognize(pester).Single().Level);
 		Assert.Equal(ConfidenceLevel.High, harness.Recognize(inString).Single().Level);
 	}
 

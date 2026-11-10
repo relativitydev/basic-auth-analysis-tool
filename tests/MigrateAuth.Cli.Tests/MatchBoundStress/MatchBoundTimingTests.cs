@@ -84,9 +84,10 @@ public sealed class MatchBoundTimingTests
 	public void NoTerminatingBenignStressShapeReachesTheMatchBoundAndTheFiguresAreRecorded()
 	{
 		CSharpRecognitionHarness harness = new();
+		bool tableRequested = MatchBoundTimingHarness.TimingTableIsRequested(REPORT_PATH_VARIABLE_NAME);
 		ImmutableArray<MatchBoundShapeTiming> timings =
 		[
-			.. MatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(harness, shape))
+			.. MatchBoundStressSet.Build().Select(shape => MatchBoundTimingHarness.Measure(harness, shape, tableRequested))
 		];
 
 		string report = MatchBoundTimingHarness.Describe(timings, DECLARED_SAFETY_MULTIPLE, ROUNDING_STEP_IN_MILLISECONDS);

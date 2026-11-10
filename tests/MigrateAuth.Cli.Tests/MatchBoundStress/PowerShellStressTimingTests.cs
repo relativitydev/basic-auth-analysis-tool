@@ -24,9 +24,11 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// it; that every flow signal terminates and agrees with its interpreted form; and that the source-generated and the interpreted form of every
 /// detection rule and flow signal agree on a slice of every shape. The multiple, the figures and the bound they would derive belong to the match-bound timing tests, not
 /// to this test: a test that failed on a fast machine for a statement about a slower one would assert nothing.
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
 [Collection(TimingSensitiveStressCollection.NAME)]
-public sealed class PowerShellStressTests
+public sealed class PowerShellStressTimingTests
 {
 	/// <summary>The interpreted form is slower, so the agreement is checked on this many characters of every shape, cut at a line end.</summary>
 	private const int AGREEMENT_SLICE_IN_CHARACTERS = 160_000;
@@ -36,7 +38,7 @@ public sealed class PowerShellStressTests
 
 	private readonly ITestOutputHelper _output;
 
-	public PowerShellStressTests(ITestOutputHelper output)
+	public PowerShellStressTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}

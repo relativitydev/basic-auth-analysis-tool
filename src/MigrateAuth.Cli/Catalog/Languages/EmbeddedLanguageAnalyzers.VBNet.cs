@@ -132,11 +132,12 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 	private const string _ANCHOR_TO_BASE64_STRING = "ToBase64String";
 	private const string _ANCHOR_WITH_BASIC_AUTH = "WithBasicAuth";
 	private const string _ANCHOR_IMPORT_API = "ImportAPI";
-	private const string _ANCHOR_RELATIVITY_USERNAME = "RelativityUsername";
-	private const string _ANCHOR_RELATIVITY_PASSWORD = "RelativityPassword";
+	private const string _ANCHOR_SERVICE_USERNAME = "RelativityUsername";
+	private const string _ANCHOR_SERVICE_PASSWORD = "RelativityPassword";
 	private const string _ANCHOR_CREATE_OBJECT = "CreateObject";
 	private const string _ANCHOR_DOWNLOAD_FILE = "DownloadFile";
 	private const string _ANCHOR_UPLOAD_FILE = "UploadFile";
+	private const string _ANCHOR_AUTHENTICATION_HEADER_VALUE = "AuthenticationHeaderValue";
 
 	public LexicalProfile LexicalProfile { get; } = BuildLexicalProfile();
 
@@ -479,65 +480,65 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 	{
 		FrozenSet<FileNameSignal> signals = new[]
 		{
-			FileName(FileNameMatch.Suffix, _TESTS_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _DOTTED_TEST_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _SPEC_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _DESIGNER_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _SHORT_GENERATED_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _GENERATED_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _FAKE_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _MOCK_FILE_SUFFIX),
-			FileName(FileNameMatch.Suffix, _STUB_FILE_SUFFIX),
-			FileName(FileNameMatch.Prefix, _FAKE_FILE_PREFIX),
-			FileName(FileNameMatch.Prefix, _MOCK_FILE_PREFIX),
-			FileName(FileNameMatch.Prefix, _STUB_FILE_PREFIX),
-			FileName(FileNameMatch.Prefix, _SAMPLE_FILE_PREFIX),
-			FileName(FileNameMatch.Prefix, _EXAMPLE_FILE_PREFIX)
+			FileName(FileNameMatch.Suffix, _TESTS_FILE_SUFFIX, DemotionKind.Test),
+			FileName(FileNameMatch.Suffix, _DOTTED_TEST_FILE_SUFFIX, DemotionKind.Test),
+			FileName(FileNameMatch.Suffix, _SPEC_FILE_SUFFIX, DemotionKind.Test),
+			FileName(FileNameMatch.Suffix, _DESIGNER_FILE_SUFFIX, DemotionKind.Generated),
+			FileName(FileNameMatch.Suffix, _SHORT_GENERATED_FILE_SUFFIX, DemotionKind.Generated),
+			FileName(FileNameMatch.Suffix, _GENERATED_FILE_SUFFIX, DemotionKind.Generated),
+			FileName(FileNameMatch.Suffix, _FAKE_FILE_SUFFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Suffix, _MOCK_FILE_SUFFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Suffix, _STUB_FILE_SUFFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Prefix, _FAKE_FILE_PREFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Prefix, _MOCK_FILE_PREFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Prefix, _STUB_FILE_PREFIX, DemotionKind.Mock),
+			FileName(FileNameMatch.Prefix, _SAMPLE_FILE_PREFIX, DemotionKind.Sample),
+			FileName(FileNameMatch.Prefix, _EXAMPLE_FILE_PREFIX, DemotionKind.Sample)
 		}.ToFrozenSet();
 
 		return signals;
 	}
 
-	private static FileNameSignal FileName(FileNameMatch match, string text)
+	private static FileNameSignal FileName(FileNameMatch match, string text, DemotionKind kind)
 	{
-		return new FileNameSignal { Match = match, Text = text, Sensitivity = CaseSensitivity.Insensitive };
+		return new FileNameSignal { Match = match, Text = text, Sensitivity = CaseSensitivity.Insensitive, Kind = kind };
 	}
 
 	private static FrozenSet<FolderNameSignal> BuildFolderNameSignals()
 	{
 		FrozenSet<FolderNameSignal> signals = new[]
 		{
-			NamedFolder(_TEST_FOLDER_NAME),
-			NamedFolder(_TESTS_FOLDER_NAME),
-			NamedFolder(_SPEC_FOLDER_NAME),
-			NamedFolder(_FIXTURES_FOLDER_NAME),
-			NamedFolder(_SAMPLE_FOLDER_NAME),
-			NamedFolder(_SAMPLES_FOLDER_NAME),
-			NamedFolder(_EXAMPLE_FOLDER_NAME),
-			NamedFolder(_EXAMPLES_FOLDER_NAME),
-			NamedFolder(_SERVICE_REFERENCES_FOLDER_NAME),
-			NamedFolder(_WEB_REFERENCES_FOLDER_NAME),
-			new FolderNameSignal { FolderName = _VENDOR_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
-			new FolderNameSignal { FolderName = _THIRD_PARTY_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
-			new FolderNameSignal { FolderName = _TEST_FOLDER_SUFFIX_TEST, Match = FolderNameMatch.Suffix, Sensitivity = CaseSensitivity.Insensitive },
-			new FolderNameSignal { FolderName = _TEST_FOLDER_SUFFIX_TESTS, Match = FolderNameMatch.Suffix, Sensitivity = CaseSensitivity.Insensitive }
+			NamedFolder(_TEST_FOLDER_NAME, DemotionKind.Test),
+			NamedFolder(_TESTS_FOLDER_NAME, DemotionKind.Test),
+			NamedFolder(_SPEC_FOLDER_NAME, DemotionKind.Test),
+			NamedFolder(_FIXTURES_FOLDER_NAME, DemotionKind.Test),
+			NamedFolder(_SAMPLE_FOLDER_NAME, DemotionKind.Sample),
+			NamedFolder(_SAMPLES_FOLDER_NAME, DemotionKind.Sample),
+			NamedFolder(_EXAMPLE_FOLDER_NAME, DemotionKind.Sample),
+			NamedFolder(_EXAMPLES_FOLDER_NAME, DemotionKind.Sample),
+			NamedFolder(_SERVICE_REFERENCES_FOLDER_NAME, DemotionKind.Generated),
+			NamedFolder(_WEB_REFERENCES_FOLDER_NAME, DemotionKind.Generated),
+			new FolderNameSignal { FolderName = _VENDOR_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored },
+			new FolderNameSignal { FolderName = _THIRD_PARTY_FOLDER_NAME, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_SUFFIX_TEST, Match = FolderNameMatch.Suffix, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FolderNameSignal { FolderName = _TEST_FOLDER_SUFFIX_TESTS, Match = FolderNameMatch.Suffix, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test }
 		}.ToFrozenSet();
 
 		return signals;
 	}
 
-	private static FolderNameSignal NamedFolder(string folderName)
+	private static FolderNameSignal NamedFolder(string folderName, DemotionKind kind)
 	{
-		return new FolderNameSignal { FolderName = folderName, Sensitivity = CaseSensitivity.Insensitive };
+		return new FolderNameSignal { FolderName = folderName, Sensitivity = CaseSensitivity.Insensitive, Kind = kind };
 	}
 
 	private static ImmutableArray<ContentMarker> BuildContentMarkers()
 	{
 		ImmutableArray<ContentMarker> markers =
 		[
-			new ContentMarker { Expression = VBNetPatternExpressions.GeneratedHeaderContentMarker(), Zone = ContentMarkerZone.AnyZone },
-			new ContentMarker { Expression = VBNetPatternExpressions.GeneratedCodeAttributeContentMarker(), Zone = ContentMarkerZone.CodeOnly },
-			new ContentMarker { Expression = VBNetPatternExpressions.TestAttributeContentMarker(), Zone = ContentMarkerZone.CodeOnly }
+			new ContentMarker { Expression = VBNetPatternExpressions.GeneratedHeaderContentMarker(), Zone = ContentMarkerZone.AnyZone, Kind = DemotionKind.Generated },
+			new ContentMarker { Expression = VBNetPatternExpressions.GeneratedCodeAttributeContentMarker(), Zone = ContentMarkerZone.CodeOnly, Kind = DemotionKind.Generated },
+			new ContentMarker { Expression = VBNetPatternExpressions.TestAttributeContentMarker(), Zone = ContentMarkerZone.CodeOnly, Kind = DemotionKind.Test }
 		];
 
 		return markers;
@@ -548,8 +549,7 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 	// ------------------------------------------------------------------------------------------
 
 	/// <summary>
-	/// The eleven anchors, all declared <c>Insensitive</c> (VB.NET writes <c>credential</c> as often as <c>Credential</c>): every class brings its own.
-	/// <c>Basic</c> is deliberately not an anchor, and neither are <c>UserName</c> and <c>Base64</c>.
+	/// The twelve anchors, all declared <c>Insensitive</c>: every class brings its own. <c>Basic</c>, <c>UserName</c> and <c>Base64</c> are not anchors.
 	/// </summary>
 	private static CandidateSelectionAndRecommendation BuildCandidateSelectionAndRecommendation()
 	{
@@ -563,11 +563,12 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 				InsensitiveAnchor(_ANCHOR_TO_BASE64_STRING),
 				InsensitiveAnchor(_ANCHOR_WITH_BASIC_AUTH),
 				InsensitiveAnchor(_ANCHOR_IMPORT_API),
-				InsensitiveAnchor(_ANCHOR_RELATIVITY_USERNAME),
-				InsensitiveAnchor(_ANCHOR_RELATIVITY_PASSWORD),
+				InsensitiveAnchor(_ANCHOR_SERVICE_USERNAME),
+				InsensitiveAnchor(_ANCHOR_SERVICE_PASSWORD),
 				InsensitiveAnchor(_ANCHOR_CREATE_OBJECT),
 				InsensitiveAnchor(_ANCHOR_DOWNLOAD_FILE),
-				InsensitiveAnchor(_ANCHOR_UPLOAD_FILE)
+				InsensitiveAnchor(_ANCHOR_UPLOAD_FILE),
+				InsensitiveAnchor(_ANCHOR_AUTHENTICATION_HEADER_VALUE)
 			}.ToFrozenSet(),
 			TemplateProvider = ProvideTemplate,
 			FlowSignals = VBNetFlowSignalDeclarations.Build(),

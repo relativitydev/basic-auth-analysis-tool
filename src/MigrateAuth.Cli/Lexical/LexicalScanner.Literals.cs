@@ -27,7 +27,8 @@ public sealed partial class LexicalScanner
 			Candidate = candidate,
 			ConstructStart = position,
 			OpeningStart = position + prefixLength,
-			Depth = region.Depth
+			Depth = region.Depth,
+			Region = region
 		};
 
 		LiteralOccurrence? occurrence = PrefixStandsHere(context.Text, attempt)
@@ -38,11 +39,66 @@ public sealed partial class LexicalScanner
 
 		if (occurrence is not null)
 		{
-			context.Mark(position, occurrence.BodyStart - position, LexicalZone.Delimiter);
-			next = ScanLiteralBody(context, occurrence);
+			LiteralOccurrence read = WithTheExecutedReading(context, candidate, occurrence);
+
+			context.Mark(position, read.BodyStart - position, LexicalZone.Delimiter);
+			next = read.DefersItsBody ? DeferTheBody(context, region, read) : ScanLiteralBody(context, read);
 		}
 
 		return next;
+	}
+
+	/// <summary>
+	/// Only the opening was marked. The body waits for the line feed that ends this line in the region
+	/// that holds the opening (the file's own code, or the interior of a hole), and the rest of the line is
+	/// scanned as code, so a further opening on it queues behind this one.
+	/// </summary>
+	private static int DeferTheBody(ScanContext context, CodeRegion region, LiteralOccurrence occurrence)
+	{
+		if (region.IsOutermost)
+		{
+			context.DeferTheBodyOf(occurrence);
+		}
+		else
+		{
+			region.State!.DeferTheBodyOf(occurrence);
+		}
+
+		return occurrence.BodyStart;
+	}
+
+	/// <summary>
+	/// THE DRAIN, OF ONE REGION'S QUEUE. Every pending body of the region is taken before the first is
+	/// read. Each is read in order by <see cref="ScanLiteralBody"/> unchanged, the first starting after
+	/// the line feed that ended the opening line and each next after the line feed that ends the
+	/// previous terminator line. The region's walk resumes at the line feed after the last terminator, so
+	/// a hole continues after its here-document. An abandonment during a drain stops it. A hole that
+	/// closes before its line ends hands its pending openings to the region that holds the literal (see
+	/// <see cref="HandTheLeftOverBodiesToTheHoldingRegion"/>), whose next drain reads their bodies.
+	/// </summary>
+	private int DrainThePendingBodies(ScanContext context, CodeRegion region, int lineFeedPosition)
+	{
+		List<LiteralOccurrence> pending = region.IsOutermost
+			? context.DequeueEveryPendingBody()
+			: region.State!.DequeueEveryPendingBody();
+		int bodyStart = lineFeedPosition + 1;
+		int resumeAt = lineFeedPosition;
+
+		foreach (LiteralOccurrence occurrence in pending)
+		{
+			if (!context.IsAbandoned)
+			{
+				if (region.IsOutermost)
+				{
+					context.OutermostConstructOpening = occurrence.OpeningPosition;
+				}
+
+				resumeAt = ScanLiteralBody(context, occurrence with { BodyStart = Math.Min(bodyStart, context.Text.Length) });
+				bodyStart = resumeAt + 1;
+			}
+		}
+
+		return resumeAt;
 	}
 
 	/// <summary>
@@ -86,7 +142,8 @@ public sealed partial class LexicalScanner
 				MinimumClosingLength = MinimumClosingLengthFor(rule, openingLength),
 				EscapeCharacter = EffectiveEscapeCharacter(rule, attempt.Candidate.Prefix),
 				Interpolates = DeclaresAnInterpolationHole(rule),
-				Depth = attempt.Depth
+				Depth = attempt.Depth,
+				Region = attempt.Region
 			};
 		}
 
@@ -125,23 +182,103 @@ public sealed partial class LexicalScanner
 		string text = context.Text;
 
 		Match? opening = MatchesAt(text, attempt.OpeningStart, rule.Opening, _delimiterComparison)
-			? MatchAnchored(context, capturedTerminator.OpeningExpression, attempt.OpeningStart)
+			? MatchAnchored(context, capturedTerminator.OpeningExpression, attempt.OpeningStart, EndOfTheOpeningWindow(context, attempt.OpeningStart))
 			: null;
 
 		string closing = opening is null
 			? string.Empty
-			: opening.Groups[capturedTerminator.TerminatorCaptureGroupName].Value;
+			: EffectiveTerminator(opening, capturedTerminator);
 
 		LiteralOccurrence? occurrence = null;
 
 		if (opening is not null
-			&& closing.Length > 0
-			&& OpeningGatesHold(context, attempt, attempt.OpeningStart + opening.Length))
+			&& (closing.Length > 0 || AdmitsAnEmptyTerminator(rule))
+			&& OpeningGatesHold(context, attempt, attempt.OpeningStart + opening.Length)
+			&& AdmitsTheBodyStart(context, attempt, capturedTerminator))
 		{
 			occurrence = BuildACapturedTerminatorOccurrence(attempt, capturedTerminator, opening, closing);
 		}
 
 		return occurrence;
+	}
+
+	/// <summary>
+	/// The terminator word as the shell reads it: every capture of the group, in order, joined. A word quoted
+	/// in pieces (<c>E"O"F</c>) is captured piece by piece and its quotes are not part of any piece, so the join
+	/// is the word after quote removal. A group captured once is read as its value.
+	/// </summary>
+	private static string EffectiveTerminator(Match opening, CapturedTerminator capturedTerminator)
+	{
+		Group terminatorGroup = opening.Groups[capturedTerminator.TerminatorCaptureGroupName];
+		Dictionary<int, (int Length, Func<string, string> Decode)> decodedParts = FindTheDecodedParts(opening, capturedTerminator);
+		string terminator = terminatorGroup.Captures.Count > 1 || decodedParts.Count > 0
+			? string.Concat(terminatorGroup.Captures.Select(part => DecodeAPart(part, decodedParts)))
+			: terminatorGroup.Value;
+
+		return terminator;
+	}
+
+	/// <summary>
+	/// The parts of the word that a decoding group captured, by where each starts, with the decoder of its group. A
+	/// part is decoded only if its capture spans exactly the decoding group's.
+	/// </summary>
+	private static Dictionary<int, (int Length, Func<string, string> Decode)> FindTheDecodedParts(Match opening, CapturedTerminator capturedTerminator)
+	{
+		Dictionary<int, (int Length, Func<string, string> Decode)> parts = [];
+		(string? Name, Func<string, string> Decode)[] decodings =
+		[
+			(capturedTerminator.AnsiCQuotedCaptureGroupName, AnsiCEscapes.Decode),
+			(capturedTerminator.DoubleQuotedCaptureGroupName, DoubleQuoteEscapes.Decode)
+		];
+
+		foreach ((string? name, Func<string, string> decode) in decodings)
+		{
+			IEnumerable<Capture> captures = name is null ? [] : opening.Groups[name].Captures;
+
+			foreach (Capture capture in captures)
+			{
+				parts[capture.Index] = (capture.Length, decode);
+			}
+		}
+
+		return parts;
+	}
+
+	private static string DecodeAPart(Capture part, Dictionary<int, (int Length, Func<string, string> Decode)> decodedParts)
+	{
+		return decodedParts.TryGetValue(part.Index, out (int Length, Func<string, string> Decode) decoded) && decoded.Length == part.Length
+			? decoded.Decode(part.Value)
+			: part.Value;
+	}
+
+	/// <summary>
+	/// An empty captured terminator (<c>&lt;&lt;''</c>) is admitted only under the two whole-line
+	/// closings, where it closes at the first empty line. Under every other anchoring a length-zero
+	/// closing is refused.
+	/// </summary>
+	private static bool AdmitsAnEmptyTerminator(QuoteRule rule)
+	{
+		bool admits = rule.ClosingAnchoring is PositionalAnchoring.WholeLine or PositionalAnchoring.WholeLineAfterLeadingTabs;
+
+		return admits;
+	}
+
+	/// <summary>
+	/// A deferred body start is refused, and the opening stays code, where the region's queue already holds
+	/// its ceiling and inside the arithmetic context, where <c>&lt;&lt;</c> is an operator. An opening inside
+	/// an interpolation hole is read: it waits in the hole's own queue.
+	/// </summary>
+	private static bool AdmitsTheBodyStart(ScanContext context, OpeningAttempt attempt, CapturedTerminator capturedTerminator)
+	{
+		CodeRegion region = attempt.Region;
+		bool queueIsFull = region.IsOutermost
+			? context.PendingBodiesAreFull
+			: region.State?.PendingBodiesAreFull is true;
+		bool admits =
+			capturedTerminator.BodyStart is not HereDocumentBodyStart.AfterTheOpeningLine
+			|| (!queueIsFull && region.State?.IsInArithmetic is not true);
+
+		return admits;
 	}
 
 	private static LiteralOccurrence BuildACapturedTerminatorOccurrence(
@@ -154,6 +291,8 @@ public sealed partial class LexicalScanner
 		bool thisOccurrenceIsQuoted =
 			capturedTerminator.NonInterpolatingQuoteCaptureGroupName is string nonInterpolatingGroup
 			&& opening.Groups[nonInterpolatingGroup].Success;
+		char? escapeCharacter = EffectiveEscapeCharacter(rule, attempt.Candidate.Prefix);
+		bool defersItsBody = capturedTerminator.BodyStart is HereDocumentBodyStart.AfterTheOpeningLine;
 
 		return new LiteralOccurrence
 		{
@@ -162,9 +301,12 @@ public sealed partial class LexicalScanner
 			BodyStart = attempt.OpeningStart + opening.Length,
 			Closing = closing,
 			MinimumClosingLength = closing.Length,
-			EscapeCharacter = EffectiveEscapeCharacter(rule, attempt.Candidate.Prefix),
+			EscapeCharacter = escapeCharacter,
 			Interpolates = DeclaresAnInterpolationHole(rule) && !thisOccurrenceIsQuoted,
-			Depth = attempt.Depth
+			Depth = attempt.Depth,
+			Region = attempt.Region,
+			DefersItsBody = defersItsBody,
+			JoinsContinuedLines = defersItsBody && !thisOccurrenceIsQuoted && escapeCharacter is not null
 		};
 	}
 
@@ -233,7 +375,9 @@ public sealed partial class LexicalScanner
 	/// <summary>
 	/// The literal's body, from the end of its opening to whatever ends it. Reaching the end of
 	/// the file with it still open is an unterminated construct: the mask stands up to the
-	/// literal's OPENING position and is declared undefined after it.
+	/// literal's OPENING position and is declared undefined after it. A deferred body (see
+	/// <see cref="HereDocumentBodyStart.AfterTheOpeningLine"/>) is read by this same method, from a
+	/// start the drain supplies after the line that holds its opening.
 	/// </summary>
 	private int ScanLiteralBody(ScanContext context, LiteralOccurrence occurrence)
 	{
@@ -252,6 +396,8 @@ public sealed partial class LexicalScanner
 				cursor.Position,
 				LexicalZone.StringBody);
 		}
+
+		ReadTheClosedBodyAsCodeIfItIsExecuted(context, occurrence, cursor);
 
 		return cursor.Position;
 	}
@@ -275,9 +421,11 @@ public sealed partial class LexicalScanner
 	{
 		bool handled =
 			TryStepInsideASuspendedSubRange(context, occurrence, cursor)
+			|| TryCloseOnAContinuedTerminatorLine(context, occurrence, cursor)
 			|| TryConsumeAnEscape(context, occurrence, cursor)
 			|| TryConsumeADoubledClosing(context, occurrence, cursor)
 			|| TryCloseTheLiteral(context, occurrence, cursor)
+			|| TryReadAnInlineExecutedContext(context, occurrence, cursor)
 			|| TryConsumeADoubledInterpolationOpening(context, occurrence, cursor)
 			|| TryOpenASuspendedSubRange(context, occurrence, cursor)
 			|| TryEnterAnInterpolationHole(context, occurrence, cursor)
@@ -448,17 +596,32 @@ public sealed partial class LexicalScanner
 
 	private bool TryCloseTheLiteral(ScanContext context, LiteralOccurrence occurrence, LiteralCursor cursor)
 	{
-		int length = MatchClosingLength(context, occurrence, cursor.Position);
-		bool closed = length > 0;
+		int length = occurrence.JoinsContinuedLines ? 0 : MatchClosingLength(context, occurrence, cursor.Position);
+		bool closed = length > 0 || (!occurrence.JoinsContinuedLines && ClosesOnAnEmptyTerminator(context, occurrence, cursor.Position));
 
 		if (closed)
 		{
+			cursor.BodyEnd = cursor.Position;
 			context.Mark(cursor.Position, length, LexicalZone.Delimiter);
 			cursor.Position += length;
 			cursor.Closed = true;
 		}
 
 		return closed;
+	}
+
+	/// <summary>
+	/// An empty captured terminator closes where its whole-line anchoring holds with nothing to match:
+	/// the first empty line, or under the tab-stripping form a line of tabs only. The cursor stays on
+	/// that line's line feed, which is code.
+	/// </summary>
+	private static bool ClosesOnAnEmptyTerminator(ScanContext context, LiteralOccurrence occurrence, int position)
+	{
+		bool closes =
+			occurrence.Closing.Length == 0
+			&& SatisfiesAnchoring(context.Text, position, position, occurrence.Rule.ClosingAnchoring);
+
+		return closes;
 	}
 
 	/// <summary>
@@ -471,7 +634,7 @@ public sealed partial class LexicalScanner
 		string text = context.Text;
 		int length = 0;
 
-		if (MatchesAt(text, position, occurrence.Closing, _delimiterComparison))
+		if (!ClosesOnNoLine(occurrence) && MatchesAt(text, position, occurrence.Closing, _delimiterComparison))
 		{
 			length = occurrence.Rule.DelimiterLength is DelimiterLength.VariableWithAtLeastEqualClosing
 				? RunLength(text, position, occurrence.Closing[0])
@@ -488,6 +651,118 @@ public sealed partial class LexicalScanner
 
 		return length;
 	}
+
+	/// <summary>
+	/// A terminator word that holds a line feed (<c>&lt;&lt;'E</c> newline <c>F'</c>) closes nothing: a shell
+	/// compares each line with the word, and no line holds a line feed, so such a here-document is read to
+	/// the end of the file, where the scan declares it unterminated at its opening.
+	/// </summary>
+	private static bool ClosesOnNoLine(LiteralOccurrence occurrence)
+	{
+		return occurrence.DefersItsBody && occurrence.Closing.Contains(_LINE_FEED);
+	}
+
+	/// <summary>
+	/// THE CLOSING OF AN UNQUOTED BODY, READ AS THE SHELL READS IT: BY LOGICAL LINES. Where the body is not
+	/// quoted, a shell removes every backslash-newline pair before it compares a line with the terminator, so a
+	/// terminator line is the text of a LOGICAL line with the pairs removed. A physical line that follows a pair is
+	/// the middle of a logical line and closes nothing (a body line <c>foo</c> then a backslash, newline and
+	/// <c>EOF</c> is the one line <c>fooEOF</c>), and a terminator written across a pair closes the body
+	/// (<c>EO</c>, a backslash, newline, <c>F</c>), as in <c>bash</c>. This step runs before the escape step, whose pair
+	/// consumption would otherwise hide a line that starts with a pair. A quoted body takes no pairs: a backslash
+	/// there is text, and the closing is the physical line's.
+	/// </summary>
+	private bool TryCloseOnAContinuedTerminatorLine(ScanContext context, LiteralOccurrence occurrence, LiteralCursor cursor)
+	{
+		ClosingSpan? span = occurrence.JoinsContinuedLines && BeginsALogicalLine(context.Text, occurrence, cursor.Position)
+			? MatchTheContinuedClosing(context.Text, occurrence, cursor.Position)
+			: null;
+
+		if (span is ClosingSpan closing)
+		{
+			cursor.BodyEnd = closing.WordStart;
+			context.Mark(cursor.Position, closing.WordStart - cursor.Position, LexicalZone.StringBody);
+			context.Mark(closing.WordStart, closing.End - closing.WordStart, LexicalZone.Delimiter);
+			cursor.Position = closing.End;
+			cursor.Closed = true;
+		}
+
+		return span is not null;
+	}
+
+	private static bool BeginsALogicalLine(string text, LiteralOccurrence occurrence, int position)
+	{
+		return position == occurrence.BodyStart
+			|| (position > 0 && text[position - _SINGLE_CHARACTER_LENGTH] == _LINE_FEED && !FollowsAnOddBackslashRun(text, position - _SINGLE_CHARACTER_LENGTH));
+	}
+
+	/// <summary>
+	/// The span of a terminator line that starts at the position, read through its backslash-newline pairs: the
+	/// leading tabs of a tab-stripping closing and the pairs among them, the word with a pair allowed before and
+	/// between its characters, and the pairs after it, up to a line feed or the end of the text.
+	/// </summary>
+	private ClosingSpan? MatchTheContinuedClosing(string text, LiteralOccurrence occurrence, int position)
+	{
+		char escape = occurrence.EscapeCharacter!.Value;
+		int cursor = position;
+
+		if (occurrence.Rule.ClosingAnchoring is PositionalAnchoring.WholeLineAfterLeadingTabs)
+		{
+			cursor = SkipLeadingTabsAndPairs(text, escape, cursor);
+		}
+
+		cursor = SkipContinuationPairs(text, escape, cursor);
+
+		int wordStart = cursor;
+		bool matches = true;
+
+		foreach (char wordCharacter in occurrence.Closing)
+		{
+			cursor = SkipContinuationPairs(text, escape, cursor);
+			matches = matches
+				&& cursor < text.Length
+				&& text.AsSpan(cursor, _SINGLE_CHARACTER_LENGTH).Equals(new ReadOnlySpan<char>(in wordCharacter), _delimiterComparison);
+			cursor += matches ? _SINGLE_CHARACTER_LENGTH : 0;
+		}
+
+		cursor = matches ? SkipContinuationPairs(text, escape, cursor) : cursor;
+
+		return matches && EndsTheLine(text, cursor) ? new ClosingSpan(wordStart, cursor) : null;
+	}
+
+	private static int SkipLeadingTabsAndPairs(string text, char escape, int position)
+	{
+		int cursor = position;
+
+		while (cursor < text.Length && (text[cursor] == _TAB || StartsAContinuationPair(text, escape, cursor)))
+		{
+			cursor += text[cursor] == _TAB ? _SINGLE_CHARACTER_LENGTH : _ESCAPE_PAIR_LENGTH;
+		}
+
+		return cursor;
+	}
+
+	private static int SkipContinuationPairs(string text, char escape, int position)
+	{
+		int cursor = position;
+
+		while (StartsAContinuationPair(text, escape, cursor))
+		{
+			cursor += _ESCAPE_PAIR_LENGTH;
+		}
+
+		return cursor;
+	}
+
+	private static bool StartsAContinuationPair(string text, char escape, int position)
+	{
+		return position + _SINGLE_CHARACTER_LENGTH < text.Length
+			&& text[position] == escape
+			&& text[position + _SINGLE_CHARACTER_LENGTH] == _LINE_FEED;
+	}
+
+	/// <summary>Where a terminator line's word starts and where the line ends, both as positions in the text.</summary>
+	private readonly record struct ClosingSpan(int WordStart, int End);
 
 	/// <summary>
 	/// A raw line feed inside a literal. Under <see cref="NewlinePolicy.Allowed"/> it is content;
@@ -557,6 +832,7 @@ public sealed partial class LexicalScanner
 			RegionResult hole = ScanABracketedHoleInterior(context, occurrence, cursor.Position + openingLength);
 
 			AbandonAnUnclosedHole(context, occurrence, cursor, hole);
+			HandTheLeftOverBodiesToTheHoldingRegion(context, occurrence, hole);
 			cursor.Position = hole.Position;
 		}
 
@@ -599,6 +875,32 @@ public sealed partial class LexicalScanner
 		});
 	}
 
+	/// <summary>
+	/// A hole that closes on the line of its here-document openings (a quoted substitution that holds <c>cat</c> and <c>&lt;&lt;EOF</c> and closes on the same line) has their bodies read as a shell (<c>bash</c> 5.2) reads them: from the lines after the line that ends the command that holds the substitution, and reads them
+	/// BEFORE the bodies of the openings that came earlier on that command, so they go to the front of the queue of
+	/// the region that walked the literal, which drains them at its own line feed. The queue's cap holds: an opening
+	/// past it is left as code, as at its own opening.
+	/// </summary>
+	private static void HandTheLeftOverBodiesToTheHoldingRegion(ScanContext context, LiteralOccurrence occurrence, RegionResult hole)
+	{
+		CodeRegion holder = occurrence.Region;
+
+		foreach (LiteralOccurrence waiting in hole.LeftOverBodies ?? [])
+		{
+			bool isFull = holder.IsOutermost ? context.PendingBodiesAreFull : holder.State?.PendingBodiesAreFull is not false;
+			LiteralOccurrence handedOver = waiting with { Region = holder };
+
+			if (!isFull && holder.IsOutermost)
+			{
+				context.DeferTheBodyOfAClosedHole(handedOver);
+			}
+			else if (!isFull)
+			{
+				holder.State!.DeferTheBodyOfAClosedHole(handedOver);
+			}
+		}
+	}
+
 	private static void AbandonAnUnclosedHole(
 		ScanContext context,
 		LiteralOccurrence occurrence,
@@ -634,7 +936,7 @@ public sealed partial class LexicalScanner
 		QuoteRule rule = occurrence.Rule;
 		int openingLength = rule.InterpolationOpening!.Length;
 		int identifierStart = cursor.Position + openingLength;
-		Match? identifier = MatchAnchored(context, rule.InterpolationIdentifierExtent!, identifierStart);
+		Match? identifier = MatchAnchored(context, rule.InterpolationIdentifierExtent!, identifierStart, EndOfLineFrom(context.Text, identifierStart));
 		bool entered = identifier is not null && identifier.Length > 0;
 
 		if (entered && !RefusesToDescend(context, occurrence.Depth + 1, cursor.Position))
@@ -668,6 +970,9 @@ public sealed partial class LexicalScanner
 
 		/// <summary>Interpolation holes already open around this literal.</summary>
 		public required int Depth { get; init; }
+
+		/// <summary>The region being walked, which owns the queue and the arithmetic count an opening is asked against.</summary>
+		public required CodeRegion Region { get; init; }
 	}
 
 	/// <summary>
@@ -695,6 +1000,21 @@ public sealed partial class LexicalScanner
 		public required bool Interpolates { get; init; }
 
 		public required int Depth { get; init; }
+
+		/// <summary>The region whose walk met the opening: the one whose queue held its body, and the one a hole's leftover bodies go back to.</summary>
+		public CodeRegion Region { get; init; }
+
+		/// <summary>Whether the body starts after the line that holds the opening, and waits for it.</summary>
+		public bool DefersItsBody { get; init; }
+
+		/// <summary>
+		/// Whether the body is read by logical lines: a deferred body that is not quoted, whose backslash-newline
+		/// pairs the shell removes before it compares a line with the terminator.
+		/// </summary>
+		public bool JoinsContinuedLines { get; init; }
+
+		/// <summary>Whether the closed body is read again as code, and the escapes its outer quoting removes.</summary>
+		public ExecutedReading Executed { get; init; }
 	}
 
 	/// <summary>Where the body scan has reached, and the two things that end it.</summary>
@@ -704,6 +1024,9 @@ public sealed partial class LexicalScanner
 
 		/// <summary>Whether a suspended sub-range is currently open.</summary>
 		public bool Suspended { get; set; }
+
+		/// <summary>Where the body ended, when the literal closed on its own closing and not on a raw newline, or a negative number.</summary>
+		public int BodyEnd { get; set; } = _NO_POSITION;
 
 		public bool Closed { get; set; }
 	}

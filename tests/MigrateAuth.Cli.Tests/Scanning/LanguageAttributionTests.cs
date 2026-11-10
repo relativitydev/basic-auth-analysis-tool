@@ -160,7 +160,7 @@ public sealed class LanguageAttributionTests
 		Assert.Null(attributed.Analyzer);
 	}
 
-	/// <summary>An extensionless file's shebang, read through the shared engine's own table.</summary>
+	/// <summary>An extensionless file's shebang, read through the shared engine's own table, names a language whose analyzer is registered.</summary>
 	[Fact]
 	public void ABaseTableShebangNamesAnExtensionlessFile()
 	{
@@ -172,7 +172,8 @@ public sealed class LanguageAttributionTests
 			"#!/usr/bin/env bash");
 
 		Assert.Equal(AssessedLanguages.CanonicalName(AssessedLanguage.Shell), attributed.LanguageName);
-		Assert.False(attributed.IsRecognized);
+		Assert.True(attributed.IsRecognized);
+		Assert.NotNull(attributed.Analyzer);
 	}
 
 	/// <summary>

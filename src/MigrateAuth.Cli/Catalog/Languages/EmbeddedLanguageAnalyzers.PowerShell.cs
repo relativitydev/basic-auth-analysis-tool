@@ -817,11 +817,11 @@ file sealed class PowerShellAnalyzer : ILanguageAnalyzer
 	{
 		FrozenSet<FileNameSignal> signals = new[]
 		{
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX, Sensitivity = CaseSensitivity.Insensitive },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_GENERATED, Sensitivity = CaseSensitivity.Insensitive },
-			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_SHORT, Sensitivity = CaseSensitivity.Insensitive },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_SAMPLE, Sensitivity = CaseSensitivity.Insensitive },
-			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_EXAMPLE, Sensitivity = CaseSensitivity.Insensitive }
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _TEST_FILE_SUFFIX, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Test },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_GENERATED, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Generated },
+			new FileNameSignal { Match = FileNameMatch.Suffix, Text = _GENERATED_FILE_SUFFIX_SHORT, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Generated },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_SAMPLE, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample },
+			new FileNameSignal { Match = FileNameMatch.Prefix, Text = _SAMPLE_FILE_PREFIX_EXAMPLE, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Sample }
 		}.ToFrozenSet();
 
 		return signals;
@@ -831,26 +831,26 @@ file sealed class PowerShellAnalyzer : ILanguageAnalyzer
 	{
 		FrozenSet<FolderNameSignal> signals = new[]
 		{
-			NamedFolder(_TEST_FOLDER_NAME_TEST),
-			NamedFolder(_TEST_FOLDER_NAME_TESTS),
-			NamedFolder(_MOCK_FOLDER_NAME_MOCK),
-			NamedFolder(_MOCK_FOLDER_NAME_MOCKS),
-			NamedFolder(_FIXTURE_FOLDER_NAME_FIXTURE),
-			NamedFolder(_FIXTURE_FOLDER_NAME_FIXTURES),
-			NamedFolder(_SAMPLE_FOLDER_NAME_SAMPLE),
-			NamedFolder(_SAMPLE_FOLDER_NAME_SAMPLES),
-			NamedFolder(_SAMPLE_FOLDER_NAME_EXAMPLE),
-			NamedFolder(_SAMPLE_FOLDER_NAME_EXAMPLES),
-			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_VENDOR, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true },
-			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_THIRD_PARTY, Sensitivity = CaseSensitivity.Insensitive, MarksVendoredCode = true }
+			NamedFolder(_TEST_FOLDER_NAME_TEST, DemotionKind.Test),
+			NamedFolder(_TEST_FOLDER_NAME_TESTS, DemotionKind.Test),
+			NamedFolder(_MOCK_FOLDER_NAME_MOCK, DemotionKind.Mock),
+			NamedFolder(_MOCK_FOLDER_NAME_MOCKS, DemotionKind.Mock),
+			NamedFolder(_FIXTURE_FOLDER_NAME_FIXTURE, DemotionKind.Test),
+			NamedFolder(_FIXTURE_FOLDER_NAME_FIXTURES, DemotionKind.Test),
+			NamedFolder(_SAMPLE_FOLDER_NAME_SAMPLE, DemotionKind.Sample),
+			NamedFolder(_SAMPLE_FOLDER_NAME_SAMPLES, DemotionKind.Sample),
+			NamedFolder(_SAMPLE_FOLDER_NAME_EXAMPLE, DemotionKind.Sample),
+			NamedFolder(_SAMPLE_FOLDER_NAME_EXAMPLES, DemotionKind.Sample),
+			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_VENDOR, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored },
+			new FolderNameSignal { FolderName = _VENDORED_FOLDER_NAME_THIRD_PARTY, Sensitivity = CaseSensitivity.Insensitive, Kind = DemotionKind.Vendored }
 		}.ToFrozenSet();
 
 		return signals;
 	}
 
-	private static FolderNameSignal NamedFolder(string folderName)
+	private static FolderNameSignal NamedFolder(string folderName, DemotionKind kind)
 	{
-		return new FolderNameSignal { FolderName = folderName, Sensitivity = CaseSensitivity.Insensitive };
+		return new FolderNameSignal { FolderName = folderName, Sensitivity = CaseSensitivity.Insensitive, Kind = kind };
 	}
 
 	private static ImmutableArray<ContentMarker> BuildContentMarkers()
@@ -860,12 +860,14 @@ file sealed class PowerShellAnalyzer : ILanguageAnalyzer
 			new ContentMarker
 			{
 				Expression = PowerShellPatternExpressions.GeneratedHeaderContentMarker(),
-				Zone = ContentMarkerZone.AnyZone
+				Zone = ContentMarkerZone.AnyZone,
+				Kind = DemotionKind.Generated
 			},
 			new ContentMarker
 			{
 				Expression = PowerShellPatternExpressions.PesterTestContentMarker(),
-				Zone = ContentMarkerZone.CodeOnly
+				Zone = ContentMarkerZone.CodeOnly,
+				Kind = DemotionKind.Test
 			}
 		];
 

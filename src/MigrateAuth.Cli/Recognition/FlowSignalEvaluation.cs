@@ -63,7 +63,10 @@ internal static class FlowSignalEvaluation
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(matchBoundWatch);
 
-		ImmutableArray<FlowSignal> signals = context.Analyzer.CandidateSelectionAndRecommendation.FlowSignals;
+		CandidateSelectionAndRecommendation element = context.Analyzer.CandidateSelectionAndRecommendation;
+		ImmutableArray<FlowSignal> signals = element.FlowSignals;
+		string? dialect = FileDialectResolution.Resolve(element.FileDialects, context.NormalizedText, context.Path.Value);
+		VariableReferenceIndex references = new(context.NormalizedText, context.Mask);
 		bool interactiveFires = false;
 		bool fixedFires = false;
 		bool completed = true;
@@ -77,7 +80,14 @@ internal static class FlowSignalEvaluation
 				break;
 			}
 
-			bool fires = SignalFires(signal, context, matchBoundWatch, out completed);
+			bool fires = false;
+
+			completed = true;
+
+			if (DialectAllows(signal, dialect))
+			{
+				fires = SignalFires(signal, context, matchBoundWatch, references, out completed);
+			}
 
 			// Polled after the signal's last attempt too, on the same terms a detection rule's own
 			// loop polls after its last match: a budget spent by this signal is a trip, whether or
@@ -123,24 +133,60 @@ internal static class FlowSignalEvaluation
 		FlowSignal signal,
 		FileRecognitionContext context,
 		MatchBoundWatch matchBoundWatch,
+		VariableReferenceIndex references,
 		out bool completed)
 	{
 		bool fires = false;
 		completed = true;
+		VariableUseTracking.VariableUseWalk walk = new(context, references, matchBoundWatch);
 		Match match = TimedRegexEvaluation.Match(matchBoundWatch, signal.Expression, context.NormalizedText);
 
-		while (match.Success && !fires)
+		while (completed && match.Success && !fires)
 		{
-			fires = AnchorIsAdmitted(signal, match, context.Mask);
+			fires = AnchorIsAdmitted(signal, match, context.Mask)
+				&& !IsSuppressedByVariableUse(signal, match, walk, out completed)
+				&& completed;
 
 			if (!fires)
 			{
-				completed = !matchBoundWatch.HasBeenExceeded();
+				completed = completed && !matchBoundWatch.HasBeenExceeded();
 				match = completed ? TimedRegexEvaluation.NextMatch(matchBoundWatch, match) : Match.Empty;
 			}
 		}
 
 		return fires;
+	}
+
+	/// <summary>
+	/// Whether a match that passed its anchor is dropped because the variable it names is later sent. A signal
+	/// that declares no <see cref="FlowSignal.VariableUse"/> is never suppressed.
+	/// </summary>
+	private static bool IsSuppressedByVariableUse(
+		FlowSignal signal,
+		Match match,
+		VariableUseTracking.VariableUseWalk walk,
+		out bool completed)
+	{
+		completed = true;
+
+		return signal.VariableUse is FlowSignalVariableUse use
+			&& VariableUseTracking.IsSent(use, match, walk, out completed);
+	}
+
+	/// <summary>
+	/// A signal is evaluated only in a dialect it is declared for: the include list is empty or holds the
+	/// file's dialect, and the exclude list does not hold it. A file with no dialect (the language declares
+	/// none) is outside every non-empty include list.
+	/// </summary>
+	private static bool DialectAllows(FlowSignal signal, string? dialect)
+	{
+		bool included = signal.Dialects.IsDefaultOrEmpty
+			|| (dialect is not null && signal.Dialects.Contains(dialect));
+		bool excluded = dialect is not null
+			&& !signal.ExcludedDialects.IsDefaultOrEmpty
+			&& signal.ExcludedDialects.Contains(dialect);
+
+		return included && !excluded;
 	}
 
 	private static bool AnchorIsAdmitted(FlowSignal signal, Match match, ZoneMask mask)

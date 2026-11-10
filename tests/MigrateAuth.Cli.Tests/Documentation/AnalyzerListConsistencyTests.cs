@@ -23,6 +23,8 @@ public sealed class AnalyzerListConsistencyTests
 	private const string _LANGUAGE_GROUP = "language";
 	private const string _LANGUAGE_LIST_PATTERN = "C# (and|or) (for )?PowerShell|C#, (and )?PowerShell|PowerShell (and|or) (for )?C#";
 	private const string _EARLIER_VERSION_PATTERN = "0\\.1\\.0-alpha|0\\.1\\.1-alpha|0\\.2\\.0-alpha|previous release|earlier release";
+	private const string _WHOLE_WORD_PATTERN_FORMAT = "(?<![A-Za-z0-9.]){0}(?![A-Za-z0-9])";
+	private const string _SHELL_HISTORY_PATTERN = "0\\.[123]\\.\\d+-alpha|previous release|earlier release";
 	private const string _PART_A_PREFIX = "part-a-";
 	private const string _PART_C_PREFIX = "part-c-";
 	private const string _FENCE_MARKER = "```";
@@ -85,13 +87,66 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		string stale = "This release analyzes C# and PowerShell.\n\nSee [Part A](part-a-csharp.md) and [Part A](part-a-powershell.md).";
 		string history = "The release 0.2.0-alpha analyzed C# and PowerShell.";
-		string current = "This release analyzes C#, PowerShell and VB.NET.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md).";
+		string current = "This release analyzes C#, PowerShell, VB.NET and Shell.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md).";
 
 		Assert.NotEmpty(LanguageListProblems("stale", stale));
 		Assert.NotEmpty(MissingLinks("stale", stale, "a"));
 		Assert.Empty(LanguageListProblems("history", history));
 		Assert.Empty(LanguageListProblems("current", current));
 		Assert.Empty(MissingLinks("current", current, "a"));
+	}
+
+	/// <summary>
+	/// A line that lists the analyzed languages names Shell as a whole word. The other check compares a language's name with the line as a substring, and the name of
+	/// Shell is a substring of the name of PowerShell, so a line that lists PowerShell passes it for Shell without naming Shell. A line that names an earlier release, 0.1.x
+	/// to 0.3.x, is history and is not held to the list.
+	/// </summary>
+	[Fact]
+	public void EveryLineThatListsTheAnalyzedLanguagesNamesShellAsAWholeWord()
+	{
+		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
+
+		foreach (string path in PublicDocuments.AllPublicMarkdownPaths())
+		{
+			problems.AddRange(ShellWholeWordProblems(Path.GetFileName(path), File.ReadAllText(path)));
+		}
+
+		Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+	}
+
+	/// <summary>The whole-word check fails on a line that lists PowerShell and not Shell, passes history and a complete list, shown on synthetic text.</summary>
+	[Fact]
+	public void TheWholeWordCheckReportsALineThatListsPowerShellAndNotShell()
+	{
+		string stale = "This release analyzes C#, PowerShell and VB.NET.";
+		string history = "The release 0.3.0-alpha analyzed C#, PowerShell and VB.NET.";
+		string current = "This release analyzes C#, PowerShell, VB.NET and Shell.";
+		string insidePowerShell = "This release analyzes C# and PowerShell.";
+
+		Assert.NotEmpty(ShellWholeWordProblems("stale", stale));
+		Assert.NotEmpty(ShellWholeWordProblems("inside", insidePowerShell));
+		Assert.Empty(ShellWholeWordProblems("history", history));
+		Assert.Empty(ShellWholeWordProblems("current", current));
+	}
+
+	private static ImmutableArray<string> ShellWholeWordProblems(string pageName, string text)
+	{
+		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
+		Regex wholeWord = new(string.Format(CultureInfo.InvariantCulture, _WHOLE_WORD_PATTERN_FORMAT, Regex.Escape(DocumentedLanguage.Shell.DisplayName)), RegexOptions.CultureInvariant);
+		Regex history = new(_SHELL_HISTORY_PATTERN, RegexOptions.CultureInvariant);
+		bool insideFence = false;
+
+		foreach (string line in text.Split('\n'))
+		{
+			insideFence ^= line.TrimStart().StartsWith(_FENCE_MARKER, StringComparison.Ordinal);
+
+			if (!insideFence && _languageList.IsMatch(line) && !history.IsMatch(line) && !wholeWord.IsMatch(line))
+			{
+				problems.Add($"{pageName} lists the analyzed languages without naming {DocumentedLanguage.Shell.DisplayName} as a word: {Excerpt(line)}");
+			}
+		}
+
+		return problems.ToImmutable();
 	}
 
 	private static bool IsAPerLanguagePart(string path)

@@ -26,7 +26,7 @@ public static class RecognitionEnginePolicy
 	/// so that the constant carries its unit in its name: the bound on the analyzer-expression
 	/// time of one file.
 	/// </summary>
-	public const int PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS = 22750;
+	public const int PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS = 15250;
 
 	/// <summary>
 	/// The bound itself. Read as a <see cref="TimeSpan"/> everywhere, so that a retuning changes

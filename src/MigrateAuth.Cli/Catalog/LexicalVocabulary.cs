@@ -43,7 +43,37 @@ public enum PositionalAnchoring
 	/// quote. Meant for an opening; a closing that must stand alone on its line is
 	/// <see cref="StartOfLine"/>.
 	/// </summary>
-	EndOfLineAfterOptionalBlanks = 3
+	EndOfLineAfterOptionalBlanks = 3,
+
+	/// <summary>
+	/// CLOSING ONLY. The closing starts at column zero and a line feed or the end of the file
+	/// follows it immediately, with no trailing blank: a here-document's terminator stands alone on
+	/// its line.
+	/// </summary>
+	WholeLine = 4,
+
+	/// <summary>
+	/// CLOSING ONLY. Only tab characters stand between the previous line feed (or the start of the
+	/// text) and the closing, and a line feed or the end of the file follows it: the tab-stripping
+	/// here-document's terminator.
+	/// </summary>
+	WholeLineAfterLeadingTabs = 5
+}
+
+/// <summary>
+/// Where a captured-terminator literal's body starts. A here-document's body begins on the line
+/// AFTER the one that holds its opening, so the rest of the opening line is code.
+/// </summary>
+public enum HereDocumentBodyStart
+{
+	/// <summary>The body starts right after the opening match. The default.</summary>
+	AfterTheOpening = 0,
+
+	/// <summary>
+	/// The body starts after the line feed that ends the opening line; the rest of that line is
+	/// scanned as code, and the openings met on it wait, in order, for their bodies.
+	/// </summary>
+	AfterTheOpeningLine = 1
 }
 
 /// <summary>
@@ -131,17 +161,139 @@ public sealed record CapturedTerminator
 {
 	/// <summary>
 	/// The opening expression, handed over already constructed. It carries the
-	/// group that captures the terminator token.
+	/// group that captures the terminator token. It is matched within the logical line that holds the
+	/// opening: a line feed after an odd run of backslashes continues the line, so an expression may consume
+	/// the backslash-newline pair, without capturing it, as a joiner inside the word
+	/// (<c>&lt;&lt;E\&lt;newline&gt;F</c> is the word <c>EF</c>, as the shell reads it).
 	/// </summary>
 	public required Regex OpeningExpression { get; init; }
 
+	/// <summary>
+	/// The group that captures the terminator word. The terminator is the CONCATENATION OF EVERY CAPTURE of
+	/// this group, in order, so an expression may capture each part of a word that is quoted in pieces (a
+	/// bare run, a single-quoted part, a double-quoted part, a backslash-escaped character) and the scanner
+	/// reads the effective word the shell reads, with the quoting removed. An expression that captures the
+	/// group once reads that one capture as the word.
+	/// </summary>
 	public required string TerminatorCaptureGroupName { get; init; }
+
+	/// <summary>
+	/// The group whose captures are ANSI-C quoted text (a shell's <c>$'...'</c>), or null. Each capture of
+	/// <see cref="TerminatorCaptureGroupName"/> that spans exactly one capture of this group is decoded by the
+	/// ANSI-C escapes (<c>\n \t \xHH \nnn \uHHHH \cX</c> and the rest of the C-style set) before the captures
+	/// are joined, so <c>$'E\x4fF'</c> is the word <c>EOF</c>. The expression nests this group inside the
+	/// terminator group. A profile of a shell that has no ANSI-C quoting (dash) does not declare it.
+	/// </summary>
+	public string? AnsiCQuotedCaptureGroupName { get; init; }
+
+	/// <summary>
+	/// The group whose captures are double-quoted text, or null. Each capture of
+	/// <see cref="TerminatorCaptureGroupName"/> that spans exactly one capture of this group is unescaped by the
+	/// double-quote rule before the captures are joined: a backslash before a backslash, a double quote, a
+	/// dollar sign or a backtick is removed, as is a backslash with the line feed after it, any other backslash
+	/// stays, so <c>"E\"F"</c> is the word <c>E"F</c>.
+	/// The expression nests this group inside the terminator group.
+	/// </summary>
+	public string? DoubleQuotedCaptureGroupName { get; init; }
 
 	/// <summary>
 	/// The group whose participation at an occurrence says that occurrence's body does not
 	/// interpolate, or null where every occurrence behaves the same way.
 	/// </summary>
 	public string? NonInterpolatingQuoteCaptureGroupName { get; init; }
+
+	/// <summary>
+	/// Where the body starts. <see cref="HereDocumentBodyStart.AfterTheOpeningLine"/> requires a
+	/// whole-line closing anchoring, newlines <see cref="NewlinePolicy.Allowed"/> and an opening
+	/// anchored <see cref="PositionalAnchoring.Anywhere"/>; the validator refuses any other
+	/// combination.
+	/// </summary>
+	public HereDocumentBodyStart BodyStart { get; init; } = HereDocumentBodyStart.AfterTheOpening;
+}
+
+/// <summary>
+/// An arm block inside a bracketed interpolation hole: a keyword pair (<c>case</c> and <c>esac</c> in a
+/// shell) between which a closing token that no opening matched is an ARM TERMINATOR, not the end of the
+/// hole. Without it <c>"$(case a in a) echo hit;; esac)"</c> ends the hole at the arm's <c>)</c> and reads
+/// the rest of the substitution as string body.
+///
+/// The keywords count only where a command may begin, which is what keeps a word <c>case</c> among a
+/// command's arguments from opening a block: at the start of the hole, after one of
+/// <see cref="CommandPositionPredecessors"/> (blanks skipped), after one of
+/// <see cref="CommandPositionKeywords"/>, directly after the closing token that ended an arm's pattern, or
+/// after the empty parentheses of a function definition; not after an assignment word or a plain command
+/// word. A closing keyword ends only a block opened at the same nesting depth: one inside a nested
+/// substitution never ends the outer block, and a block opened inside a nested substitution stays open until its own closing keyword (the nested substitution's closing token is that block's arm terminator, and a block never closed is the unbalanced nesting below).
+/// A block that never closes is an unbalanced nesting: while the per-file recovery bound lasts the hole is re-read
+/// by its first closing, and once it is spent the hole is abandoned as unterminated. Legal only beside
+/// <see cref="QuoteRule.InterpolationNestingOpening"/>, whose depth it is measured against.
+/// </summary>
+public sealed record ArmBlockRule
+{
+	/// <summary>The keyword that opens a block (a shell's <c>case</c>).</summary>
+	public required string OpeningKeyword { get; init; }
+
+	/// <summary>The keyword that ends the block opened at the same nesting depth (a shell's <c>esac</c>).</summary>
+	public required string ClosingKeyword { get; init; }
+
+	/// <summary>
+	/// The characters after which, with blanks skipped, a keyword stands at a command position (a shell's
+	/// line feed, <c>;</c>, <c>&amp;</c>, <c>|</c> and opening parenthesis: the last four also cover <c>;;</c>, <c>&amp;&amp;</c>
+	/// and <c>||</c>). A closing token is not one: it is a predecessor only where it ended an arm's pattern.
+	/// </summary>
+	public required string CommandPositionPredecessors { get; init; }
+
+	/// <summary>
+	/// Words after which a keyword stands at a command position: the reserved words that begin a command list
+	/// (a shell's <c>then</c>, <c>do</c>, <c>else</c>, <c>elif</c>, <c>if</c>, <c>while</c>, <c>until</c>, <c>time</c>,
+	/// <c>coproc</c>) and the symbols <c>{</c> and <c>!</c>. A word is a run of characters that are neither blanks nor
+	/// predecessors. THE CHAIN RULE: such a word licenses a keyword after it only where it stands at a command
+	/// position itself, or after a chain of such words whose first does, so a word of that spelling among a command's
+	/// arguments (<c>echo then case</c>) licenses nothing.
+	/// </summary>
+	public ImmutableArray<string> CommandPositionKeywords { get; init; } = [];
+
+	/// <summary>
+	/// The words of <see cref="CommandPositionKeywords"/> that take options (a shell's <c>time</c>): words that begin
+	/// with a hyphen between such a word and the keyword leave the keyword at a command position (<c>time -p case</c>),
+	/// and a plain argument there does not (<c>time x -p case</c>).
+	/// </summary>
+	public ImmutableArray<string> OptionTakingKeywords { get; init; } = [];
+}
+
+/// <summary>
+/// The arithmetic context: a bracketed expression in which a deferred-body opening is an operator and not
+/// an opening (a shell's <c>$(( 1 &lt;&lt; 3 ))</c> and <c>(( n &lt;&lt; 2 ))</c>). It is read by the scanner and
+/// not by a context predicate because it spans lines, and a predicate sees one.
+///
+/// <see cref="Opening"/> is a run of one bracket character (two or more), and <see cref="Closing"/> a run of
+/// its partner of THE SAME LENGTH, adjacent: a closing run of at least that length is what ends the expression, after
+/// its first <c>Closing.Length</c> brackets. The context starts
+/// where an opening run starts in code, or where the interpolation opening of a bracketed hole ends in the
+/// first bracket of the run (<c>$((</c>), and only where the text closes it as arithmetic: the scanner reads
+/// ahead from the end of the opening run, counting brackets of the opening kind, skipping escapes, line comments and
+/// quoted runs (read by the quote rule's own escape handling, a literal prefix's included), to the first closing
+/// bracket met with none open. If a whole closing run follows it there, the
+/// expression ends after that run. If not, the opening run was two nested groups, as a shell reads
+/// <c>((cmd) ...)</c>, and no context starts, so an opening inside is read as in any command. A run that is
+/// never closed starts no context, so it cannot swallow what follows. One read-ahead answers every run it passes, so
+/// each position is read once; a read-ahead is started afresh only for a run no earlier one passed in code, and
+/// those have a per-file budget proportional to the text. A bracket in a
+/// literal or a comment is not counted. Inside the context a nested command substitution (a bracket after
+/// the profile's substitution opening, not itself a run) is a command context again, where an opening
+/// stands, with its own parentheses and arm blocks.
+/// </summary>
+public sealed record ArithmeticContextRule
+{
+	/// <summary>The run of one bracket character, two or more, that opens the expression (a shell's <c>((</c>).</summary>
+	public required string Opening { get; init; }
+
+	/// <summary>
+	/// The run of the partner bracket, as long as the opening, that closes it (a shell's <c>))</c>). The declaration
+	/// is validated to have the opening's length; the scanner ends the expression after exactly that many closing
+	/// brackets and accepts a longer run, whose further brackets are not part of the expression.
+	/// </summary>
+	public required string Closing { get; init; }
 }
 
 /// <summary>
@@ -226,6 +378,13 @@ public sealed record QuoteRule
 	/// instead of abandoning the rest of the file.
 	/// </summary>
 	public string? InterpolationNestingOpening { get; init; }
+
+	/// <summary>
+	/// A keyword pair inside which a closing token with no opening to match is an arm terminator and does not
+	/// end the bracketed hole (see <see cref="ArmBlockRule"/>). Legal only beside
+	/// <see cref="InterpolationNestingOpening"/>. Null, the default, declares no arm block.
+	/// </summary>
+	public ArmBlockRule? InterpolationArmBlock { get; init; }
 
 	/// <summary>
 	/// A doubled <see cref="InterpolationOpening"/> in the literal's body is literal text and

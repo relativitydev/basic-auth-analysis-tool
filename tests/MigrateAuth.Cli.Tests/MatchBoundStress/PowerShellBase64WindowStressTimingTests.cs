@@ -11,11 +11,14 @@ using Xunit.Abstractions;
 namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 
 /// <summary>
-/// THE TWO BASE64 CLASSES ON THE LONG-LINE SHAPES THAT EXERCISE THEIR WINDOWS. Each shape is a line at the line-length ceiling that repeats a statement the classes' windows open at, and never close. The bound this asserts is the figure below which a shape needs no
+/// THE TWO BASE64 CLASSES ON THE LONG-LINE SHAPES THAT EXERCISE THEIR WINDOWS: lines at the line-length ceiling that repeat a statement the classes' windows
+/// open at, and never close - the array assignment of one shape and the encoder call of another. The bound this asserts is the figure below which a shape needs no
 /// declared trip - a tenth of the match bound - on any machine this suite runs on; the match-bound timing figures, not this test, say how much faster they are.
+///
+/// Timing-sensitive: it asserts on, or is bounded by, wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
 [Collection(TimingSensitiveStressCollection.NAME)]
-public sealed class PowerShellBase64WindowStressTests
+public sealed class PowerShellBase64WindowStressTimingTests
 {
 	private const double _BOUND_PER_FILE_IN_MILLISECONDS = 2_875;
 	private const string _RECORDED_SHAPE_NAME = "ps-long-lines-at-line-ceiling";
@@ -27,7 +30,7 @@ public sealed class PowerShellBase64WindowStressTests
 
 	private readonly ITestOutputHelper _output;
 
-	public PowerShellBase64WindowStressTests(ITestOutputHelper output)
+	public PowerShellBase64WindowStressTimingTests(ITestOutputHelper output)
 	{
 		_output = output;
 	}

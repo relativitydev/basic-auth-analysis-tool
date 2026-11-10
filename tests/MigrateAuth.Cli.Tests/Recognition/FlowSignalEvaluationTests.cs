@@ -39,7 +39,7 @@ public sealed class FlowSignalEvaluationTests
 	private const string _TIMING_OUT_SIGNAL_NAME = "fixture-timing-out";
 	private const string _EMBEDDED_CSHARP_LANGUAGE_NAME = "CSharp";
 	private const int _EMBEDDED_CSHARP_FLOW_SIGNAL_COUNT = 17;
-	private const string _CATALOG_VERSION_WITH_THE_CSHARP_DETECTION_SHAPES = "1.19.0";
+	private const string _CATALOG_VERSION_WITH_THE_CSHARP_DETECTION_SHAPES = "1.31.0";
 	private const string _SOURCE_RELATIVE_PATH = "source/module.ex1";
 	private const int _FIRST_SIGNAL_ATTEMPTS = 2;
 	private const int _ONE_MILLISECOND = 1;

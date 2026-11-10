@@ -47,6 +47,30 @@ public sealed class LexicalProfile
 	/// </summary>
 	public IdentifierCaseSensitivityMode IdentifierCaseSensitivity { get; init; } = IdentifierCaseSensitivityMode.Sensitive;
 
+	/// <summary>
+	/// The character that escapes the next one in code (a shell's backslash), or null where the language has none. Where
+	/// it is declared, the code walk, in the file's own code and in
+	/// every hole's interior, steps over the escape and the character after it as one: the escaped character opens no
+	/// literal, no comment and no here-document, closes no hole, counts as no bracket and starts no keyword, so
+	/// <c>\)</c> is text, <c>\"</c> opens no string, <c>\#</c> is no comment and <c>\&lt;&lt;EOF</c> opens no here-document. An
+	/// escaped line feed joins the lines and drains nothing. The arithmetic read-ahead steps over escapes the same way.
+	/// A whitespace character is refused by the validator.
+	/// </summary>
+	public char? CodeEscapeCharacter { get; init; }
+
+	/// <summary>
+	/// The arithmetic context, inside which a quote rule that defers its body start opens nothing, or null where
+	/// the language has none. See <see cref="ArithmeticContextRule"/>.
+	/// </summary>
+	public ArithmeticContextRule? ArithmeticContext { get; init; }
+
+	/// <summary>
+	/// The executed-string context, or null where the language has none. Where it is declared, the body of a string
+	/// that a shell runs as a command is read as code. See
+	/// <see cref="ExecutedStringContext"/>.
+	/// </summary>
+	public ExecutedStringContext? ExecutedStrings { get; init; }
+
 	/// <summary>Write-only on purpose: the order supplied here is discarded, never read back.</summary>
 	public required IEnumerable<LineCommentRule> LineCommentRules
 	{

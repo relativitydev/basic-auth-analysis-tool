@@ -39,6 +39,9 @@ public static class WorstCaseFileContent
 	private const string _POWERSHELL_SHEBANG_LINE = "#!/usr/bin/env pwsh\n";
 	private const string _VBNET_ANCHOR_LINE = "\tPrivate ReadOnly credentialSource As String = \"configured elsewhere\"\n";
 	private const string _VBNET_FUNCTION_FORMAT = "\n\tFunction AddAmount{0}(amount As Integer) As Integer\n\t\ttotal += amount * {0}\n\t\tReturn total\n\tEnd Function\n";
+	private const string _SHELL_SHEBANG_LINE = "#!/usr/bin/env bash\n";
+	private const string _SHELL_ANCHOR_LINE = "curl --silent --fail \"https://status.invalid/health\" > /dev/null\n";
+	private const string _SHELL_FUNCTION_FORMAT = "\nadd_amount{0}() {{\n\tlocal amount=\"$1\"\n\ttotal=$((total + amount * {0}))\n\techo \"$total\"\n}}\n";
 	private const string _POWERSHELL_ANCHOR_LINE = "$credentialSource = 'configured elsewhere'\n";
 	private const string _POWERSHELL_FUNCTION_FORMAT = "\nfunction Add-Amount{0}\n{{\n\tparam([int]$Amount)\n\t$script:total += $Amount * {0}\n\treturn $script:total\n}}\n";
 
@@ -75,6 +78,8 @@ public static class WorstCaseFileContent
 			WorstCaseFileKind.PowerShellScript => Encode(PowerShellText(options, plan.Index, typeName, shebang: false)),
 			WorstCaseFileKind.PowerShellShebangScript => Encode(PowerShellText(options, plan.Index, typeName, shebang: true)),
 			WorstCaseFileKind.VBNetSource => Encode(VBNetText(options, plan.Index, typeName)),
+			WorstCaseFileKind.ShellScript => Encode(ShellText(options, plan.Index, typeName, shebang: false)),
+			WorstCaseFileKind.ShellShebangScript => Encode(ShellText(options, plan.Index, typeName, shebang: true)),
 			_ => Encode(FillerText(options, plan.Index, typeName))
 		};
 	}
@@ -230,6 +235,39 @@ public static class WorstCaseFileContent
 		}
 
 		builder.Append("End Module").Append(_LINE_END);
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// Ordinary Shell with no construct, in the same small, medium and large mix as the C# filler; a share of the files still carry one ordinary <c>curl</c> call, a content-only preselection anchor of the shipped analyzer.
+	/// The shebang form starts with a <c>bash</c> shebang and the plain form starts with a comment.
+	/// </summary>
+	private static string ShellText(WorstCaseTreeOptions options, long index, string functionName, bool shebang)
+	{
+		StringBuilder builder = new();
+		int sizeRoll = DeterministicRandom.Below(_SIZE_DENOMINATOR, options.Seed, index, _STREAM_SIZE);
+		int functionCount = _SMALL_METHOD_COUNT;
+		bool mentionsAnchor = DeterministicRandom.Below(_ANCHOR_SHARE_DENOMINATOR, options.Seed, index, _STREAM_SHAPE) < _ANCHOR_SHARE_NUMERATOR;
+
+		if (sizeRoll < _LARGE_SIZE_THRESHOLD)
+		{
+			functionCount = _LARGE_METHOD_COUNT;
+		}
+		else if (sizeRoll < _MEDIUM_SIZE_THRESHOLD)
+		{
+			functionCount = _MEDIUM_METHOD_COUNT;
+		}
+
+		builder.Append(shebang ? _SHELL_SHEBANG_LINE : string.Empty);
+		builder.Append("# Ordinary arithmetic for ").Append(functionName).Append(_LINE_END);
+		builder.Append("total=0").Append(_LINE_END);
+		builder.Append(mentionsAnchor ? _SHELL_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _SHELL_FUNCTION_FORMAT, number));
+		}
 
 		return builder.ToString();
 	}

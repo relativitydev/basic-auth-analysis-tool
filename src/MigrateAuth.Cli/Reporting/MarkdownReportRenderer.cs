@@ -262,6 +262,7 @@ public static class MarkdownReportRenderer
 	private const string _ESCAPED_TABLE_CELL_BAR = "\\|";
 	private const string _TABLE_CELL_LINE_ENDING_REPLACEMENT = " ";
 	private const string _LOW_REASON_ROW_FORMAT = "- {0}: {1}";
+	private const string _TEST_CODE_ROW_FORMAT = "- {0}: {1}";
 	private const string _COVERAGE_TABLE_HEADING_ROW = "| Language | Coverage |";
 	private const string _COVERAGE_TABLE_RULE_ROW = "| --- | --- |";
 	private const string _INVENTORY_TABLE_HEADING_ROW = "| Language | Files | Lines | Candidates | Share of files | Assessed |";
@@ -1031,10 +1032,23 @@ public static class MarkdownReportRenderer
 			ConfidenceLevels.Name(finding.Level));
 		writer.WriteLine();
 
+		WriteTestCode(writer, finding);
 		WriteLowReason(writer, finding);
 		WriteFlow(writer, finding);
 		WriteRecommendation(writer, recommendations.Render(finding, EmissionDestination.Markdown));
 		writer.WriteLine();
+	}
+
+	/// <summary>
+	/// The test-code marker, for a finding whose file the Test demotion kind marked at any level. Nothing is written for a
+	/// finding that is not test code.
+	/// </summary>
+	private static void WriteTestCode(TextWriter writer, Finding finding)
+	{
+		if (finding.TestCode)
+		{
+			WriteFormatted(writer, _TEST_CODE_ROW_FORMAT, LowReasonVocabulary.TEST_CODE_LABEL, LowReasonVocabulary.TEST_CODE_TEXT);
+		}
 	}
 
 	/// <summary>

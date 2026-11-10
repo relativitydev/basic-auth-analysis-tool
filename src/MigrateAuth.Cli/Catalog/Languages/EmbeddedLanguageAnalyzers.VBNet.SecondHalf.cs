@@ -10,11 +10,11 @@ internal static partial class VBNetPatternExpressions
 	/// not a Basic pair. Read on the last segment of the argument; a name with <c>password</c>, <c>secret</c> or <c>pwd</c> in it is still read.
 	/// </summary>
 	private const string _NOT_A_TOKEN_HELD_AS_PASSWORD =
-		@"(?!(?:" + _NAME + @"\.)*(?![A-Za-z0-9_]*(?:password|secret|pwd))[A-Za-z0-9_]*token[A-Za-z0-9_]*(?![A-Za-z0-9_(.]))";
+		@"(?!(?:" + _NAME + @"\.)*(?![A-Za-z0-9_]*(?:password|secret|pwd))[A-Za-z0-9_]*token[A-Za-z0-9_]*(?:[ \t]*\([^()\n]*\))?(?![A-Za-z0-9_(.]))";
 
 	/// <summary>VB-010 · SdkConstructorWithUserAndPassword (the type name may end a longer one; arity three)</summary>
 	[GeneratedRegex(
-		@"\bNew[ \t]+" + _QUALIFIER + @"(?<construct>[A-Za-z0-9_]*ImportAPI)(?![A-Za-z0-9_])[ \t]*\(" + _GAP_IMPLICIT + _ARGUMENT_NAMED + _COMMA + @"(?<credential>" + _NAMED_PREFIX + _NOT_A_TOKEN_HELD_AS_PASSWORD + _ARGUMENT + @")" + _COMMA + _NAMED_PREFIX + @"(?:" + _STRING + @"|(?:" + _STATEMENT_UNIT + @"){1,200}?)" + _GAP_IMPLICIT + @"\)",
+		@"\bNew[ \t]+" + _SDK_ENTRY_POINT_QUALIFIER + @"(?<construct>[A-Za-z0-9_]*ImportAPI)(?![A-Za-z0-9_])[ \t]*\(" + _GAP_IMPLICIT + _ARGUMENT_NAMED + _COMMA + @"(?<credential>" + _NAMED_PREFIX + _NOT_A_TOKEN_HELD_AS_PASSWORD + _ARGUMENT + @")" + _COMMA + _NAMED_PREFIX + @"(?:" + _STRING + @"|(?:" + _STATEMENT_UNIT + @"){1,200}?)" + _GAP_IMPLICIT + @"\)",
 		OPTIONS, matchTimeoutMilliseconds: TIMEOUT_IN_MILLISECONDS)]
 	public static partial Regex SdkConstructorWithUserAndPassword();
 
@@ -59,11 +59,11 @@ internal static partial class VBNetPatternExpressions
 
 	/// <summary>VB-014 · Base64UserPasswordPair, both halves non-empty: the pair first and the encoder within five logical lines, or the pair inside the encoder call.</summary>
 	[GeneratedRegex(
-		_QUOTE + @":" + _QUOTE + @"(?<=(?<![A-Za-z0-9_.])(?<half1>[A-Za-z0-9_.]+(?:\([^()\n]*\))?)" + _NOT_PORT_HALF + @"[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")c?[ \t]*[&+][ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @"(?:" + _GROUP + @")?)" + _NOT_SIZE_HALF + @"(?![A-Za-z0-9_]|\.[A-Za-z_])" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
-		+ @"|(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\((?:(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}" + _QUOTE + @":" + _QUOTE + @")" + _CALL_WINDOW + @"(?<half1>(?:" + _NAME + @"\.)*" + _NAME + @")" + _NOT_PORT_HALF + @"[ \t]*(?:&|\+)[ \t]*" + _QUOTE + @":" + _QUOTE + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")" + _NOT_PORT_HALF + @""
-		+ @"|(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}\}:\{)" + _CALL_WINDOW + @"\$" + _QUOTE + @"\{[ \t]*(?<half1>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\}:\{[ \t]*(?<credential>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\}" + _QUOTE
-		+ @"|(?=[^\n]{0,300}String\.(?:Concat|Join))" + _CALL_WINDOW + @"String\.(?:Concat|Join)[ \t]*\([ \t]*(?:" + _QUOTE + @":" + _QUOTE + @",[ \t]*)?(?<half1>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?(?<credential>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\)"
-		+ @"|(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}\{0\}:\{1\})" + _CALL_WINDOW + @"(?:String\.Format|Format)[ \t]*\([ \t]*" + _QUOTE + @"\{0\}:\{1\}" + _QUOTE + _COMMA + @"(?<half1>" + _PAIR_HALF + @")" + _COMMA + @"(?<credential>" + _PAIR_HALF + @")" + _GAP_IMPLICIT + @"\))"
+		_QUOTE + @":" + _QUOTE + @"(?<=(?<![A-Za-z0-9_.])(?<half1>[A-Za-z0-9_.]+(?:\([^()\n]*\))?)" + _NOT_PORT_HALF + @"[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")c?[ \t]*[&+][ \t]*(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + @"(?:" + _NAME + @"\.)*" + _NAME + @"(?:" + _GROUP + @")?)" + _NOT_SIZE_HALF + @"(?![A-Za-z0-9_]|\.[A-Za-z_])" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
+		+ @"|(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\((?:(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}" + _QUOTE + @":" + _QUOTE + @")" + _CALL_WINDOW + @"(?<![A-Za-z0-9_])(?!" + _VB_NULL_STRING_WORD + @")(?<half1>(?:" + _NAME + @"\.)*" + _NAME + @")" + _NOT_PORT_HALF + @"[ \t]*(?:&|\+)[ \t]*" + _COLON_LITERAL + @"[ \t]*(?:&|\+)[ \t]*(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + @"(?:" + _NAME + @"\.)*" + _NAME + @")" + _NOT_PORT_HALF + @""
+		+ @"|(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}\}:\{)" + _CALL_WINDOW + @"\$" + _QUOTE + @"\{[ \t]*(?<half1>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\}:\{[ \t]*(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\}" + _QUOTE
+		+ @"|(?=[^\n]{0,300}String\.(?:Concat|Join))" + _CALL_WINDOW + @"String\.(?:Concat|Join)[ \t]*\([ \t]*(?:" + _COLON_LITERAL + @",[ \t]*)?(?<half1>" + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*,[ \t]*(?:" + _COLON_LITERAL + @"[ \t]*,[ \t]*)?(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _ARGUMENT + @")" + _NOT_PORT_HALF + @"[ \t]*\)"
+		+ @"|(?=(?>[^\n:]{0,303}):)(?=[^\n]{0,300}\{0\}:\{1\})" + _CALL_WINDOW + @"(?:String\.Format|Format)[ \t]*\([ \t]*" + _QUOTE + @"\{0\}:\{1\}" + _QUOTE + _COMMA + @"(?<half1>" + _PAIR_HALF + @")" + _COMMA + @"(?<credential>" + _CREDENTIAL_WORD_IN_THE_HALF + _PAIR_HALF + @")" + _GAP_IMPLICIT + @"\))"
 		+ @"|(?:" + _PAIR_ASSEMBLY + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\(",
 		OPTIONS, matchTimeoutMilliseconds: TIMEOUT_IN_MILLISECONDS)]
 	public static partial Regex Base64UserPasswordPair();
@@ -71,6 +71,15 @@ internal static partial class VBNetPatternExpressions
 	// ------------------------------------------------------------------------------------------
 	// VB-015: the empty half in every spelling read
 	// ------------------------------------------------------------------------------------------
+
+	/// <summary>How far along the line, in characters, the encoder call looks for the marker of an interpolated pair with the colon first or last: the reach of the markers of the other spellings.</summary>
+	private const string _MARKER_REACH_ON_THE_LINE = @"[^\n]{0,300}";
+
+	/// <summary>The colon as an operand of a pair: the string literal, or the character literal with its type suffix.</summary>
+	private const string _COLON_LITERAL = _QUOTE + @":" + _QUOTE + @"c?";
+
+	/// <summary>The bare word vbNullString, whole, with an optional <c>Constants.</c> qualification: the empty operand, never a name of a user.</summary>
+	private const string _VB_NULL_STRING_WORD = @"(?:Constants\.)?vbNullString(?![A-Za-z0-9_.])";
 
 	/// <summary>An empty-string operand: the empty literal, String.Empty or vbNullString, whole.</summary>
 	private const string _EMPTY_OPERAND = @"(?:" + _QUOTE + _QUOTE + @"(?!" + _QUOTE + @")|String\.Empty(?![A-Za-z0-9_])|vbNullString(?![A-Za-z0-9_]))";
@@ -98,13 +107,18 @@ internal static partial class VBNetPatternExpressions
 	private const string _FORMAT_WITH_EMPTY_LITERAL =
 		@"(?:String\.Format|Format)[ \t]*\([ \t]*" + _QUOTE + @"\{0\}:\{1\}" + _QUOTE + _COMMA + @"(?:" + _EMPTY_OPERAND + _COMMA + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + _COMMA + _EMPTY_OPERAND + @")" + _GAP_IMPLICIT + @"\)";
 
-	/// <summary>An interpolation with an empty literal operand as one half.</summary>
+	/// <summary>
+	/// An interpolation with an empty literal operand as one half, or with the colon first or last and the credential as its only hole: the
+	/// text holds the one hole and the colon and nothing else, so <c>$"{a}:{b}"</c> and <c>$"{a}:x"</c> are not read here.
+	/// </summary>
 	private const string _INTERPOLATION_WITH_EMPTY_LITERAL =
-		@"\$" + _QUOTE + @"\{[ \t]*(?:" + _EMPTY_INTERPOLATED + @"[ \t]*\}:\{[ \t]*" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + @"[ \t]*\}:\{[ \t]*" + _EMPTY_INTERPOLATED + @")[ \t]*\}" + _QUOTE;
+		@"\$" + _QUOTE + @"\{[ \t]*(?:" + _EMPTY_INTERPOLATED + @"[ \t]*\}:\{[ \t]*" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + @"[ \t]*\}:\{[ \t]*" + _EMPTY_INTERPOLATED + @")[ \t]*\}" + _QUOTE
+		+ @"|\$" + _QUOTE + @":\{[ \t]*" + _CREDENTIAL_HALF + @"[ \t]*\}" + _QUOTE
+		+ @"|\$" + _QUOTE + @"\{[ \t]*" + _CREDENTIAL_HALF + @"[ \t]*\}:" + _QUOTE;
 
 	/// <summary>A concatenation or a join call with an empty literal operand as one half.</summary>
 	private const string _CALL_WITH_EMPTY_LITERAL =
-		@"(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _QUOTE + @":" + _QUOTE + @",[ \t]*)?(?:" + _EMPTY_OPERAND + @"[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + @"[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?" + _EMPTY_OPERAND + @")[ \t]*\)";
+		@"(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _COLON_LITERAL + _COMMA + @")?(?:" + _EMPTY_OPERAND + _COMMA + @"(?:" + _COLON_LITERAL + _COMMA + @")?" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + _COMMA + @"(?:" + _COLON_LITERAL + _COMMA + @")?" + _EMPTY_OPERAND + @")" + _GAP_IMPLICIT + @"\)";
 
 	/// <summary>The three assembled spellings with an empty literal operand as one half.</summary>
 	private const string _ASSEMBLY_WITH_EMPTY_LITERAL = _FORMAT_WITH_EMPTY_LITERAL + @"|" + _INTERPOLATION_WITH_EMPTY_LITERAL + @"|" + _CALL_WITH_EMPTY_LITERAL;
@@ -119,7 +133,7 @@ internal static partial class VBNetPatternExpressions
 
 	/// <summary>A concatenation or a join call with the variable assigned an empty literal as one half.</summary>
 	private const string _CALL_WITH_EMPTY_VARIABLE =
-		@"(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _QUOTE + @":" + _QUOTE + @",[ \t]*)?(?:" + _EMPTY_VARIABLE_READ_BACK + @"[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + @"[ \t]*,[ \t]*(?:" + _QUOTE + @":" + _QUOTE + @"[ \t]*,[ \t]*)?" + _EMPTY_VARIABLE_READ_BACK + @")[ \t]*\)";
+		@"(?:String\.Concat|String\.Join|Concat|Join)[ \t]*\([ \t]*(?:" + _COLON_LITERAL + _COMMA + @")?(?:" + _EMPTY_VARIABLE_READ_BACK + _COMMA + @"(?:" + _COLON_LITERAL + _COMMA + @")?" + _CREDENTIAL_HALF + @"|" + _CREDENTIAL_HALF + _COMMA + @"(?:" + _COLON_LITERAL + _COMMA + @")?" + _EMPTY_VARIABLE_READ_BACK + @")" + _GAP_IMPLICIT + @"\)";
 
 	/// <summary>The three assembled spellings with the variable assigned an empty literal as one half.</summary>
 	private const string _ASSEMBLY_WITH_EMPTY_VARIABLE = _FORMAT_WITH_EMPTY_VARIABLE + @"|" + _INTERPOLATION_WITH_EMPTY_VARIABLE + @"|" + _CALL_WITH_EMPTY_VARIABLE;
@@ -128,19 +142,19 @@ internal static partial class VBNetPatternExpressions
 	private const string _NAME_BEFORE_THE_COLON = @"(?<![A-Za-z0-9_.])(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")(?:\([^()\n]*\))?[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE;
 
 	/// <summary>The concatenation with the empty literal as the right half, opening on the colon literal: <c>credential &amp; ":" &amp; ""</c>.</summary>
-	private const string _CONCATENATION_WITH_EMPTY_LAST = _QUOTE + @":" + _QUOTE + @"(?<=" + _NAME_BEFORE_THE_COLON + @")[ \t]*[&+][ \t]*" + _EMPTY_OPERAND;
+	private const string _CONCATENATION_WITH_EMPTY_LAST = _QUOTE + @":" + _QUOTE + @"(?<=" + _NAME_BEFORE_THE_COLON + @")c?[ \t]*[&+][ \t]*" + _EMPTY_OPERAND;
 
 	/// <summary>The two concatenations with the variable assigned an empty literal as one half, each opening on the colon literal.</summary>
 	private const string _CONCATENATION_WITH_EMPTY_VARIABLE =
-		_QUOTE + @":" + _QUOTE + @"(?<=" + _NAME_BEFORE_THE_COLON + @")[ \t]*[&+][ \t]*" + _EMPTY_VARIABLE_READ_BACK
-		+ @"|" + _QUOTE + @":" + _QUOTE + @"(?<=(?<![A-Za-z0-9_.])\k<e>[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")[ \t]*[&+][ \t]*" + _CREDENTIAL_HALF;
+		_QUOTE + @":" + _QUOTE + @"(?<=" + _NAME_BEFORE_THE_COLON + @")c?[ \t]*[&+][ \t]*" + _EMPTY_VARIABLE_READ_BACK
+		+ @"|" + _QUOTE + @":" + _QUOTE + @"(?<=(?<![A-Za-z0-9_.])\k<e>[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")c?[ \t]*[&+][ \t]*" + _CREDENTIAL_HALF;
 
 	/// <summary>
 	/// The colon written last on its own as the whole of the pair, opening on the colon literal: the credential before it, preceded by no operand, no further operand continuing,
 	/// and not the variable the statement assigns (<c>pair = pair &amp; ":"</c> is an accumulation, read by neither pair class). The checks run right to left inside the look-behind.
 	/// </summary>
 	private const string _COLON_LAST =
-		_QUOTE + @":" + _QUOTE + @"(?<=(?!\k<t>(?![A-Za-z0-9_]))(?>(?<=\b(?<t>" + _NAME + @")[ \t]*=[ \t]*)|)(?<![A-Za-z0-9_.]|[&+][ \t]*)(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")(?:\([^()\n]*\))?[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")(?!" + _GAP + @"?[&+])";
+		_QUOTE + @":" + _QUOTE + @"(?<=(?!\k<t>(?![A-Za-z0-9_]))(?>(?<=\b(?<t>" + _NAME + @")[ \t]*=[ \t]*)|)(?<![A-Za-z0-9_.]|[&+][ \t]*)(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")(?:\([^()\n]*\))?[ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")(?!c?" + _GAP + @"?[&+])";
 
 	/// <summary>
 	/// The encoder call and what a pair inside it can be, read from the opening parenthesis by the one prefix and one look-ahead for a pair marker on the line (the colon literal, or the
@@ -148,14 +162,14 @@ internal static partial class VBNetPatternExpressions
 	/// the empty operand first, a format, an interpolation, a concatenation or a join, the credential then the colon then an empty last, the colon first, and the colon last.
 	/// </summary>
 	private const string _ENCODER_CALL_HOLDING_THE_PAIR =
-		@"(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\((?=(?>[^\n:]{0,303}):)(?:(?=[^\n]{0,300}" + _QUOTE + @":" + _QUOTE + @")|(?=[^\n]{0,300}\}:\{))" + _CALL_WINDOW + @"(?:"
-		+ @"(?:" + _QUOTE + _QUOTE + @"|String\.Empty)[ \t]*(?:&|\+)[ \t]*" + _QUOTE + @":" + _QUOTE + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")"
+		@"(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\((?=(?>[^\n:]{0,303}):)(?:(?=[^\n]{0,300}" + _QUOTE + @":" + _QUOTE + @")|(?=[^\n]{0,300}\}:\{)|(?=" + _MARKER_REACH_ON_THE_LINE + @"(?:\$" + _QUOTE + @":\{|\}:" + _QUOTE + @")))" + _CALL_WINDOW + @"(?:"
+		+ @"(?:" + _QUOTE + _QUOTE + @"|String\.Empty|(?<![A-Za-z0-9_])" + _VB_NULL_STRING_WORD + @")[ \t]*(?:&|\+)[ \t]*" + _COLON_LITERAL + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")"
 		+ @"|" + _FORMAT_WITH_EMPTY_LITERAL
 		+ @"|" + _INTERPOLATION_WITH_EMPTY_LITERAL
 		+ @"|" + _CALL_WITH_EMPTY_LITERAL
 		+ @"|" + _CONCATENATION_WITH_EMPTY_LAST
-		+ @"|" + _QUOTE + @":" + _QUOTE + @"(?<![A-Za-z0-9_)\]}" + _QUOTE + @"][ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")[ \t]*[&+][ \t]*" + _CREDENTIAL_HALF + @"(?![A-Za-z0-9_]|" + _GAP + @"?[&+])"
-		+ @"|" + _COLON_LAST + @"(?=[ \t]*\))"
+		+ @"|" + _QUOTE + @":" + _QUOTE + @"(?<![A-Za-z0-9_)\]}" + _QUOTE + @"][ \t]*[&+][ \t]*" + _QUOTE + @":" + _QUOTE + @")c?[ \t]*[&+][ \t]*" + _CREDENTIAL_HALF + @"(?![A-Za-z0-9_]|" + _GAP + @"?[&+])"
+		+ @"|" + _COLON_LAST + @"(?=c?[ \t]*\))"
 		+ @")";
 
 	/// <summary>The variable assigned an empty literal, then the pair using it, then the encoder, or the encoder holding the pair, within the ten-line and five-line windows.</summary>
@@ -165,8 +179,8 @@ internal static partial class VBNetPatternExpressions
 
 	/// <summary>VB-015 · TokenCarriedUnderBasicScheme, one half empty</summary>
 	[GeneratedRegex(
-		@"(?:" + _QUOTE + _QUOTE + @"|String\.Empty|vbNullString)[ \t]*(?:&|\+)[ \t]*" + _QUOTE + @":" + _QUOTE + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
-		+ @"|(?<![A-Za-z0-9_)\]}" + _QUOTE + @"][ \t]*[&+][ \t]*)" + _QUOTE + @":" + _QUOTE + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
+		@"(?:" + _QUOTE + _QUOTE + @"|String\.Empty|vbNullString)[ \t]*(?:&|\+)[ \t]*" + _COLON_LITERAL + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
+		+ @"|(?<![A-Za-z0-9_)\]}" + _QUOTE + @"][ \t]*[&+][ \t]*)" + _COLON_LITERAL + @"[ \t]*(?:&|\+)[ \t]*(?<credential>(?:" + _NAME + @"\.)*" + _NAME + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
 		+ @"|" + _ENCODER_CALL_HOLDING_THE_PAIR
 		+ @"|(?:" + _ASSEMBLY_WITH_EMPTY_LITERAL + @"|" + _CONCATENATION_WITH_EMPTY_LAST + @")" + _LINE_WINDOW_FIVE + @"(?=B)(?<encoder>Base64[A-Za-z0-9_]*)[ \t]*\("
 		+ @"|" + _EMPTY_VARIABLE_THEN_THE_PAIR

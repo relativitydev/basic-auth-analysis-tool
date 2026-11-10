@@ -50,6 +50,10 @@ public sealed class LexicalBudgetTests
 	private const string _CONSTANT_DECLARATION_PATTERN = @"^\s*const\s+(?<name>\w+)";
 	private const string _PROFILE_NAME = "budget-probe";
 	private const string _QUOTE = "\"";
+	private const string _ARITHMETIC_OPENING = "((";
+	private const string _ARITHMETIC_SOURCE = "echo a\n(( 1 + 2 ))\necho b\n";
+	private const string _UNCLOSED_ARITHMETIC_GROUP = "(( x ";
+	private const int _UNCLOSED_GROUPS_ON_THE_LINE = 50;
 	private const string _IDENTIFIER_SIGIL = "$";
 
 	private const string _EXEMPLAR_LANGUAGE_NAME = "ExemplarOne";
@@ -165,6 +169,54 @@ public sealed class LexicalBudgetTests
 
 		Assert.Equal(LexicalAnomalyReason.LexicalBudgetExceeded, mask.AnomalyReason);
 		Assert.Equal(source.IndexOf(_HERE_DOCUMENT_OPENING, StringComparison.Ordinal), mask.ValidThroughPosition);
+	}
+
+	/// <summary>
+	/// The arithmetic opening's read-ahead is charged to the budget like an expression search is: a read-ahead that spends it
+	/// abandons the scan at the construct being read, which is the double parenthesis, and the rest is filled in the demoting direction.
+	/// </summary>
+	[Fact]
+	public void AnArithmeticReadAheadThatSpendsTheBudgetAbandonsTheScanAtTheDoubleParenthesis()
+	{
+		LexicalScanner scanner = new(ShellShapedProfile.Build(), new AdvancingTimeProvider(LexicalEnginePolicy.LEXICAL_BUDGET));
+		string source = _ARITHMETIC_SOURCE;
+
+		ZoneMask mask = scanner.Scan(source);
+
+		Assert.Equal(LexicalAnomalyReason.LexicalBudgetExceeded, mask.AnomalyReason);
+		Assert.True(mask.ValidThroughPosition <= source.IndexOf(_ARITHMETIC_OPENING, StringComparison.Ordinal));
+		Assert.Equal(LexicalEnginePolicy.LEXICAL_BUDGET, scanner.ChargeOfTheLastScan.ArithmeticReadAhead);
+		Assert.Equal(TimeSpan.Zero, scanner.ChargeOfTheLastScan.Expressions);
+		ZoneAssertions.CoversEveryPositionExactlyOnce(mask, source);
+	}
+
+	/// <summary>A clock that never moves charges the read-ahead nothing, so no file is abandoned for it.</summary>
+	[Fact]
+	public void AnArithmeticReadAheadUnderAClockThatNeverMovesNeverTripsTheBudget()
+	{
+		LexicalScanner scanner = new(ShellShapedProfile.Build(), new FrozenTimeProvider());
+
+		ZoneMask mask = scanner.Scan(_ARITHMETIC_SOURCE);
+
+		Assert.Equal(LexicalAnomalyReason.None, mask.AnomalyReason);
+		Assert.Equal(TimeSpan.Zero, scanner.ChargeOfTheLastScan.Total);
+	}
+
+	/// <summary>
+	/// One read-ahead answers every run it passes, so a line of many double parentheses that never close is charged ONCE
+	/// and not once per run: with a clock whose step is half the budget the file is not abandoned, and the whole charge is that one step.
+	/// </summary>
+	[Fact]
+	public void ManyDoubleParenthesesPassedByOneReadAheadAreChargedOnce()
+	{
+		TimeSpan step = LexicalEnginePolicy.LEXICAL_BUDGET / _STEPS_TO_SPEND_THE_BUDGET_ON_THE_SECOND_ATTEMPT;
+		LexicalScanner scanner = new(ShellShapedProfile.Build(), new AdvancingTimeProvider(step));
+		string source = $"{string.Concat(Enumerable.Repeat(_UNCLOSED_ARITHMETIC_GROUP, _UNCLOSED_GROUPS_ON_THE_LINE))}\n";
+
+		ZoneMask mask = scanner.Scan(source);
+
+		Assert.Equal(LexicalAnomalyReason.None, mask.AnomalyReason);
+		Assert.Equal(step, scanner.ChargeOfTheLastScan.ArithmeticReadAhead);
 	}
 
 	/// <summary>The budget is one per file: a second file starts from zero however much the first one spent.</summary>

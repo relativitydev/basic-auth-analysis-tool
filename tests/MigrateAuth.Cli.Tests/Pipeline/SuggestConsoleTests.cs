@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Globalization;
 
 using MigrateAuth.Cli.Catalog;
@@ -11,7 +10,6 @@ using MigrateAuth.Cli.Tests.Fixtures;
 using MigrateAuth.Cli.Tests.Reporting;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace MigrateAuth.Cli.Tests.Pipeline;
 
@@ -24,16 +22,7 @@ public sealed class SuggestConsoleTests
 {
 	private const string _ROWS_HEADING_LINE = "Findings:";
 	private const string _SOURCE_PATH_FORMAT = "src/file-{0}.cs";
-	private const int _VOLUME_FINDING_COUNT = 50_000;
-	private const long _VOLUME_DURATION_CEILING_IN_MILLISECONDS = 30_000;
 	private const string _LEGEND_HEADING_LINE = "Flow notes:";
-
-	private readonly ITestOutputHelper _output;
-
-	public SuggestConsoleTests(ITestOutputHelper output)
-	{
-		_output = output;
-	}
 
 	/// <summary>
 	/// The Suggest console legend and rows: each note text that occurs appears exactly once, in
@@ -167,41 +156,6 @@ public sealed class SuggestConsoleTests
 	}
 
 	/// <summary>
-	/// VOLUME EVIDENCE. The row-limit behaviour at fifty thousand findings,
-	/// in-process: one hundred rows, one summary line, and the duration recorded in the test output.
-	/// </summary>
-	[Fact]
-	public void FiftyThousandFindingsPrintTheLimitOfRowsAndOneSummaryLineAndTheDurationIsRecorded()
-	{
-		Finding[] findings = new Finding[_VOLUME_FINDING_COUNT];
-
-		for (int index = 0; index < findings.Length; index++)
-		{
-			findings[index] = FindingWith(index + 1, CredentialFlow.ClientCredentials, index % 2 == 0 ? FlowDecision.Default : FlowDecision.FixedSignal);
-		}
-
-		ImmutableArray<Finding> findingSet = [.. findings];
-		Stopwatch stopwatch = Stopwatch.StartNew();
-		string console = RunSuggest(findingSet, ConfidenceLevel.Low);
-
-		stopwatch.Stop();
-		_output.WriteLine(string.Format(
-			CultureInfo.InvariantCulture,
-			"Suggest over {0:N0} findings: {1:N0} ms, {2:N0} console rows, {3:N0} console characters.",
-			_VOLUME_FINDING_COUNT,
-			stopwatch.ElapsedMilliseconds,
-			RowLines(console).Length,
-			console.Length));
-
-		Assert.Equal(SuggestStage.SUGGEST_CONSOLE_FINDING_ROW_LIMIT, RowLines(console).Length);
-		Assert.Equal(1, CountOccurrences(console, "further findings have no row"));
-		Assert.Contains("49,900 further findings", console, StringComparison.Ordinal);
-		Assert.True(
-			stopwatch.ElapsedMilliseconds < _VOLUME_DURATION_CEILING_IN_MILLISECONDS,
-			$"Suggest over {_VOLUME_FINDING_COUNT:N0} findings took {stopwatch.ElapsedMilliseconds:N0} ms.");
-	}
-
-	/// <summary>
 	/// Client Credentials plus Authorization Code equals the High and Medium findings the
 	/// report lists after the threshold filter, defaulted is at most that total, and the route counts are
 	/// taken over the same set: a Low finding below the threshold is in no count.
@@ -269,7 +223,7 @@ public sealed class SuggestConsoleTests
 		Assert.Contains($"- Flow: {CredentialFlows.CLIENT_CREDENTIALS_NAME} (decision: {CredentialFlows.DEFAULT_DECISION_NAME})", report, StringComparison.Ordinal);
 	}
 
-	private string RunSuggest(ImmutableArray<Finding> findings, ConfidenceLevel minimumLevel)
+	internal static string RunSuggest(ImmutableArray<Finding> findings, ConfidenceLevel minimumLevel)
 	{
 		LanguageCatalog catalog = ReportHarness.CatalogWithCSharpOnly();
 		SessionState state = SessionState.Fresh(catalog.Version, ReportHarness.REPOSITORY_LABEL);
@@ -302,7 +256,7 @@ public sealed class SuggestConsoleTests
 		return findings.MoveToImmutable();
 	}
 
-	private static Finding FindingWith(
+	internal static Finding FindingWith(
 		int sequentialIndex,
 		CredentialFlow flow,
 		FlowDecision decision,
@@ -319,7 +273,7 @@ public sealed class SuggestConsoleTests
 			flowDecision: decision);
 	}
 
-	private static string[] RowLines(string console)
+	internal static string[] RowLines(string console)
 	{
 		string[] lines = console.Split(Environment.NewLine);
 		int headingIndex = Array.IndexOf(lines, _ROWS_HEADING_LINE);
@@ -329,7 +283,7 @@ public sealed class SuggestConsoleTests
 			: lines.Skip(headingIndex + 1).TakeWhile(line => line.StartsWith("  ", StringComparison.Ordinal)).ToArray();
 	}
 
-	private static int CountOccurrences(string text, string value)
+	internal static int CountOccurrences(string text, string value)
 	{
 		int count = 0;
 		int index = text.IndexOf(value, StringComparison.Ordinal);

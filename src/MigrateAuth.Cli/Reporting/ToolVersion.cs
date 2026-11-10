@@ -16,5 +16,5 @@ namespace MigrateAuth.Cli.Reporting;
 public static class ToolVersion
 {
 	/// <summary>The version printed in the report and carried in the data artifact.</summary>
-	public const string CURRENT = "0.3.0-alpha";
+	public const string CURRENT = "0.4.0-alpha";
 }

@@ -546,7 +546,8 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 				{
 					Match = FileNameMatch.Suffix,
 					Text = _TEST_FILE_NAME_SUFFIX,
-					Sensitivity = CaseSensitivity.Insensitive
+					Sensitivity = CaseSensitivity.Insensitive,
+					Kind = DemotionKind.Test
 				}
 			}.ToFrozenSet(),
 			FolderNameSignals = new[]
@@ -554,7 +555,8 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 				new FolderNameSignal
 				{
 					FolderName = _GENERATED_FOLDER_NAME,
-					Sensitivity = CaseSensitivity.Insensitive
+					Sensitivity = CaseSensitivity.Insensitive,
+					Kind = DemotionKind.Generated
 				}
 			}.ToFrozenSet(),
 			GenerationMarkerExpressions = [ExemplarPatternExpressions.GenerationMarker()],
@@ -577,12 +579,14 @@ public sealed class ExemplarFixtureAnalyzer : ILanguageAnalyzer
 			new ContentMarker
 			{
 				Expression = ExemplarPatternExpressions.GeneratedHeaderContentMarker(),
-				Zone = ContentMarkerZone.AnyZone
+				Zone = ContentMarkerZone.AnyZone,
+				Kind = DemotionKind.Generated
 			},
 			new ContentMarker
 			{
 				Expression = ExemplarPatternExpressions.TestAttributeContentMarker(),
-				Zone = ContentMarkerZone.CodeOnly
+				Zone = ContentMarkerZone.CodeOnly,
+				Kind = DemotionKind.Test
 			}
 		];
 

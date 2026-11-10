@@ -44,7 +44,8 @@ public abstract class PartCDriftTests
 		"### Documentation strings",
 		"### Test fixtures and mocks",
 		"### Sample and example code",
-		"### Vendored and generated files"
+		"### Vendored and generated files",
+		"### Deployment folders"
 	];
 
 	private static readonly string[] _fenceLabelsExemptFromTabs = [string.Empty, "bash", "text", "markdown"];
@@ -157,7 +158,7 @@ public abstract class PartCDriftTests
 		string[] problems =
 		[
 			.. GeneratedBlockMarkers.Blocks(partC).SelectMany(block =>
-				PublicDocumentChecks.ItemTwoProblems(block, PartCBlockComposition.ParseKey(block.Key)))
+				PublicDocumentChecks.ItemTwoProblems(block, PartCBlockComposition.ParseKey(block.Key), _language))
 		];
 
 		Assert.True(problems.Length == 0, string.Join(Environment.NewLine, problems));
@@ -174,12 +175,12 @@ public abstract class PartCDriftTests
 		string withoutPkce = complete.Replace(PublicDocumentChecks.PKCE_MARKER, string.Empty, StringComparison.Ordinal);
 		string withoutPartB = complete.Replace(SecretManagementPointer.PART_B_NAME, string.Empty, StringComparison.Ordinal);
 
-		Assert.Empty(PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), complete), key));
+		Assert.Empty(PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), complete), key, _language));
 		Assert.Contains(
-			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutPkce), key),
+			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutPkce), key, _language),
 			problem => problem.Contains(PublicDocumentChecks.PKCE_MARKER, StringComparison.Ordinal));
 		Assert.Contains(
-			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutPartB), key),
+			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutPartB), key, _language),
 			problem => problem.Contains("Part B pointer", StringComparison.Ordinal));
 	}
 
@@ -189,7 +190,11 @@ public abstract class PartCDriftTests
 	{
 		string partC = File.ReadAllText(_language.PartCPath());
 		ILanguageAnalyzer analyzer = _language.Analyzer();
-		FrozenDictionary<CredentialFlow, string> fallbackByFlow = analyzer.CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow!;
+		FrozenDictionary<CredentialFlow, string>? declaredFallbackByFlow = analyzer.CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow;
+
+		Assert.True(declaredFallbackByFlow is not null, $"The {_language.DisplayName} analyzer declares no generic fallback text by flow, so the generic blocks of its Part C have nothing to carry.");
+
+		FrozenDictionary<CredentialFlow, string> fallbackByFlow = declaredFallbackByFlow!;
 
 		foreach (CredentialFlow flow in PartCBlockComposition.Flows)
 		{

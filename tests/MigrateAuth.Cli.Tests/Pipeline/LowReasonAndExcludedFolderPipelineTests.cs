@@ -47,7 +47,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 
 		Assert.Equal(LowConfidenceReasons.PatternClass, FindingIn(findings, _CLASS_LOW_FILE).LowReasons);
 		Assert.Equal(LowConfidenceReasons.CommentOrStringLiteral, FindingIn(findings, _COMMENT_FILE).LowReasons);
-		Assert.Equal(LowConfidenceReasons.DemotedFile, FindingIn(findings, _DEMOTED_FILE).LowReasons);
+		Assert.Equal(LowConfidenceReasons.DemotedDeploymentFolder, FindingIn(findings, _DEMOTED_FILE).LowReasons);
 		Assert.Equal(LowConfidenceReasons.None, FindingIn(findings, _HIGH_FILE).LowReasons);
 	}
 
@@ -62,7 +62,7 @@ public sealed class LowReasonAndExcludedFolderPipelineTests
 		Assert.Equal(3, report.Split("- Low because: ", StringSplitOptions.None).Length - 1);
 		Assert.Equal(["patternClass"], ArtifactFindingIn(artifact, _CLASS_LOW_FILE).LowReasons!);
 		Assert.Equal(["commentOrStringLiteral"], ArtifactFindingIn(artifact, _COMMENT_FILE).LowReasons!);
-		Assert.Equal(["demotedFile"], ArtifactFindingIn(artifact, _DEMOTED_FILE).LowReasons!);
+		Assert.Equal(["demotedDeploymentFolder"], ArtifactFindingIn(artifact, _DEMOTED_FILE).LowReasons!);
 		Assert.Null(ArtifactFindingIn(artifact, _HIGH_FILE).LowReasons);
 	}
 

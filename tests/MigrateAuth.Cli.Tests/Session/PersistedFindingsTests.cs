@@ -216,6 +216,7 @@ public sealed class PersistedFindingsTests
 				"confidenceLevel": "High",
 				"destinationCertainty": "established",
 				"literalCredentialSignal": false,
+				"testCode": false,
 				"occurrenceOrdinal": 1,
 				"renderedRecommendation": "text that has no business being here"
 			}
@@ -454,6 +455,7 @@ public sealed class PersistedFindingsTests
 				"confidenceLevel": "{{confidenceLevel}}",
 				"destinationCertainty": "{{destinationCertainty}}",
 				"literalCredentialSignal": false,
+				"testCode": false,
 				"occurrenceOrdinal": {{occurrenceOrdinal}},
 				"flowEvidence": {{flowEvidence}},
 				"flow": {{flow}},

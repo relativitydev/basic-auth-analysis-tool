@@ -170,11 +170,11 @@ public sealed class SessionStateStore
 	/// <summary>
 	/// The schema version this build writes and the only one it accepts.
 	///
-	/// A state file of any other version starts a fresh session, with its reason shown, rather than
-	/// being read as a file of this version, and a file of a newer version is refused by a build that
-	/// cannot read it instead of failing on it.
+	/// A file at any other version starts a fresh session, with its reason shown and before the
+	/// catalog is looked at, rather than being read as this version with members it does not carry;
+	/// a newer file is likewise refused by a build that cannot read it instead of failing on it.
 	/// </summary>
-	public const int CURRENT_SCHEMA_VERSION = 8;
+	public const int CURRENT_SCHEMA_VERSION = 9;
 
 	/// <summary>
 	/// The ceiling on a state file, in bytes, on both the write and the read side. A state past it
@@ -186,11 +186,7 @@ public sealed class SessionStateStore
 	/// <summary>The unit the user-facing ceiling is stated in alongside its byte count.</summary>
 	public const long BYTES_PER_MEBIBYTE = 1024L * 1024;
 
-	/// <summary>
-	/// The ceiling on the size of a session state file, in bytes, rounded to a multiple of 16 MiB. The
-	/// volume proof fails if this and the measured size of its synthetic state stop being one rounding
-	/// unit apart.
-	/// </summary>
+	/// <summary>The ceiling in mebibytes, a whole number of 16 MiB units.</summary>
 	private const long _CEILING_IN_MEBIBYTES = 128;
 
 	/// <summary>How a ceiling is stated to the user: bytes, then mebibytes. See <see cref="DescribeCeiling"/>.</summary>
@@ -429,6 +425,7 @@ public sealed class SessionStateStore
 				? DESTINATION_ESTABLISHED_NAME
 				: DESTINATION_UNKNOWN_NAME,
 			LiteralCredentialSignal = finding.LiteralCredentialSignal,
+			TestCode = finding.TestCode,
 			OccurrenceOrdinal = finding.Fingerprint.OccurrenceOrdinal,
 			FlowEvidence = finding.FlowEvidence is FlowEvidence evidence ? NameOfEvidence(evidence) : null,
 			Flow = finding.Flow is CredentialFlow flow ? CredentialFlows.Name(flow) : null,
@@ -1081,6 +1078,7 @@ public sealed class SessionStateStore
 			&& persistedFinding.OccurrenceOrdinal is int occurrenceOrdinal
 			&& occurrenceOrdinal >= FindingFingerprint.FIRST_OCCURRENCE_ORDINAL
 			&& persistedFinding.LiteralCredentialSignal is bool literalCredentialSignal
+			&& persistedFinding.TestCode is bool testCode
 			&& persistedFinding.RelativePath is string relativePathText
 			&& IsContainedRelativePath(relativePathText)
 			&& RepositoryRelativePath.TryFromScannedPath(repository, relativePathText, out RepositoryRelativePath path)
@@ -1094,7 +1092,7 @@ public sealed class SessionStateStore
 			&& TryReadLowReasons(persistedFinding, level, out LowConfidenceReasons lowReasons))
 		{
 			finding = BuildFinding(
-				new PersistedFindingScalars(line, column, literalCredentialSignal, occurrenceOrdinal),
+				new PersistedFindingScalars(line, column, literalCredentialSignal, testCode, occurrenceOrdinal),
 				expectedIndex,
 				path,
 				language,
@@ -1137,6 +1135,7 @@ public sealed class SessionStateStore
 			Level = level,
 			DestinationCertainty = destinationCertainty,
 			LiteralCredentialSignal = scalars.LiteralCredentialSignal,
+			TestCode = scalars.TestCode,
 			LowReasons = lowReasons,
 			FlowEvidence = flowFields.Evidence,
 			Flow = flowFields.Flow,
@@ -1982,6 +1981,7 @@ public sealed class SessionStateStore
 		int Line,
 		int Column,
 		bool LiteralCredentialSignal,
+		bool TestCode,
 		int OccurrenceOrdinal);
 
 	/// <summary>A finding's three flow fields as read: all three set on a High or Medium finding, none on a Low one.</summary>

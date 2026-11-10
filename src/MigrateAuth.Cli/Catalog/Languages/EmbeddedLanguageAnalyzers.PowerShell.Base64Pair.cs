@@ -182,6 +182,15 @@ internal static partial class PowerShellPatternExpressions
 		+ @"|" + _SINGLE_OPEN + @":" + _SINGLE_NOT_A_URL_OR_DIGITS_AFTER + @"(?<credential>" + _SINGLE_BODY_AFTER_COLON + @")" + _SINGLE_CLOSE
 		+ @"|" + _SINGLE_OPEN + _NOT_A_DRIVE_OR_DIGITS_BEFORE + @"(?<credential>" + _SINGLE_BODY_BEFORE_COLON + @"):" + _SINGLE_CLOSE + @")";
 
+	/// <summary>
+	/// WHAT EVERY SPELLING OF A PAIR HAS IN COMMON, tested before any of them is tried. Every spelling above lies on one line - none of its parts reads a line
+	/// break - and holds a colon that a quote character precedes: the colon of a quoted colon, of an interpolated string, of a one-literal pair or of a format string. So
+	/// a pair can start only where, on the rest of the line, a colon follows a quote character. Each part is read in one way only (the first quote, then the first colon after
+	/// it), so the look-ahead never backtracks. It gives the same matches and the same captures as the expressions without it: it only refuses, cheaply, the places where
+	/// the spellings would all have failed, which a window that is open across lines offers by the hundred.
+	/// </summary>
+	private const string _PAIR_STARTS_BEFORE_A_QUOTED_COLON_ON_THE_LINE = @"(?=[^\n'""‘’“”]*['""‘’“”][^\n:]*:)";
+
 	// ------------------------------------------------------------------------------------------
 	// The encoder, and where a pair may stand relative to it
 	// ------------------------------------------------------------------------------------------
@@ -321,8 +330,12 @@ internal static partial class PowerShellPatternExpressions
 	// The empty-half variable (PS-011 only)
 	// ------------------------------------------------------------------------------------------
 
-	/// <summary>An empty half as the whole value of a statement.</summary>
-	private const string _EMPTY_ASSIGNED_VALUE = _EMPTY_HALF_LITERAL + @"(?=[ \t]*(?:[;\n}]|#|\z))";
+	/// <summary>
+	/// An empty half as the whole value of a statement. The last look-behind is a one-character test, which the right-to-left reader that walks the window
+	/// before it meets first: every spelling of an empty half ends on a closing quote (an empty literal of either kind), on the <c>l</c> of <c>$null</c> or on the
+	/// <c>y</c> of <c>[string]::Empty</c>, so a position that ends on anything else is left at once and never reads the spellings.
+	/// </summary>
+	private const string _EMPTY_ASSIGNED_VALUE = _EMPTY_HALF_LITERAL + @"(?=[ \t]*(?:[;\n}]|#|\z))(?<=['""’”lLyY])";
 
 	/// <summary>
 	/// The variable captured as <c>e</c> in the pair was assigned an empty half as a statement of its own in the ten lines before the end of the pair, read as the
@@ -342,7 +355,7 @@ internal static partial class PowerShellPatternExpressions
 	/// before the encoder or inside its call, within ten lines; or as a two-element array joined later. A pair with an empty half is the next class's.
 	/// </summary>
 	[GeneratedRegex(
-		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW + @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _COLON_AHEAD_IN_THE_STATEMENT + _ENCODER_WITHIN_THE_WINDOW + _STATEMENT_PAIR_WINDOW + @")" + _PAIR_NON_EMPTY_BOTH + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
+		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW + @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _COLON_AHEAD_IN_THE_STATEMENT + _ENCODER_WITHIN_THE_WINDOW + _STATEMENT_PAIR_WINDOW + @")" + _PAIR_STARTS_BEFORE_A_QUOTED_COLON_ON_THE_LINE + _PAIR_NON_EMPTY_BOTH + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
 		+ @"|" + _ARRAY_JOIN_PAIR_NON_EMPTY + @")",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
@@ -357,7 +370,7 @@ internal static partial class PowerShellPatternExpressions
 	[GeneratedRegex(
 		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW
 		+ @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _COLON_AHEAD_IN_THE_STATEMENT + _ENCODER_WITHIN_THE_WINDOW + _STATEMENT_PAIR_WINDOW + @")"
-		+ _PAIR_ONE_EMPTY + @"(?(e)" + _EMPTY_VARIABLE_WAS_ASSIGNED_BEFORE + @")" + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
+		+ _PAIR_STARTS_BEFORE_A_QUOTED_COLON_ON_THE_LINE + _PAIR_ONE_EMPTY + @"(?(e)" + _EMPTY_VARIABLE_WAS_ASSIGNED_BEFORE + @")" + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
 		+ @"|" + _ARRAY_JOIN_PAIR_ONE_EMPTY + @")",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
 namespace MigrateAuth.Cli.Catalog;
@@ -57,4 +58,19 @@ public sealed record FlowSignal
 
 	/// <summary>Declared as a source-generated expression carrying the policy match bound.</summary>
 	public required Regex Expression { get; init; }
+
+	/// <summary>
+	/// OPTIONAL. The dialects this signal is evaluated in (see <see cref="FileDialects"/>). Empty, the default,
+	/// means every dialect. A non-empty list never fires for a file whose language declares no dialects.
+	/// </summary>
+	public ImmutableArray<string> Dialects { get; init; } = [];
+
+	/// <summary>OPTIONAL. The dialects this signal is NOT evaluated in. Empty, the default, excludes none.</summary>
+	public ImmutableArray<string> ExcludedDialects { get; init; } = [];
+
+	/// <summary>
+	/// OPTIONAL. Where declared, a match whose variable is later used for something that sends it is suppressed
+	/// (the signal can still fire on another match). A signal that declares none is never suppressed this way.
+	/// </summary>
+	public FlowSignalVariableUse? VariableUse { get; init; }
 }
