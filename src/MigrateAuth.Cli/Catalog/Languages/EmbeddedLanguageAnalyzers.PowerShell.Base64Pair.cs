@@ -192,6 +192,46 @@ internal static partial class PowerShellPatternExpressions
 
 	private const string _ENCODER = _ENCODER_TYPE_PREFIX + @"(?<encoder>" + _ENCODER_METHOD_NAME + @")[ \t]*\(";
 
+	/// <summary>The encoder as a position that can be tested without capturing it: the same text as <see cref="_ENCODER"/>, with no group.</summary>
+	private const string _ENCODER_PROBE = _ENCODER_TYPE_PREFIX + _ENCODER_METHOD_NAME + @"[ \t]*\(";
+
+	private const string _ENCODER_AHEAD = @"(?=" + _ENCODER_PROBE + @")";
+
+	// ------------------------------------------------------------------------------------------
+	// The line windows to the encoder, unrolled
+	//
+	// THE WINDOW BETWEEN A PAIR AND THE ENCODER IS A BOUNDED NUMBER OF LINES, N, WRITTEN UNROLLED. A lazy bounded loop, (?:[^\n]*\n){0,N}?[^\n]*?, followed by
+	// the encoder is a shape the [GeneratedRegex] source generator and RegexOptions.Compiled mishandle: when the text after the pair holds N line breaks and the
+	// encoder then fails, the generated matcher does not terminate. Level k says "the encoder starts on the rest of this line, or this line ends and level k-1
+	// says it of the next one". The alternatives are the loop's own, in the loop's own order (fewest line breaks first, then the shortest run on the line), so
+	// the same position is found first and every later one is offered in the same order when what follows fails; no level is a loop that can be left by its
+	// upper bound. The encoder is tested by a look-ahead without a group and then consumed by the caller, so the captures of the match are the loop's own.
+	// ------------------------------------------------------------------------------------------
+
+	private const string _TO_THE_ENCODER_0 = @"[^\n]*?" + _ENCODER_AHEAD;
+
+	private const string _TO_THE_ENCODER_1 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_0 + @")";
+
+	private const string _TO_THE_ENCODER_2 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_1 + @")";
+
+	private const string _TO_THE_ENCODER_3 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_2 + @")";
+
+	private const string _TO_THE_ENCODER_4 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_3 + @")";
+
+	/// <summary>The encoder within five lines, as the array join needs it: <see cref="_LINE_WINDOW_FIVE"/> followed by the encoder, unrolled. The caller consumes the encoder.</summary>
+	private const string _TO_THE_ENCODER_5 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_4 + @")";
+
+	private const string _TO_THE_ENCODER_6 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_5 + @")";
+
+	private const string _TO_THE_ENCODER_7 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_6 + @")";
+
+	private const string _TO_THE_ENCODER_8 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_7 + @")";
+
+	private const string _TO_THE_ENCODER_9 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_8 + @")";
+
+	/// <summary>The encoder within ten lines, as the pair's tie needs it: <see cref="_LINE_WINDOW_TEN"/> followed by the encoder, unrolled. The caller consumes the encoder.</summary>
+	private const string _TO_THE_ENCODER_10 = @"(?:[^\n]*?" + _ENCODER_AHEAD + @"|[^\n]*\n" + _TO_THE_ENCODER_9 + @")";
+
 	/// <summary>
 	/// THE PAIR INSIDE THE ENCODER CALL. The window may enter an opening parenthesis and cross a balanced group, may cross line breaks and
 	/// backtick continuations, and stops at the call's closing parenthesis - a closing parenthesis with no opening one in the window cannot be crossed - or at a
@@ -227,10 +267,13 @@ internal static partial class PowerShellPatternExpressions
 	private const string _ASSIGNMENT_GUARD = @"(?=\$(?:\{[ \t]*)?(?:" + _SCOPE + @")?" + _NAME + @"[ \t]*\}?[ \t]*\+?=(?!=))";
 
 	/// <summary>
-	/// A cheap required look-ahead before the pair is tried: the tie that follows needs an encoder within ten lines, so a statement with none is left at once instead of
-	/// failing the tie after each pair candidate and backtracking into the window.
+	/// A required look-ahead before the pair is tried: the tie that follows needs an encoder within ten lines, so a statement with none is left at once instead of
+	/// failing the tie after each pair candidate and backtracking into the window. It is the dearer of the two look-aheads that guard the statement before the encoder
+	/// (it reads up to eleven lines), so it stands AFTER <see cref="_COLON_AHEAD_IN_THE_STATEMENT"/>, which ends at the statement's own end: on a long line of assignments
+	/// that hold no colon, every assignment leaves at the colon and none reads the lines below it. Both are pure look-aheads and join by conjunction, so their order decides
+	/// what is read, never what matches or what is captured.
 	/// </summary>
-	private const string _ENCODER_WITHIN_THE_WINDOW = @"(?=" + _LINE_WINDOW_TEN + _ENCODER + @")";
+	private const string _ENCODER_WITHIN_THE_WINDOW = @"(?=" + _TO_THE_ENCODER_10 + _ENCODER + @")";
 
 	/// <summary>A read of the variable that carries the pair.</summary>
 	private const string _READ_OF_THE_PAIR_VARIABLE = @"\$(?:\{[ \t]*)?(?:" + _SCOPE + @")?(?-i:\k<v>)(?![\w])";
@@ -244,7 +287,7 @@ internal static partial class PowerShellPatternExpressions
 	/// read back before it, or inside its call. A pair inside the call needs no tie.
 	/// </summary>
 	private const string _TIE_TO_THE_ENCODER =
-		@"(?:" + _READ_BEFORE_THE_ENCODER + _LINE_WINDOW_TEN + _ENCODER + @"|" + _LINE_WINDOW_TEN + _ENCODER + _IN_CALL_PAIR_WINDOW + _READ_OF_THE_PAIR_VARIABLE + @")";
+		@"(?:" + _READ_BEFORE_THE_ENCODER + _TO_THE_ENCODER_10 + _ENCODER + @"|" + _TO_THE_ENCODER_10 + _ENCODER + _IN_CALL_PAIR_WINDOW + _READ_OF_THE_PAIR_VARIABLE + @")";
 
 	// ------------------------------------------------------------------------------------------
 	// The array join
@@ -268,11 +311,11 @@ internal static partial class PowerShellPatternExpressions
 
 	private const string _ARRAY_JOIN_PAIR_NON_EMPTY =
 		@"(?=" + _JOIN_OVER_A_VARIABLE + @")(?<=" + _ARRAY_ASSIGNMENT_OPENING + _ARRAY_ELEMENTS_NON_EMPTY + _ARRAY_ASSIGNMENT_CLOSING + @")"
-		+ _ARRAY_JOIN_VARIABLE + @"[ \t]*-join[ \t]*" + _COLON_LITERAL + _LINE_WINDOW_FIVE + _ENCODER;
+		+ _ARRAY_JOIN_VARIABLE + @"[ \t]*-join[ \t]*" + _COLON_LITERAL + _TO_THE_ENCODER_5 + _ENCODER;
 
 	private const string _ARRAY_JOIN_PAIR_ONE_EMPTY =
 		@"(?=" + _JOIN_OVER_A_VARIABLE + @")(?<=" + _ARRAY_ASSIGNMENT_OPENING + _ARRAY_ELEMENTS_ONE_EMPTY + _ARRAY_ASSIGNMENT_CLOSING + @")"
-		+ _ARRAY_JOIN_VARIABLE + @"[ \t]*-join[ \t]*" + _COLON_LITERAL + _LINE_WINDOW_FIVE + _ENCODER;
+		+ _ARRAY_JOIN_VARIABLE + @"[ \t]*-join[ \t]*" + _COLON_LITERAL + _TO_THE_ENCODER_5 + _ENCODER;
 
 	// ------------------------------------------------------------------------------------------
 	// The empty-half variable (PS-011 only)
@@ -299,7 +342,7 @@ internal static partial class PowerShellPatternExpressions
 	/// before the encoder or inside its call, within ten lines; or as a two-element array joined later. A pair with an empty half is the next class's.
 	/// </summary>
 	[GeneratedRegex(
-		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW + @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _ENCODER_WITHIN_THE_WINDOW + _COLON_AHEAD_IN_THE_STATEMENT + _STATEMENT_PAIR_WINDOW + @")" + _PAIR_NON_EMPTY_BOTH + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
+		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW + @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _COLON_AHEAD_IN_THE_STATEMENT + _ENCODER_WITHIN_THE_WINDOW + _STATEMENT_PAIR_WINDOW + @")" + _PAIR_NON_EMPTY_BOTH + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
 		+ @"|" + _ARRAY_JOIN_PAIR_NON_EMPTY + @")",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
@@ -313,7 +356,7 @@ internal static partial class PowerShellPatternExpressions
 	/// </summary>
 	[GeneratedRegex(
 		@"(?:(?:" + _ENCODER + _COLON_AHEAD_IN_THE_CALL + _IN_CALL_PAIR_WINDOW
-		+ @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _ENCODER_WITHIN_THE_WINDOW + _COLON_AHEAD_IN_THE_STATEMENT + _STATEMENT_PAIR_WINDOW + @")"
+		+ @"|" + _ASSIGNMENT_GUARD + _ASSIGNMENT_OF_THE_PAIR + _COLON_AHEAD_IN_THE_STATEMENT + _ENCODER_WITHIN_THE_WINDOW + _STATEMENT_PAIR_WINDOW + @")"
 		+ _PAIR_ONE_EMPTY + @"(?(e)" + _EMPTY_VARIABLE_WAS_ASSIGNED_BEFORE + @")" + @"(?(v)" + _TIE_TO_THE_ENCODER + @")"
 		+ @"|" + _ARRAY_JOIN_PAIR_ONE_EMPTY + @")",
 		RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,

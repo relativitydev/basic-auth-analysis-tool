@@ -235,6 +235,16 @@ public sealed class SessionStateStore
 	private const double _PERCENTAGE_SCALE = 100.0;
 
 	private const string _TEMPORARY_FILE_NAME_SUFFIX = ".writing";
+
+	/// <summary>
+	/// How many times the rename onto the final name is attempted. On Windows a rename over a file that something else
+	/// holds open for a moment (an indexer or a scanner reading the file just written) fails with a sharing violation
+	/// that clears by itself, so a short bounded retry turns a spurious "not persisted" into a persisted state.
+	/// </summary>
+	private const int _COMMIT_ATTEMPT_COUNT = 6;
+
+	/// <summary>The wait before the second attempt; each further wait is one step longer, so the total stays under two seconds.</summary>
+	private const int _COMMIT_RETRY_STEP_IN_MILLISECONDS = 100;
 	private const int _STATE_FILE_NAME_HASH_CHARACTER_COUNT = 32;
 
 	private const char _PORTABLE_DIRECTORY_SEPARATOR = '/';
@@ -339,7 +349,7 @@ public sealed class SessionStateStore
 		try
 		{
 			WriteDocumentStreaming(temporaryPath, BuildDocument(state));
-			File.Move(temporaryPath, finalPath, overwrite: true);
+			CommitWithBriefRetry(temporaryPath, finalPath);
 			committed = true;
 		}
 		finally
@@ -492,6 +502,26 @@ public sealed class SessionStateStore
 	/// Removes the temporary file of a save that did not commit. Failing to remove it is not worth
 	/// hiding the failure that led here, and a leftover temporary is overwritten by the next save.
 	/// </summary>
+	/// <summary>
+	/// Renames the temporary over the final name, retrying a bounded number of times when the target is briefly held
+	/// by another process. The last failure is raised unchanged, so a lock that does not clear still reads as before.
+	/// </summary>
+	private static void CommitWithBriefRetry(string temporaryPath, string finalPath)
+	{
+		for (int attempt = 1; attempt <= _COMMIT_ATTEMPT_COUNT; attempt++)
+		{
+			try
+			{
+				File.Move(temporaryPath, finalPath, overwrite: true);
+				break;
+			}
+			catch (Exception exception) when (attempt < _COMMIT_ATTEMPT_COUNT && exception is IOException or UnauthorizedAccessException)
+			{
+				Thread.Sleep(_COMMIT_RETRY_STEP_IN_MILLISECONDS * attempt);
+			}
+		}
+	}
+
 	private static void DiscardTemporaryFile(string temporaryPath)
 	{
 		try

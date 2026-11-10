@@ -17,6 +17,8 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 /// </summary>
 public sealed class ReleaseNotesIdentifierTests
 {
+	private const string _PART_A_SEARCH_PATTERN = "part-a-*.md";
+	private const string _PART_C_SEARCH_PATTERN = "part-c-*.md";
 	private const string _FOUND_MESSAGE = "{0}: found the forbidden text '{1}' in: {2}";
 	private const string _EXCERPT_ELLIPSIS = "...";
 	private const int _EXCERPT_CONTEXT_LENGTH = 30;
@@ -49,7 +51,13 @@ public sealed class ReleaseNotesIdentifierTests
 		("A", "DR"),
 		("Set", " 11"),
 		("sub", "-issue"),
-		("pass", " 2")
+		("pass", " 2"),
+		("P", "RD"),
+		("§", string.Empty),
+		("R-M", "2"),
+		("D-M", "1"),
+		("D-M", "2"),
+		("M", "2 DR")
 	];
 
 	/// <summary>Whole-word forms: a set number, a task number.</summary>
@@ -72,6 +80,22 @@ public sealed class ReleaseNotesIdentifierTests
 
 		string[] problems = [.. paths.SelectMany(path => ProblemsIn(Path.GetFileName(path), File.ReadAllText(path), AllPatterns()))];
 
+		Assert.True(problems.Length == 0, string.Join(Environment.NewLine, problems));
+	}
+
+	/// <summary>Every Part A and every Part C of the migration documentation, whatever the language, contains no internal identifier and no design vocabulary.</summary>
+	[Fact]
+	public void EveryPartAAndPartCOfTheMigrationDocumentationContainsNoInternalIdentifierOrDesignVocabulary()
+	{
+		string[] paths =
+		[
+			.. Directory.EnumerateFiles(PublicDocuments.MigrationFolder(), _PART_A_SEARCH_PATTERN),
+			.. Directory.EnumerateFiles(PublicDocuments.MigrationFolder(), _PART_C_SEARCH_PATTERN)
+		];
+
+		string[] problems = [.. paths.Order(StringComparer.Ordinal).SelectMany(path => ProblemsIn(Path.GetFileName(path), File.ReadAllText(path), AllPatterns()))];
+
+		Assert.True(paths.Length >= DocumentedLanguage.All.Length * 2, "The migration folder holds fewer Part A and Part C documents than there are documented languages.");
 		Assert.True(problems.Length == 0, string.Join(Environment.NewLine, problems));
 	}
 

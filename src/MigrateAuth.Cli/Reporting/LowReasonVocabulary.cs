@@ -36,7 +36,7 @@ public static class LowReasonVocabulary
 	private const string _NON_HTTP_SINK_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential goes to a sink that is not an HTTP client, such as remoting, mail, file transfer, a directory or a proxy; that is live code, but not Basic Authentication towards RelativityOne";
 	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
-		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named, so as written the call does not send it as Basic to RelativityOne";
+		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 
 	/// <summary>How the sentence for a class that is Low by definition starts; the clause after it says why for that class.</summary>
 	public const string PATTERN_CLASS_SENTENCE_LEAD = "this pattern class is Low by definition: ";

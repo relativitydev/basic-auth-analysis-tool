@@ -135,7 +135,8 @@ public sealed class WorstCaseTreeGeneratorTests
 		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with
 		{
 			OversizeFileCount = _OVERSIZE_FILE_COUNT,
-			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS
+			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS,
+			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS
 		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
@@ -172,6 +173,41 @@ public sealed class WorstCaseTreeGeneratorTests
 		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal(WorstCaseFileKind.Filler, pair.Before));
 		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.PowerShellScript);
 		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.PowerShellShebangScript);
+	}
+
+	[Fact]
+	public void ATreeAskedForNoVBNetHoldsNoVisualBasicFileAndTheVBNetShareReplacesOrdinaryFilesOnly()
+	{
+		WorstCaseTreeOptions without = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS };
+		WorstCaseTreeOptions with = without with { VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS };
+		List<(WorstCaseFileKind Before, WorstCaseFileKind After)> pairs =
+		[
+			.. Enumerable.Range(0, _SHAPE_FILE_COUNT).Select(index => (WorstCaseTreePlanner.KindOf(without, index), WorstCaseTreePlanner.KindOf(with, index)))
+		];
+
+		Assert.DoesNotContain(pairs, pair => pair.Before == WorstCaseFileKind.VBNetSource);
+		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal((WorstCaseFileKind.Filler, WorstCaseFileKind.VBNetSource), pair));
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.VBNetSource);
+	}
+
+	[Fact]
+	public void AVisualBasicFileHasTheVbExtensionAndIsAttributedToVBNet()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = Enumerable.Range(0, options.FileCount).Select(index => WorstCaseTreePlanner.PlanFile(options, index)).ToList();
+		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(folder.Path);
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.VBNetSource));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.VBNetSource), path =>
+		{
+			Assert.EndsWith(".vb", path, StringComparison.Ordinal);
+			Assert.True(RepositoryRelativePath.TryFromScannedPath(repository, path, out RepositoryRelativePath relativePath));
+			Assert.Equal("VBNet", attribution.Attribute(relativePath, File.ReadAllText(Path.Combine(folder.Path, path)).Split(_LINE_FEED)[0]).LanguageName);
+		});
 	}
 
 	[Fact]

@@ -6,7 +6,7 @@ Every pattern class below has the same five parts:
 
 - **Identifier and name.** In the heading.
 - **What it looks like.** A short description and a placeholder example.
-- **How to search.** A pattern you can run with `rg` (ripgrep). PowerShell is not case-sensitive, so every search ignores letter case (`-i`). If you use `grep`, run `grep -rniE --include="*.ps1" --include="*.psm1"` with the same expression, replacing `\s` by `[[:space:]]`, `\w` by `[[:alnum:]_]` and `\W` by `[^[:alnum:]_]`. In PowerShell itself the expression works unchanged with `Select-String`: `Get-ChildItem -Recurse -Include *.ps1,*.psm1 | Select-String -Pattern '<expression>'`, which also ignores letter case.
+- **How to search.** A pattern you can run with `rg` (ripgrep). PowerShell is not case-sensitive, so every search ignores letter case (`-i`). If you use `grep`, run `grep -rniE --include="*.ps1" --include="*.psm1"` with the same expression, replacing `\s` by `[[:space:]]`, `\w` by `[[:alnum:]_]` and `\W` by `[^[:alnum:]_]`. In PowerShell itself the expression works unchanged with `Select-String`: `Get-ChildItem -Recurse -Include *.ps1,*.psm1 | Select-String -Pattern '<expression>'`, which also ignores letter case. A script saved as UTF-16, which some Windows editors do by default, is not read by `grep`, which sees it as binary and reports no match; `rg` and `Select-String` read it, so use one of them when your scripts may be UTF-16.
 - **Confidence.** When a match is High, Medium or Low, including the cases that go to manual review.
 - **Which flow.** The signals that indicate Client Credentials or Authorization Code, and the default.
 

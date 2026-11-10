@@ -46,6 +46,8 @@ public sealed class CSharpInterpolationNestingTests
 	private const string _HOLE_THAT_NEVER_CLOSES =
 		"var line = $\"{Describe(new Options { Retries = 3 }, value)\nvar next = 1;\n";
 	private const string _BALANCED_DOUBLED_OPENER = "var line = $\"{{text}} tail\";\nvar next = 1;\n";
+	private const string _TRIPLED_OPENER = "var line = $\"{{{x}}} tail\";\nvar next = 1;\n";
+	private const string _DOUBLED_BRACE_INSIDE_A_HOLE = "var line = $\"{new Options { A = new Options { B = 1 } }.Name} tail\";\nvar next = 1;\n";
 	private const string _UNPAIRED_DOUBLED_OPENER = "var line = $\"literal {{ brace }\";\nvar next = 1;\n";
 
 	[Fact]
@@ -165,11 +167,11 @@ public sealed class CSharpInterpolationNestingTests
 	}
 
 	[Fact]
-	public void ABalancedDoubledOpenerReadsItsTextAsCodeAndTheTailAsStringBody()
+	public void ABalancedDoubledOpenerReadsTheWholeSpanAsStringBody()
 	{
 		FileRecognitionContext context = new CSharpRecognitionHarness().ContextFor(_BALANCED_DOUBLED_OPENER);
 
-		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "text", LexicalZone.Code);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "text", LexicalZone.StringBody);
 		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, " tail", LexicalZone.StringBody);
 		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "var next = 1;", LexicalZone.Code);
 		Assert.Equal(0, context.Mask.UnbalancedNestingCount);
@@ -177,13 +179,45 @@ public sealed class CSharpInterpolationNestingTests
 	}
 
 	[Fact]
-	public void AnUnpairedDoubledOpenerThatRunsToTheEndOfTheFileRestoresTheFirstClosingReadWithOneAnomaly()
+	public void AnUnpairedDoubledOpenerOpensNoHoleAndRecordsNoAnomaly()
 	{
-		ZoneMask mask = new CSharpRecognitionHarness().ContextFor(_UNPAIRED_DOUBLED_OPENER).Mask;
+		FileRecognitionContext context = new CSharpRecognitionHarness().ContextFor(_UNPAIRED_DOUBLED_OPENER);
 
-		Assert.Equal(1, mask.UnbalancedNestingCount);
-		Assert.Equal(LexicalAnomalyReason.UnbalancedInterpolationNesting, mask.AnomalyReason);
-		Assert.True(mask.IsCompletelyValid);
-		Assert.False(mask.WasAbandonedMidFile);
+		Assert.Equal(0, context.Mask.UnbalancedNestingCount);
+		Assert.Equal(LexicalAnomalyReason.None, context.Mask.AnomalyReason);
+		Assert.True(context.Mask.IsCompletelyValid);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "literal {{ brace }", LexicalZone.StringBody);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "var next = 1;", LexicalZone.Code);
+	}
+
+	[Fact]
+	public void ATripledOpenerReadsThePairThenAHoleThenTwoClosingBodyCharacters()
+	{
+		FileRecognitionContext context = new CSharpRecognitionHarness().ContextFor(_TRIPLED_OPENER);
+
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "x", LexicalZone.Code);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "}} tail", LexicalZone.StringBody);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "var next = 1;", LexicalZone.Code);
+		Assert.Equal(0, context.Mask.UnbalancedNestingCount);
+	}
+
+	[Fact]
+	public void ADoubledOpenerInsideAHoleCodeRegionIsNotTheStepsBusiness()
+	{
+		FileRecognitionContext context = new CSharpRecognitionHarness().ContextFor(_DOUBLED_BRACE_INSIDE_A_HOLE);
+
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, "new Options { A = new Options { B = 1 } }.Name", LexicalZone.Code);
+		ZoneAssertions.SpansZone(context.Mask, context.NormalizedText, " tail", LexicalZone.StringBody);
+		Assert.Equal(0, context.Mask.UnbalancedNestingCount);
+	}
+
+	[Fact]
+	public void TheThreeInterpolatedRulesDeclareTheDoubledOpeningAsLiteral()
+	{
+		ILanguageAnalyzer analyzer = new CSharpRecognitionHarness().Analyzer;
+
+		Assert.All(
+			analyzer.LexicalProfile.QuoteRulesInEngineOrder.Where(rule => rule.InterpolationOpening is not null),
+			rule => Assert.True(rule.DoubledInterpolationOpeningIsLiteral));
 	}
 }

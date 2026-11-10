@@ -199,6 +199,68 @@ public sealed class FindingsSummaryTableTests
 	}
 
 	[Fact]
+	public void ALanguageTheConfigurationDisabledIsNamedUnderTheTableWhenThereAreFindings()
+	{
+		EffectiveConfiguration configuration = ReportHarness.ConfigurationWith(ConfidenceLevel.Low, AssessedLanguage.VBNet);
+		ReportContent content = ContentWithThreeFindings(ConfidenceLevel.Low) with
+		{
+			Configuration = configuration,
+			ScanEnabledLanguages = configuration.EnabledLanguagesInDeclaredOrder,
+			ScanSummary = new ScanSummary
+			{
+				FileCount = 2,
+				LineCount = 2,
+				CandidateFileCount = 0,
+				Rows = [RowOf(_VB_NET_NAME, 2)]
+			}
+		};
+
+		string summary = SummaryOf(content);
+
+		Assert.Contains("Not assessed, because the configuration disabled VBNet.", summary, StringComparison.Ordinal);
+		Assert.True(
+			summary.IndexOf("Not assessed, because", StringComparison.Ordinal) > summary.IndexOf("src/Low.cs", StringComparison.Ordinal),
+			"The note follows the table.");
+	}
+
+	[Fact]
+	public void NoDisabledLanguageNoteIsWrittenWhenNoLanguageIsDisabled()
+	{
+		string summary = SummaryOf(ContentWithThreeFindings(ConfidenceLevel.Low));
+
+		Assert.DoesNotContain("Not assessed, because", summary, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void FindingsWithALiteralCredentialThatTheThresholdHidesAreSaidInTheSummary()
+	{
+		ImmutableArray<Finding> findings =
+		[
+			ReportHarness.FindingAt(1, _HIGH_PATH, 1, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.High),
+			ReportHarness.FindingAt(2, _LOW_PATH, 1, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.Low, literalCredentialSignal: true),
+			ReportHarness.FindingAt(3, _MEDIUM_PATH, 1, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.Medium, literalCredentialSignal: true)
+		];
+
+		Assert.Equal(2, ThresholdFilter.CountHiddenWithLiteralCredential(findings, ConfidenceLevel.High));
+
+		string summary = SummaryOf(ContentOf(findings, ConfidenceLevel.High));
+
+		Assert.Contains(
+			"Of the findings not shown at the minimum confidence level (High), 2 carry a literal credential. The console warned about them. Lower the minimum confidence level to list them in this report.",
+			summary,
+			StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void NoLiteralCredentialStatementIsWrittenWhenNoneIsHidden()
+	{
+		string summary = SummaryOf(ContentWithThreeFindings(ConfidenceLevel.Medium));
+
+		Assert.DoesNotContain("carry a literal credential", summary, StringComparison.Ordinal);
+		Assert.DoesNotContain("carries a literal credential", summary, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void FindingsTheThresholdHidesAreNamedWhenNothingIsShown()
 	{
 		ReportContent content = ContentWithThreeFindings(ConfidenceLevel.High) with

@@ -12,7 +12,7 @@ namespace MigrateAuth.Cli.Catalog;
 public sealed class LanguageCatalog
 {
 	private const int _CURRENT_VERSION_MAJOR = 1;
-	private const int _CURRENT_VERSION_MINOR = 13;
+	private const int _CURRENT_VERSION_MINOR = 19;
 	private const int _CURRENT_VERSION_REVISION = 0;
 
 	private readonly FrozenDictionary<string, ILanguageAnalyzer> _analyzersByFileExtension;

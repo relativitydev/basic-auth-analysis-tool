@@ -16,7 +16,8 @@ internal static class Program
 	private const string _OVERSIZE_OPTION = "--oversize-files";
 	private const string _NO_POWERSHELL_DEFAULT = "0";
 	private const string _POWERSHELL_OPTION = "--powershell-basis-points";
-	private const string _USAGE = "Usage: worst-case-generator --output <folder outside any repository> [--files <n, default 50000>] [--seed <n>] [--oversize-files <n, default 101>] [--powershell-basis-points <n of every 10,000 ordinary files, default 0>]";
+	private const string _VBNET_OPTION = "--vbnet-basis-points";
+	private const string _USAGE = "Usage: worst-case-generator --output <folder outside any repository> [--files <n, default 50000>] [--seed <n>] [--oversize-files <n, default 101>] [--powershell-basis-points <n of every 10,000 ordinary files, default 0>] [--vbnet-basis-points <n of every 10,000 ordinary files, default 0>]";
 	private const string _DONE_FORMAT = "Done: {0:N0} files, {1:N0} bytes";
 	private const int _DEFAULT_OVERSIZE_FILE_COUNT = WorstCaseTreeOptions.RETAINED_NAMES_PER_CATEGORY + 1;
 
@@ -76,6 +77,7 @@ internal static class Program
 			Seed = long.Parse(values.GetValueOrDefault(_SEED_OPTION, WorstCaseTreeOptions.DEFAULT_SEED.ToString(CultureInfo.InvariantCulture)), CultureInfo.InvariantCulture),
 			OversizeFileCount = int.Parse(values.GetValueOrDefault(_OVERSIZE_OPTION, _DEFAULT_OVERSIZE_FILE_COUNT.ToString(CultureInfo.InvariantCulture)), CultureInfo.InvariantCulture),
 			PowerShellScriptBasisPoints = int.Parse(values.GetValueOrDefault(_POWERSHELL_OPTION, _NO_POWERSHELL_DEFAULT), CultureInfo.InvariantCulture),
+			VBNetSourceBasisPoints = int.Parse(values.GetValueOrDefault(_VBNET_OPTION, _NO_POWERSHELL_DEFAULT), CultureInfo.InvariantCulture),
 			ReportProgress = Console.WriteLine
 		};
 	}

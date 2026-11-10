@@ -138,6 +138,33 @@ public sealed class RecommendationRenderingTests
 			text);
 	}
 
+	/// <summary>A VBNet Low finding's pointer names Part C for "VB.NET", the name its Part C is titled by, and not the enumeration value.</summary>
+	[Fact]
+	public void AVBNetLowFindingsManualReviewPointerNamesPartCForVBDotNet()
+	{
+		Finding finding = ReportHarness.FindingAt(
+			1, "source", 5, "VB-001", ConfidenceLevel.Low, language: AssessedLanguage.VBNet, lowReasons: LowConfidenceReasons.DemotedFile);
+
+		string text = RecommendationRenderer.ManualReviewTextFor(CSharpRenderedTexts.Catalog(), finding);
+
+		Assert.Equal(
+			_MANUAL_REVIEW_LEAD + "\"Judging a Low-confidence match\" in Part C for VB.NET of the Migration Documentation.",
+			text);
+	}
+
+	/// <summary>The Part C of VBNet is titled by the display name "VB.NET", the same name the pointer carries.</summary>
+	[Fact]
+	public void ThePartCDocumentOfVBNetIsTitledByTheVBDotNetDisplayName()
+	{
+		Finding finding = ReportHarness.FindingAt(
+			1, "source", 5, "VB-001", ConfidenceLevel.Low, language: AssessedLanguage.VBNet);
+
+		string text = RecommendationRenderer.ManualReviewTextFor(CSharpRenderedTexts.Catalog(), finding);
+
+		Assert.Contains("in Part C for VB.NET of the Migration Documentation.", text, StringComparison.Ordinal);
+		Assert.DoesNotContain("Part C for VBNet", text, StringComparison.Ordinal);
+	}
+
 	private static DocumentedLanguage DocumentedLanguageOf(AssessedLanguage language)
 	{
 		return language == AssessedLanguage.CSharp ? DocumentedLanguage.CSharp : DocumentedLanguage.PowerShell;

@@ -146,6 +146,18 @@ $clientSecret = Get-Secret -Name '<secret-name>' -Vault '<vault-name>' -AsPlainT
 
 For Authorization Code, a script that asks a person with `Get-Credential` or `Read-Host -AsSecureString` stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
 
+### VB.NET: configuration files, My.Settings and protected data
+
+A VB.NET application has places a secret commonly lives that look safer than they are, and each has a limit worth knowing before you choose it.
+
+**`app.config`, `web.config` and `My.Settings`.** An application setting declared in the project's settings designer is stored in a `.settings` file and in the application's configuration file (`app.config`, or `web.config` for a web application) as plain text, and a setting of the user scope is also written to a per-user file. None of these encrypts the value. Do not keep the client secret in any of them, and do not commit one with a real value in it. The migration tool recognizes a credential-named read through `ConfigurationManager.AppSettings` or `My.Settings` as evidence that the application's credential is fixed, which makes Client Credentials the recommended flow. It does not read the configuration files themselves, so search them by hand for credentials; see [Finding hardcoded credentials without the tool](#finding-hardcoded-credentials-without-the-tool).
+
+**`ProtectedData`.** `ProtectedData.Protect` and `ProtectedData.Unprotect` use the Windows data-protection API. With `DataProtectionScope.CurrentUser` the data can be read back only by the same Windows user, and with `DataProtectionScope.LocalMachine` by any process on the machine (documented by Microsoft). The API is a Windows facility: on .NET it works on Windows only (documented by Microsoft). It suits one user on one Windows machine, not a service that runs in a container or on another platform. The tool recognizes `ProtectedData.Unprotect` as evidence that a credential is fixed.
+
+**User secrets.** `AddUserSecrets` reads a development-time secret file that lives in the user's profile folder, outside the repository. The file is not encrypted (documented by Microsoft), so it is a convenience for development and not a place for a production secret. The tool recognizes `AddUserSecrets` as evidence that a credential is fixed.
+
+For Authorization Code, an application that asks a person for the password stores nothing, which is the point of that flow. What it must protect is the client secret and, if refresh tokens are on, the refresh tokens, as in [Storing refresh tokens](#storing-refresh-tokens).
+
 ### Relativity Secret Store
 
 The Relativity Secret Store is for code that runs inside Relativity, such as custom pages, agents and event handlers, where the code is already trusted by the platform and should not carry a credential of its own. Use it there in place of an external vault.
@@ -264,6 +276,17 @@ $clientSecret = $env:RELATIVITY_CLIENT_SECRET
 if (-not $clientId -or -not $clientSecret) {
 	throw 'RELATIVITY_CLIENT_ID and RELATIVITY_CLIENT_SECRET must be set.'
 }
+```
+
+In VB.NET the same read is:
+
+```vbnet
+Dim clientId As String = Environment.GetEnvironmentVariable("RELATIVITY_CLIENT_ID")
+Dim clientSecret As String = Environment.GetEnvironmentVariable("RELATIVITY_CLIENT_SECRET")
+
+If String.IsNullOrEmpty(clientId) OrElse String.IsNullOrEmpty(clientSecret) Then
+	Throw New InvalidOperationException("RELATIVITY_CLIENT_ID and RELATIVITY_CLIENT_SECRET must be set.")
+End If
 ```
 
 **Keep local secret files out of the repository.** If you use a local file for development, add it to `.gitignore` before it is created.

@@ -44,6 +44,8 @@ public static class WorstCaseTreePlanner
 	private const int _STREAM_POWERSHELL_FORM = 7;
 	private const int _POWERSHELL_FORM_COUNT = 2;
 	private const string _POWERSHELL_SCRIPT_EXTENSION = ".ps1";
+	private const int _STREAM_VBNET_SHARE = 8;
+	private const string _VBNET_SOURCE_EXTENSION = ".vb";
 	private const string _NO_EXTENSION = "";
 
 	private static readonly string[] _NonCandidateExtensions = [".txt", ".md", ".json", ".xml"];
@@ -64,6 +66,7 @@ public static class WorstCaseTreePlanner
 			WorstCaseFileKind.NonCandidate => _NonCandidateExtensions[DeterministicRandom.Below(_NON_CANDIDATE_EXTENSION_COUNT, options.Seed, index, _STREAM_EXTENSION)],
 			WorstCaseFileKind.PowerShellScript => _POWERSHELL_SCRIPT_EXTENSION,
 			WorstCaseFileKind.PowerShellShebangScript => _NO_EXTENSION,
+			WorstCaseFileKind.VBNetSource => _VBNET_SOURCE_EXTENSION,
 			_ => _CANDIDATE_EXTENSION
 		};
 	}
@@ -91,7 +94,16 @@ public static class WorstCaseTreePlanner
 			kind = KindByBasisPoints(DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, STREAM_KIND));
 		}
 
-		return kind == WorstCaseFileKind.Filler ? PowerShellInsteadOfFiller(options, index) : kind;
+		return kind == WorstCaseFileKind.Filler ? VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index)) : kind;
+	}
+
+	/// <summary>A file still ordinary after the PowerShell share is a Visual Basic source for the share the options ask for.</summary>
+	private static WorstCaseFileKind VBNetInsteadOfFiller(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		bool isVBNet = kind == WorstCaseFileKind.Filler
+			&& DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_VBNET_SHARE) < options.VBNetSourceBasisPoints;
+
+		return isVBNet ? WorstCaseFileKind.VBNetSource : kind;
 	}
 
 	/// <summary>An ordinary file is a PowerShell script for the share the options ask for, and its form is decided on a stream of its own.</summary>
