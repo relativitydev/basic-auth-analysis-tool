@@ -1,0 +1,195 @@
+using System.Globalization;
+using System.Text;
+
+namespace MigrateAuth.WorstCase;
+
+/// <summary>
+/// The invented bytes of each kind of file. Every name is generic and every line is a pure function
+/// of the seed and the file index; nothing is taken from any real code. Lines end in a single line
+/// feed so the bytes are the same on every platform.
+/// </summary>
+public static class WorstCaseFileContent
+{
+	/// <summary>The product's file-size ceiling in bytes, restated because the tool references nothing from it; a test holds the two equal.</summary>
+	public const int PRODUCT_MAXIMUM_FILE_SIZE_IN_BYTES = 2 * 1024 * 1024;
+
+	/// <summary>The product's line-length ceiling in characters, restated for the same reason.</summary>
+	public const int PRODUCT_MAXIMUM_LINE_LENGTH_IN_CHARACTERS = 10_000;
+
+	private const int _HEAVY_CONSTRUCTS_ABOVE_PER_FILE_CAP = 100;
+	private const int _STREAM_SHAPE = 3;
+	private const int _STREAM_SIZE = 4;
+	private const int _STREAM_NAME = 5;
+	private const int _HIGH_TAIL_MAXIMUM_CONSTRUCTS = 3;
+	private const int _HIGH_TAIL_VARIANT_COUNT = 3;
+	private const int _SIZE_DENOMINATOR = 1_000;
+	private const int _MEDIUM_SIZE_THRESHOLD = 105;
+	private const int _LARGE_SIZE_THRESHOLD = 5;
+	private const int _SMALL_METHOD_COUNT = 4;
+	private const int _MEDIUM_METHOD_COUNT = 30;
+	private const int _LARGE_METHOD_COUNT = 300;
+	private const int _ANCHOR_SHARE_DENOMINATOR = 10;
+	private const int _ANCHOR_SHARE_NUMERATOR = 3;
+	private const int _OVERSIZE_MARGIN_IN_BYTES = 1_024;
+	private const int _OVERSIZE_LINE_LENGTH = 1_023;
+	private const int _INTERACTIVE_VARIANT = 1;
+	private const int _FIXED_VARIANT = 2;
+	private const char _FILLER_CHARACTER = 'a';
+	private const string _LINE_END = "\n";
+
+	private const string _INTERACTIVE_SIGNAL_LINES =
+		"\t\tConsole.Write(\"Enter your password: \");\n\t\tstring secret = Console.ReadLine();\n";
+
+	private const string _FIXED_SIGNAL_LINE = "\t\tstring secret = Environment.GetEnvironmentVariable(\"SERVICE_PWD\");\n";
+	private const string _NO_SIGNAL_LINE = "\t\tstring secret = string.Empty;\n";
+
+	private static readonly UTF8Encoding _Utf8WithoutMark = new(false);
+	private static readonly byte[] _InvalidUtf8Bytes = [0xC3, 0x28, 0xA0, 0xA1, 0xFF];
+
+	private static readonly string[] _TypeNames =
+		["Widget", "Gadget", "Ledger", "Parcel", "Beacon", "Harbor", "Meadow", "Lantern"];
+
+	/// <summary>The bytes of one planned file.</summary>
+	public static byte[] BytesOf(WorstCaseTreeOptions options, WorstCaseFilePlan plan)
+	{
+		string typeName = _TypeNames[DeterministicRandom.Below(_TypeNames.Length, options.Seed, plan.Index, _STREAM_NAME)]
+			+ plan.Index.ToString(CultureInfo.InvariantCulture);
+
+		return plan.Kind switch
+		{
+			WorstCaseFileKind.Heavy => Encode(HeavyText(typeName, options.PerFileFindingsCap + _HEAVY_CONSTRUCTS_ABOVE_PER_FILE_CAP)),
+			WorstCaseFileKind.HighTail => Encode(HighTailText(options, plan.Index, typeName)),
+			WorstCaseFileKind.Undecodable => UndecodableBytes(options, plan.Index, typeName),
+			WorstCaseFileKind.OverLongLine => Encode(OverLongLineText(typeName)),
+			WorstCaseFileKind.Oversize => OversizeBytes(),
+			WorstCaseFileKind.NonCandidate => Encode(NonCandidateText(plan.Index)),
+			_ => Encode(FillerText(options, plan.Index, typeName))
+		};
+	}
+
+	private static byte[] Encode(string text)
+	{
+		return _Utf8WithoutMark.GetBytes(text);
+	}
+
+	private static string HeavyText(string typeName, int constructCount)
+	{
+		StringBuilder builder = new();
+
+		builder.Append("public sealed class ").Append(typeName).Append("\n{\n");
+		builder.Append("\tprivate readonly string userName;\n\tprivate readonly string password;\n\n\tprivate void Build()\n\t{\n");
+
+		for (int number = 0; number < constructCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, "\t\tCredentials credentials{0:D5} = new UsernamePasswordCredentials(userName, password);\n", number));
+		}
+
+		builder.Append("\t}\n}\n");
+
+		return builder.ToString();
+	}
+
+	private static string HighTailText(WorstCaseTreeOptions options, long index, string typeName)
+	{
+		StringBuilder builder = new();
+		int constructCount = 1 + DeterministicRandom.Below(_HIGH_TAIL_MAXIMUM_CONSTRUCTS, options.Seed, index, _STREAM_SHAPE);
+		int variant = DeterministicRandom.Below(_HIGH_TAIL_VARIANT_COUNT, options.Seed, index, _STREAM_SIZE);
+
+		builder.Append("public sealed class ").Append(typeName).Append("\n{\n");
+		builder.Append("\tprivate readonly string userName;\n\n\tprivate void Build()\n\t{\n");
+		builder.Append(HighTailSignalLine(variant));
+
+		for (int number = 0; number < constructCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, "\t\tCredentials credentials{0} = new UsernamePasswordCredentials(userName, secret);\n", number));
+		}
+
+		builder.Append("\t}\n}\n");
+
+		return builder.ToString();
+	}
+
+	/// <summary>Variant 0 carries no signal; 1 an interactive-user one; 2 a fixed-credential one.</summary>
+	private static string HighTailSignalLine(int variant)
+	{
+		return variant switch
+		{
+			_INTERACTIVE_VARIANT => _INTERACTIVE_SIGNAL_LINES,
+			_FIXED_VARIANT => _FIXED_SIGNAL_LINE,
+			_ => _NO_SIGNAL_LINE
+		};
+	}
+
+	private static string FillerText(WorstCaseTreeOptions options, long index, string typeName)
+	{
+		StringBuilder builder = new();
+		int sizeRoll = DeterministicRandom.Below(_SIZE_DENOMINATOR, options.Seed, index, _STREAM_SIZE);
+		int methodCount = _SMALL_METHOD_COUNT;
+		bool mentionsAnchor = DeterministicRandom.Below(_ANCHOR_SHARE_DENOMINATOR, options.Seed, index, _STREAM_SHAPE) < _ANCHOR_SHARE_NUMERATOR;
+
+		if (sizeRoll < _LARGE_SIZE_THRESHOLD)
+		{
+			methodCount = _LARGE_METHOD_COUNT;
+		}
+		else if (sizeRoll < _MEDIUM_SIZE_THRESHOLD)
+		{
+			methodCount = _MEDIUM_METHOD_COUNT;
+		}
+
+		builder.Append("public sealed class ").Append(typeName).Append("\n{\n");
+		builder.Append("\tprivate int total;\n");
+
+		if (mentionsAnchor)
+		{
+			builder.Append("\tprivate readonly ICredentialSource source;\n");
+		}
+
+		for (int number = 0; number < methodCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, "\n\tpublic int Add{0}(int amount)\n\t{{\n\t\ttotal += amount * {0};\n\t\treturn total;\n\t}}\n", number));
+		}
+
+		builder.Append("}\n");
+
+		return builder.ToString();
+	}
+
+	private static byte[] UndecodableBytes(WorstCaseTreeOptions options, long index, string typeName)
+	{
+		byte[] head = Encode(FillerText(options, index, typeName) + "// ");
+		byte[] tail = Encode(_LINE_END);
+		byte[] bytes = new byte[head.Length + _InvalidUtf8Bytes.Length + tail.Length];
+
+		head.CopyTo(bytes, 0);
+		_InvalidUtf8Bytes.CopyTo(bytes, head.Length);
+		tail.CopyTo(bytes, head.Length + _InvalidUtf8Bytes.Length);
+
+		return bytes;
+	}
+
+	private static string OverLongLineText(string typeName)
+	{
+		string longLine = "//" + new string(_FILLER_CHARACTER, PRODUCT_MAXIMUM_LINE_LENGTH_IN_CHARACTERS);
+
+		return longLine + _LINE_END + "public sealed class " + typeName + "\n{\n}\n";
+	}
+
+	private static byte[] OversizeBytes()
+	{
+		byte[] line = Encode("//" + new string(_FILLER_CHARACTER, _OVERSIZE_LINE_LENGTH - 2) + _LINE_END);
+		int lineCount = ((PRODUCT_MAXIMUM_FILE_SIZE_IN_BYTES + _OVERSIZE_MARGIN_IN_BYTES) / line.Length) + 1;
+		byte[] bytes = new byte[lineCount * line.Length];
+
+		for (int number = 0; number < lineCount; number++)
+		{
+			line.CopyTo(bytes, number * line.Length);
+		}
+
+		return bytes;
+	}
+
+	private static string NonCandidateText(long index)
+	{
+		return string.Format(CultureInfo.InvariantCulture, "Notes for item {0}.\nNothing here is code.\n", index);
+	}
+}
