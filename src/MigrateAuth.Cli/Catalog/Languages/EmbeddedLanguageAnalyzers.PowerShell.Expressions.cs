@@ -21,6 +21,14 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// </summary>
 internal static partial class PowerShellPatternExpressions
 {
+	/// <summary>
+	/// A zero-width point that always matches and gives backtracking exactly one way to fail: one of a word boundary and a non-boundary holds at every position.
+	/// It is appended inside the body of a lazy bounded loop over a group, <c>(?:body POINT){m,n}?</c>, because the regular-expression source generator of .NET 10
+	/// (generator 10.0.14.15411) emits a defective cleanup of its backtracking stack for such a loop when the body has no backtracking construct of its own
+	/// (fixed upstream in dotnet/runtime PR 129628, not backported to release/10.0). It changes no match.
+	/// </summary>
+	private const string _BACKTRACK_POINT = @"(?:\b|\B)";
+
 	// ------------------------------------------------------------------------------------------
 	// Parameters
 	// ------------------------------------------------------------------------------------------
@@ -82,12 +90,12 @@ internal static partial class PowerShellPatternExpressions
 	/// backtick continuing the line, or an inline comment. Bounded at 1200 characters and lazy, so the first parameter
 	/// that satisfies the expression ends the window.
 	/// </summary>
-	private const string _COMMAND_WINDOW = @"(?:(?>[^\n`|<\-\u2013\u2014\u2015]+)|`\n|`.|<(?!#)|" + _INLINE_COMMENT + @"|" + _DASH + @"){0,150}?";
+	private const string _COMMAND_WINDOW = @"(?:(?:(?>[^\n`|<\-\u2013\u2014\u2015]+)|`\n|`.|<(?!#)|" + _INLINE_COMMENT + @"|" + _DASH + @")" + _BACKTRACK_POINT + @"){0,150}?";
 
-	private const string _LINE_WINDOW_FIVE = @"(?:[^\n]*\n){0,5}?[^\n]*?";
-	private const string _LINE_WINDOW_EIGHT = @"(?:[^\n]*\n){0,8}?[^\n]*?";
-	private const string _LINE_WINDOW_TEN = @"(?:[^\n]*\n){0,10}?[^\n]*?";
-	private const string _LINE_WINDOW_TWENTY = @"(?:[^\n]*\n){0,20}?[^\n]*?";
+	private const string _LINE_WINDOW_FIVE = @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]*?";
+	private const string _LINE_WINDOW_EIGHT = @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,8}?[^\n]*?";
+	private const string _LINE_WINDOW_TEN = @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,10}?[^\n]*?";
+	private const string _LINE_WINDOW_TWENTY = @"(?:(?:[^\n]*\n)" + _BACKTRACK_POINT + @"){0,20}?[^\n]*?";
 
 	// ------------------------------------------------------------------------------------------
 	// The logical line of a command, with the bracket continuation
@@ -123,18 +131,18 @@ internal static partial class PowerShellPatternExpressions
 	/// The logical line of a command, bounded at 1200 units and lazy, and the same language read forward from the command name and backward from a parameter. The bound
 	/// is in characters and bracket groups: a group is one unit however long.
 	/// </summary>
-	private const string _LOGICAL_LINE_WINDOW = @"(?:" + _LOGICAL_LINE_UNIT_WITHOUT_DASH + @"|" + _DASH + @"){0,1200}?";
+	private const string _LOGICAL_LINE_WINDOW = @"(?:(?:" + _LOGICAL_LINE_UNIT_WITHOUT_DASH + @"|" + _DASH + @")" + _BACKTRACK_POINT + @"){0,1200}?";
 
 	/// <summary>
 	/// The logical line of a command read forward only, from a parameter to the end of its command: the same language as <see cref="_LOGICAL_LINE_WINDOW"/> with the ordinary
 	/// characters taken in atomic runs, which a forward read can do and a backward one cannot, so a long line costs a run and not a character. Bounded at 150 units.
 	/// </summary>
 	private const string _LOGICAL_LINE_FORWARD_WINDOW =
-		@"(?:(?>[^\n`|<(){}\[\]\-\u2013\u2014\u2015]+)|`[^\n]|`\n|<(?!#)|" + _BLOCK_COMMENT_BETWEEN_TOKENS + @"|(?>" + _BRACKET_GROUP + @"|[(){}\[\]])|" + _DASH + @"){0,150}?";
+		@"(?:(?:(?>[^\n`|<(){}\[\]\-\u2013\u2014\u2015]+)|`[^\n]|`\n|<(?!#)|" + _BLOCK_COMMENT_BETWEEN_TOKENS + @"|(?>" + _BRACKET_GROUP + @"|[(){}\[\]])|" + _DASH + @")" + _BACKTRACK_POINT + @"){0,150}?";
 
 	/// <summary>The backward window, which refuses to cross a <c>-Authentication</c> parameter: a command that carries it before the wanted parameter is the explicit class's.</summary>
 	private const string _LOGICAL_LINE_WINDOW_BEFORE_AUTHENTICATION =
-		@"(?:" + _LOGICAL_LINE_UNIT_WITHOUT_DASH + @"|(?!" + _PARAMETER_AUTHENTICATION + @")" + _DASH + @"){0,1200}?";
+		@"(?:(?:" + _LOGICAL_LINE_UNIT_WITHOUT_DASH + @"|(?!" + _PARAMETER_AUTHENTICATION + @")" + _DASH + @")" + _BACKTRACK_POINT + @"){0,1200}?";
 
 	// ------------------------------------------------------------------------------------------
 	// Names and variables
@@ -272,7 +280,7 @@ internal static partial class PowerShellPatternExpressions
 	/// conversion of a value that is not a literal is read as a code argument and sets nothing.
 	/// </summary>
 	private const string _SECURE_STRING_FROM_LITERAL =
-		@"\([ \t\n]*ConvertTo-SecureString(?![\w\-])(?=(?:[^()\n]|\([^()\n]*\)){0,300}?" + _PARAMETER_AS_PLAIN_TEXT + @")"
+		@"\([ \t\n]*ConvertTo-SecureString(?![\w\-])(?=(?:(?:[^()\n]|\([^()\n]*\))" + _BACKTRACK_POINT + @"){0,300}?" + _PARAMETER_AS_PLAIN_TEXT + @")"
 		+ @"(?:[ \t]+(?:" + _PARAMETER_AS_PLAIN_TEXT + @"|" + _PARAMETER_FORCE + @"|" + _PARAMETER_STRING + @"[ \t]*:?))*[ \t]*:?[ \t]*(?<credential>" + _STRING_LITERAL + @")"
 		+ @"(?:[ \t]+(?:" + _PARAMETER_AS_PLAIN_TEXT + @"|" + _PARAMETER_FORCE + @"))*[ \t\n]*\)";
 
@@ -448,7 +456,7 @@ internal static partial class PowerShellPatternExpressions
 		@"(?:" + _NAMESPACE_PREFIX + _LEGACY_CLIENT_NAME + @"(?!\w)|" + _QUOTE_OPENING + _NAMESPACE_PREFIX + _LEGACY_CLIENT_NAME + _QUOTE_CLOSING + @")";
 
 	/// <summary>The rest of the logical line between the client and the credential nested in it: the endpoint never decides the class.</summary>
-	private const string _LEGACY_CLIENT_ARGUMENT_WINDOW = @"(?:[^\n`]|`\n|`.){0,600}?";
+	private const string _LEGACY_CLIENT_ARGUMENT_WINDOW = @"(?:(?:[^\n`]|`\n|`.)" + _BACKTRACK_POINT + @"){0,600}?";
 
 	/// <summary>
 	/// PS-002. The legacy client created with the SDK credential nested in its arguments. The endpoint, the first argument, is

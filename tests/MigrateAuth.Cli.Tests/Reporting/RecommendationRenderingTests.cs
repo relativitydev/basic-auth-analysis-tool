@@ -129,7 +129,7 @@ public sealed class RecommendationRenderingTests
 	public void ADemotedLowFindingPointsToTheSectionAndNotToItsClassSubsection()
 	{
 		Finding finding = ReportHarness.FindingAt(
-			1, "source", 5, "PS-012", ConfidenceLevel.Low, language: AssessedLanguage.PowerShell, lowReasons: LowConfidenceReasons.DemotedFile);
+			1, "source", 5, "PS-012", ConfidenceLevel.Low, language: AssessedLanguage.PowerShell, lowReasons: LowConfidenceReasons.DemotedMockFile);
 
 		string text = RecommendationRenderer.ManualReviewTextFor(CSharpRenderedTexts.Catalog(), finding);
 
@@ -143,7 +143,7 @@ public sealed class RecommendationRenderingTests
 	public void AVBNetLowFindingsManualReviewPointerNamesPartCForVBDotNet()
 	{
 		Finding finding = ReportHarness.FindingAt(
-			1, "source", 5, "VB-001", ConfidenceLevel.Low, language: AssessedLanguage.VBNet, lowReasons: LowConfidenceReasons.DemotedFile);
+			1, "source", 5, "VB-001", ConfidenceLevel.Low, language: AssessedLanguage.VBNet, lowReasons: LowConfidenceReasons.DemotedMockFile);
 
 		string text = RecommendationRenderer.ManualReviewTextFor(CSharpRenderedTexts.Catalog(), finding);
 

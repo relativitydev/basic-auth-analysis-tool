@@ -25,7 +25,7 @@ public sealed class LaunchInformationTests
 	/// The alpha label written out, not read from <see cref="ToolVersion.CURRENT"/>: a comparison of
 	/// the constant against itself passes for any value, so the literal is what pins the label.
 	/// </summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.4.0-alpha";
+	private const string _EXPECTED_ALPHA_VERSION = "0.5.1-alpha";
 
 	private const string _EXPECTED_OUTPUT_FOLDER_DEFAULT_TEXT =
 		"Defaults to the outputPath in the user profile's configuration file, then to the working directory.";

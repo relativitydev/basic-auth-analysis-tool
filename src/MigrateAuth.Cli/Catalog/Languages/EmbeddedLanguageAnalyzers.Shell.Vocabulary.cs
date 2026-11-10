@@ -10,6 +10,14 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// </summary>
 internal static partial class ShellPatternExpressions
 {
+	/// <summary>
+	/// A zero-width point that always matches and gives backtracking exactly one way to fail: one of a word boundary and a non-boundary holds at every position.
+	/// It is appended inside the body of a lazy bounded loop over a group, <c>(?:body POINT){m,n}?</c>, because the regular-expression source generator of .NET 10
+	/// (generator 10.0.14.15411) emits a defective cleanup of its backtracking stack for such a loop when the body has no backtracking construct of its own
+	/// (fixed upstream in dotnet/runtime PR 129628, not backported to release/10.0). It changes no match.
+	/// </summary>
+	private const string _BACKTRACK_POINT = @"(?:\b|\B)";
+
 	/// <summary>What may stand between two words of one command: a run of blanks, or a backslash-line-feed and the next line's leading blanks. Atomic and bounded.</summary>
 	private const string _GAP =
 		@"(?>(?:[ \t]+|\\\n[ \t]*){1,16})";
@@ -53,57 +61,57 @@ internal static partial class ShellPatternExpressions
 
 	/// <summary>The window of one `curl` command: tokens, bounded, lazy and never inside an optional group.</summary>
 	private const string _WINDOW_CURL =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_WGET =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_HTTPIE =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_ARIA2C =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_LWP =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_CLIENT =
-		@"(?:" + _STOP_AT_CLIENT + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_ECHO_OR_PRINTF =
-		@"(?:" + _STOP_AT_ECHO_OR_PRINTF + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _STOP_AT_ECHO_OR_PRINTF + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	private const string _WINDOW_ANY_UNIT =
-		@"(?:" + _TOKEN + @"){0,300}?";
+		@"(?:(?:" + _TOKEN + @")" + _BACKTRACK_POINT + @"){0,300}?";
 
 	/// <summary>The character window every look-ahead and look-behind over a command's text uses; it spans a continuation and stops at an unescaped separator.</summary>
 	private const string _CHAR_WINDOW_CONT =
-		_CHAR_TOKEN + @"{0,600}?";
+		@"(?:" + _CHAR_TOKEN + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_CURL =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_WGET =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_HTTPIE =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_ARIA2C =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_LWP =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_WINDOW_CLIENT =
-		@"(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @"){0,600}?";
+		@"(?:(?:" + _STOP_AT_CLIENT + _CHAR_TOKEN + @")" + _BACKTRACK_POINT + @"){0,600}?";
 
 	private const string _CHAR_UNIT_WITHIN_THE_COMMAND =
 		@"(?:" + _STOP_AT_CLIENT + _CHAR_UNIT + @")";
 
 	/// <summary>The lines between a definition and its use: thirty lines of at most four hundred characters.</summary>
 	private const string _DEFINITION_LINES =
-		@"[^\n]{0,400}\n(?:[^\n]{0,400}\n){0,29}?";
+		@"[^\n]{0,400}\n(?:(?:[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,29}?";
 
 	/// <summary>The definition window: from a definition to its use, bounded in lines and in characters per line.</summary>
 	private const string _DEFINITION_WINDOW =
@@ -284,7 +292,7 @@ internal static partial class ShellPatternExpressions
 	private const string _LITERAL_PAIR_OR_PAIR = @"(?:" + _LITERAL_PAIR + @"|" + _PAIR + @")";
 
 	private const string _NOT_PORT_EXPANSION =
-		@"(?!(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&]){0,400}?" + _PORT_TOKEN + @")";
+		@"(?!(?:(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&])" + _BACKTRACK_POINT + @"){0,400}?" + _PORT_TOKEN + @")";
 
 	/// <summary>The Base64 encoders the class reads, by name.</summary>
 	private const string _ENCODER =
@@ -304,7 +312,7 @@ internal static partial class ShellPatternExpressions
 		@"(?:python3?|perl)(?![\w-])[^\n;&|\x27\x22]{0,60}?[\x27\x22]";
 
 	private const string _PIPE_PRODUCER_PIPELINE =
-		@"(?<construct>printf|echo)(?![\w-])" + _NOT_PORT_EXPANSION + @"(?=(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&]){0,400}?" + _LITERAL_PAIR_OR_PAIR + @")" + _WINDOW_ECHO_OR_PRINTF + _GAP_OPT + @"\|(?!\|)" + _GAP_OPT + @"(?:" + _FILTER_STAGE + @"){0,2}(?:(?<consumer>" + _ENCODER + @")" + _DECODE_REFUSAL + @"|(?<consumer>" + _PROGRAM_OPENING + @"[^\n]{0,600}?" + _ENCODE_WORD + @"))";
+		@"(?<construct>printf|echo)(?![\w-])" + _NOT_PORT_EXPANSION + @"(?=(?:(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&])" + _BACKTRACK_POINT + @"){0,400}?" + _LITERAL_PAIR_OR_PAIR + @")" + _WINDOW_ECHO_OR_PRINTF + _GAP_OPT + @"\|(?!\|)" + _GAP_OPT + @"(?:" + _FILTER_STAGE + @"){0,2}(?:(?<consumer>" + _ENCODER + @")" + _DECODE_REFUSAL + @"|(?<consumer>" + _PROGRAM_OPENING + @"[^\n]{0,600}?" + _ENCODE_WORD + @"))";
 
 	private const string _HERE_STRING_PIPELINE =
 		@"(?<construct>" + _ENCODER + @")" + _DECODE_REFUSAL + @"(?>(?:[ \t]+-[\w-]+)*)[ \t]*<<<[ \t]*[\x22\x27]?(?=" + _LITERAL_PAIR_OR_PAIR + @")(?![^\n|;&)]{0,200}?" + _PORT_TOKEN + @")";
@@ -427,10 +435,10 @@ internal static partial class ShellPatternExpressions
 		@"(?:(?<construct><>|>)(?=[ \t]*[\x22\x27]/dev/tcp/)|(?<!(?:<>|>)[ \t]*[\x22\x27])(?<construct>/dev/tcp)(?=/)|" + _COMMAND_START + _NOT_LISTENING_SIDE + @"(?<construct>nc|ncat|netcat|socat)(?![\w.-])|(?<construct>s_client)(?<=(?<![\w.$/-])openssl[ \t]+s_client)(?![\w-]))";
 
 	private const string _SINK_WITHIN_TWELVE_LINES =
-		@"(?:(?<=" + _HAND_BUILT_REQUEST_SINK + @"[^\n]{0,400}(?:\n[^\n]{0,400}){0,12})|(?=(?:[^\n]{0,400}\n){0,12}?[^\n]{0,400}?" + _HAND_BUILT_REQUEST_SINK + @"))";
+		@"(?:(?<=" + _HAND_BUILT_REQUEST_SINK + @"[^\n]{0,400}(?:\n[^\n]{0,400}){0,12})|(?=(?:(?:[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,12}?[^\n]{0,400}?" + _HAND_BUILT_REQUEST_SINK + @"))";
 
 	private const string _REQUEST_LINE_WITHIN_TWELVE_LINES =
-		@"(?:(?<=" + _REQUEST_LINE + @"[^\n]{0,400}(?:\n[^\n]{0,400}){0,12})|(?=(?:[^\n]{0,400}\n){0,12}?[^\n]{0,400}?" + _REQUEST_LINE + @"))";
+		@"(?:(?<=" + _REQUEST_LINE + @"[^\n]{0,400}(?:\n[^\n]{0,400}){0,12})|(?=(?:(?:[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,12}?[^\n]{0,400}?" + _REQUEST_LINE + @"))";
 
 	private const string _CURL_CONFIGURATION_TEXT =
 		@"(?:--?)?(?:user[ \t]*[=:\t ][ \t]*[\x22\x27]?(?:(?<credential>[^\x22\x27\s:$`\\;&|<>(){}*?\[\]%]*:[^\x22\x27\s$`\\;&|<>(){}*?\[\]%]+)(?=[\x22\x27]?(?:\s|\\n|$))|[^\x22\x27\s:]*:[^\x22\x27\s]+)|header[ \t]*[=:\t ][ \t]*[\x22\x27]?(?i:authorization)[ \t]*:[ \t]*(?i:basic)[ \t]+(?:(?<credential>[A-Za-z0-9+/=_-]{4,})(?=[\x22\x27]?(?:\s|\\n|$))|\S+))";
@@ -457,7 +465,7 @@ internal static partial class ShellPatternExpressions
 		@"(?:[})]|done(?![\w-]))";
 
 	private const string _QUOTED_CONFIGURATION_WRITTEN_BY_PRINTF_OR_ECHO_ON_ITS_LINE_OR_BY_A_GROUP_REDIRECTED_BELOW =
-		@"(?<=[\x22\x27]\k<cfg>)(?<=(?<![\w.$/-])(?:printf|echo)(?![\w-])[^\n]{0,300})(?=(?:[^\n]{0,300}?|(?>[^\n]{0,300})\n(?:(?![ \t]*" + _CLOSING_WORD + @")[^\n]{0,400}\n){0,29}?[ \t]*" + _CLOSING_WORD + @"[ \t]*(?:\|[ \t]*)?)" + _WRITE_TO_A_PATH + @")";
+		@"(?<=[\x22\x27]\k<cfg>)(?<=(?<![\w.$/-])(?:printf|echo)(?![\w-])[^\n]{0,300})(?=(?:[^\n]{0,300}?|(?>[^\n]{0,300})\n(?:(?:(?![ \t]*" + _CLOSING_WORD + @")[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,29}?[ \t]*" + _CLOSING_WORD + @"[ \t]*(?:\|[ \t]*)?)" + _WRITE_TO_A_PATH + @")";
 
 	private const string _CURL_CONFIGURATION_OPTION =
 		@"(?:(?<construct>-" + _CURL_FLAG + @"*K)" + _GAP_OPT + @"|(?<construct>--config)(?:=|" + _GAP + @"))";
@@ -466,7 +474,7 @@ internal static partial class ShellPatternExpressions
 		@"(?=" + _DEFINITION_WINDOW + _CURL + _WINDOW_CURL + _OPTION_START + _CURL_CONFIGURATION_OPTION + _CONFIGURATION_PATH_REFERENCE + @")";
 
 	private const string _CURL_READS_THE_CONFIGURATION_FROM_ITS_OWN_INPUT =
-		_CURL + _WINDOW_CURL + _OPTION_START + _CURL_CONFIGURATION_OPTION + @"(?:(?<![\w.-])-(?![\w.-])(?=[^\n]{0,400}?" + _HEREDOC_OPENING + @"[^\n]{0,200}\n(?:[^\n]{0,400}\n){0,39}?[ \t]*" + _CURL_CONFIGURATION_TEXT + @")|<\((?=[^)\n]{0,400}?" + _CURL_CONFIGURATION_TEXT + @"))";
+		_CURL + _WINDOW_CURL + _OPTION_START + _CURL_CONFIGURATION_OPTION + @"(?:(?<![\w.-])-(?![\w.-])(?=[^\n]{0,400}?" + _HEREDOC_OPENING + @"[^\n]{0,200}\n(?:(?:[^\n]{0,400}\n)" + _BACKTRACK_POINT + @"){0,39}?[ \t]*" + _CURL_CONFIGURATION_TEXT + @")|<\((?=[^)\n]{0,400}?" + _CURL_CONFIGURATION_TEXT + @"))";
 
 	private const string _WGETRC_ANCHOR =
 		@"(?:(?<![\w.$-])(?<construct>WGETRC)=" + _CONFIGURATION_PATH_REFERENCE + @"|" + _WGET + _WINDOW_WGET + _OPTION_START + @"(?<construct>--config)(?:=|" + _GAP + @")" + _CONFIGURATION_PATH_REFERENCE + @")";
@@ -487,7 +495,7 @@ internal static partial class ShellPatternExpressions
 		@"[\x22\x27]?(?![^\s\x27\x22;&|]{0,200}?" + _PORT_TOKEN + @")(?!" + _HOST_EXPANSION + @"[^\s:\x27\x22]*:(?!\$\{?" + _CRED_NAME + @"(?![A-Za-z0-9_])))[A-Za-z_$%{][^\s:\x27\x22|;&]*:(?!//)(?!\d{1,5}(?![\w$]))[^\s:\x27\x22|;&/\\]";
 
 	private const string _ENCODER_STATEMENT_ON_PAIR =
-		@"(?:(?<![\w.$/-])(?<construct>printf|echo)(?![\w-])(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&]){0,400}?\$\{?\k<pair>(?![A-Za-z0-9_])\}?[\x22\x27]?" + _WINDOW_ECHO_OR_PRINTF + _GAP_OPT + @"\|(?!\|)" + _GAP_OPT + @"(?:" + _FILTER_STAGE + @"){0,2}(?<consumer>" + _ENCODER + @")" + _DECODE_REFUSAL + @"|(?<![\w.$/-])(?<construct>" + _ENCODER + @")" + _DECODE_REFUSAL + @"(?>(?:[ \t]+-[\w-]+)*)[ \t]*<<<[ \t]*[\x22\x27]?\$\{?\k<pair>(?![A-Za-z0-9_]))";
+		@"(?:(?<![\w.$/-])(?<construct>printf|echo)(?![\w-])(?:(?:" + _STOP_AT_ECHO_OR_PRINTF + @"[^\n|;&])" + _BACKTRACK_POINT + @"){0,400}?\$\{?\k<pair>(?![A-Za-z0-9_])\}?[\x22\x27]?" + _WINDOW_ECHO_OR_PRINTF + _GAP_OPT + @"\|(?!\|)" + _GAP_OPT + @"(?:" + _FILTER_STAGE + @"){0,2}(?<consumer>" + _ENCODER + @")" + _DECODE_REFUSAL + @"|(?<![\w.$/-])(?<construct>" + _ENCODER + @")" + _DECODE_REFUSAL + @"(?>(?:[ \t]+-[\w-]+)*)[ \t]*<<<[ \t]*[\x22\x27]?\$\{?\k<pair>(?![A-Za-z0-9_]))";
 
 	private const string _STRING_OPTION =
 		@"(?:-[A-Za-z]*u[ \t]+(?=\S*[:$`])|--user[ \t]+(?=\S*[:$`])|--netrc(?:-file|-optional)?(?![\w-])|--(?:user|password|http-user|http-password)=|-a[ \t]+\S|--auth[ \t=]+\S|--http-passwd(?![\w-]))";

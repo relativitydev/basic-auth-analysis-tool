@@ -34,7 +34,8 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// ONLY ROBUST PROPERTIES ARE ASSERTED - zero match-bound trips, every file analysed, the exact lexical-anomaly count, exact per-class finding counts and
 /// the flow-signal counts above. Never a timing threshold: the elapsed time and the peak working set are recorded to the test output, not asserted.
 /// </summary>
-public sealed class PowerShellAnalyzerVolumeProofTests
+[Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
+public sealed class PowerShellAnalyzerVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	private const int _NOISE_FILE_COUNT = 50;
 	private const int _UNTERMINATED_HERE_STRING_FILE_COUNT = 50;

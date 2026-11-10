@@ -30,7 +30,7 @@ Whoever holds the token can use it until it expires, so a token is a secret. Sen
 curl -H "Authorization: Bearer <access token>" -H "X-CSRF-Header: -" "<host>/Relativity.Rest/api/<path>"
 ```
 
-The application obtains the token from the token endpoint `<host>/Relativity/Identity/connect/token`, which [REST API authentication](https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm) documents for the Client Credentials grant. Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md), [Shell](../migration/part-c-shell.md)) shows the exact requests for each flow.
+The application obtains the token from the token endpoint `<host>/Relativity/Identity/connect/token`, which [REST API authentication](https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm) documents for the Client Credentials grant. Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md), [Shell](../migration/part-c-shell.md), [JavaScript](../migration/part-c-javascript.md)) shows the exact requests for each flow.
 
 ## The two flows the tool recommends
 

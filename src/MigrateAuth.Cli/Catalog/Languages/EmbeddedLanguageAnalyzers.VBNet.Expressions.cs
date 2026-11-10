@@ -19,6 +19,14 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// </summary>
 internal static partial class VBNetPatternExpressions
 {
+	/// <summary>
+	/// A zero-width point that always matches and gives backtracking exactly one way to fail: one of a word boundary and a non-boundary holds at every position.
+	/// It is appended inside the body of a lazy bounded loop over a group, <c>(?:body POINT){m,n}?</c>, because the regular-expression source generator of .NET 10
+	/// (generator 10.0.14.15411) emits a defective cleanup of its backtracking stack for such a loop when the body has no backtracking construct of its own
+	/// (fixed upstream in dotnet/runtime PR 129628, not backported to release/10.0). It changes no match.
+	/// </summary>
+	private const string _BACKTRACK_POINT = @"(?:\b|\B)";
+
 	private const RegexOptions OPTIONS = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture;
 
 	private const int TIMEOUT_IN_MILLISECONDS = RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS;
@@ -102,26 +110,26 @@ internal static partial class VBNetPatternExpressions
 	private const string _STATEMENT_UNIT =
 		_STRING_UNIT + @"|(?<=[ \t])_[ \t]*" + _TRAILING_COMMENT + @"?\n|" + _CONTINUATION_TOKEN_BEFORE_LINE_END + @"|(?>" + _GROUP + @"|[(){}])|[^\n:(){}" + _QUOTE + @"'‘’＇]";
 
-	private const string _STATEMENT_WINDOW = @"(?:" + _STATEMENT_UNIT + @"){0,1200}?";
+	private const string _STATEMENT_WINDOW = @"(?:(?:" + _STATEMENT_UNIT + @")" + _BACKTRACK_POINT + @"){0,1200}?";
 
 	/// <summary>The rest of a call read forward only, ordinary characters in atomic runs, bounded at 150 units.</summary>
 	private const string _STATEMENT_FORWARD_WINDOW =
-		@"(?:" + _STRING_UNIT + @"|(?<=[ \t])_[ \t]*" + _TRAILING_COMMENT + @"?\n|" + _CONTINUATION_TOKEN_BEFORE_LINE_END + @"|(?>" + _GROUP + @"|[(){}])|(?>[^\n:(){}" + _QUOTE + @"'‘’＇_]+)|_){0,150}?";
+		@"(?:(?:" + _STRING_UNIT + @"|(?<=[ \t])_[ \t]*" + _TRAILING_COMMENT + @"?\n|" + _CONTINUATION_TOKEN_BEFORE_LINE_END + @"|(?>" + _GROUP + @"|[(){}])|(?>[^\n:(){}" + _QUOTE + @"'‘’＇_]+)|_)" + _BACKTRACK_POINT + @"){0,150}?";
 
 	/// <summary>
 	/// The inside of a call or an initializer read forward from its opening, up to 300 units, lazy: a string is one atomic unit, an explicit or implicit continuation is one unit, and
 	/// any other character but a line end, a quote or a comment opener is one unit. Brackets are ordinary characters here, so a construct inside a call can be reached.
 	/// </summary>
 	private const string _CALL_WINDOW =
-		@"(?:" + _STRING_UNIT + @"|(?<=[ \t])_[ \t]*" + _TRAILING_COMMENT + @"?\n|" + _CONTINUATION_TOKEN_BEFORE_LINE_END + @"|[^\n:" + _QUOTE + @"'\u2018\u2019\uFF07]){0,200}?";
+		@"(?:(?:" + _STRING_UNIT + @"|(?<=[ \t])_[ \t]*" + _TRAILING_COMMENT + @"?\n|" + _CONTINUATION_TOKEN_BEFORE_LINE_END + @"|[^\n:" + _QUOTE + @"'\u2018\u2019\uFF07])" + _BACKTRACK_POINT + @"){0,200}?";
 
 	private const string _HTTP_TYPES = @"(?:HttpClientHandler|WebRequestHandler|SocketsHttpHandler|WinHttpHandler|WebClient|HttpWebRequest|HttpWebClientProtocol|SoapHttpClientProtocol)";
 
 	/// <summary>Three lines, each read to at most 120 characters: the window of the flow signals, which read a short neighbourhood.</summary>
-	private const string _LINE_WINDOW_THREE = @"(?:[^\n]{0,120}\n){0,3}?[^\n]{0,120}?";
+	private const string _LINE_WINDOW_THREE = @"(?:(?:[^\n]{0,120}\n)" + _BACKTRACK_POINT + @"){0,3}?[^\n]{0,120}?";
 
 	/// <summary>Five lines, each read to at most 200 characters: on a line at the 10,000-character ceiling the window is bounded by the 200, not by the line.</summary>
-	private const string _LINE_WINDOW_FIVE = @"(?:[^\n]{0,200}\n){0,5}?[^\n]{0,200}?";
+	private const string _LINE_WINDOW_FIVE = @"(?:(?:[^\n]{0,200}\n)" + _BACKTRACK_POINT + @"){0,5}?[^\n]{0,200}?";
 
 	// ------------------------------------------------------------------------------------------
 	// Credential words: substring words, and whole-token words

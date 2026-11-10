@@ -35,17 +35,13 @@ public sealed class LowReasonVocabularyTests
 	private const string _DEPLOYMENT_FOLDER_SENTENCE =
 		"the file sits in a deployment folder, so it is installation or release tooling rather than the application's own code";
 	private const string _REMOVED_WORDING = "rarely live authenticating code";
-	private const string _DEPLOYMENT_WORD = "deployment";
-	private const string _DEMOTED_FILE_CSHARP_SENTENCE =
-		"the file's name, folder or content marks it as a test, sample, generated or deployment file";
-	private const string _DEMOTED_FILE_POWERSHELL_SENTENCE =
-		"the file's name, folder or content marks it as a test, sample or generated file";
+	private const string _RETIRED_VALUE = "demotedFile";
+	private const LowConfidenceReasons _RESERVED_BIT = (LowConfidenceReasons)4;
 
 	private static readonly string[] _declaredOrder =
 	[
 		"patternClass",
 		"commentOrStringLiteral",
-		"demotedFile",
 		"demotedMockFile",
 		"demotedSampleFile",
 		"demotedVendoredFile",
@@ -68,6 +64,11 @@ public sealed class LowReasonVocabularyTests
 	[InlineData("SH-020", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("SH-022", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("SH-023", _CHALLENGE_DEPENDENT_SENTENCE)]
+	[InlineData("JS-007", _HELPER_SENTENCE)]
+	[InlineData("JS-009", _CHALLENGE_DEPENDENT_SENTENCE)]
+	[InlineData("JS-011", _NON_HTTP_SINK_SENTENCE)]
+	[InlineData("JS-014", _CHALLENGE_DEPENDENT_SENTENCE)]
+	[InlineData("JS-016", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("TST-001", _GENERIC_SENTENCE)]
 	public void AClassThatIsLowByDefinitionStatesItsOwnReason(string identifier, string expectedSentence)
 	{
@@ -77,13 +78,22 @@ public sealed class LowReasonVocabularyTests
 		Assert.DoesNotContain(_REMOVED_WORDING, sentence, StringComparison.Ordinal);
 	}
 
+	/// <summary>A JavaScript class that is not Low has no class sentence, so the generic pattern-class sentence is what the lookup gives.</summary>
+	[Fact]
+	public void AJavaScriptClassWithNoClassSentenceFallsBackToTheGenericPatternClassSentence()
+	{
+		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass, "JS-001");
+
+		Assert.Equal(_GENERIC_SENTENCE, sentence);
+	}
+
 	/// <summary>The two Low classes of VBNet say why they are Low, as their C# and PowerShell counterparts do.</summary>
 	[Theory]
-	[InlineData("VB-018", AssessedLanguage.VBNet, _NON_HTTP_SINK_SENTENCE)]
-	[InlineData("VB-019", AssessedLanguage.VBNet, _HELPER_SENTENCE)]
-	public void ALowVBNetClassStatesItsOwnReasonAndNotTheGenericOne(string identifier, AssessedLanguage language, string expectedSentence)
+	[InlineData("VB-018", _NON_HTTP_SINK_SENTENCE)]
+	[InlineData("VB-019", _HELPER_SENTENCE)]
+	public void ALowVBNetClassStatesItsOwnReasonAndNotTheGenericOne(string identifier, string expectedSentence)
 	{
-		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass, identifier, language);
+		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass, identifier);
 
 		Assert.Equal(expectedSentence, sentence);
 		Assert.NotEqual(_GENERIC_SENTENCE, sentence);
@@ -95,32 +105,26 @@ public sealed class LowReasonVocabularyTests
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "demotedVendoredFile", _VENDORED_SENTENCE)]
 	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "demotedGeneratedFile", _GENERATED_SENTENCE)]
 	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "demotedDeploymentFolder", _DEPLOYMENT_FOLDER_SENTENCE)]
-	public void EachDemotionKindHasItsOwnValueAndItsOwnSentenceInEveryLanguage(
+	public void EachDemotionKindHasItsOwnValueAndItsOwnSentence(
 		LowConfidenceReasons reason,
 		string expectedValue,
 		string expectedSentence)
 	{
-		foreach (AssessedLanguage language in Enum.GetValues<AssessedLanguage>())
-		{
-			Assert.Equal(expectedSentence, LowReasonVocabulary.SentenceOf(reason, null, language));
-		}
+		Assert.Equal(expectedSentence, LowReasonVocabulary.SentenceOf(reason));
 
 		Assert.Equal([expectedValue], LowReasonVocabulary.ValuesOf(reason));
 		Assert.True(LowReasonVocabulary.TryParse([expectedValue], out LowConfidenceReasons parsed));
 		Assert.Equal(reason, parsed);
 	}
 
-	/// <summary>The general demoted-file sentence and its C# deployment branch stay beside the per-kind ones.</summary>
+	/// <summary>The retired value is not in the vocabulary: it is not written, not read back, and its reserved bit has no sentence.</summary>
 	[Fact]
-	public void TheGeneralDemotedFileSentencesStayBesideThePerKindOnes()
+	public void TheRetiredDemotedFileValueIsNotInTheVocabulary()
 	{
-		Assert.Equal(
-			_DEMOTED_FILE_CSHARP_SENTENCE,
-			LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.CSharp));
-		Assert.Equal(
-			_DEMOTED_FILE_POWERSHELL_SENTENCE,
-			LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.VBNet));
-		Assert.Equal(["demotedFile"], LowReasonVocabulary.ValuesOf(LowConfidenceReasons.DemotedFile));
+		Assert.Empty(LowReasonVocabulary.ValuesOf(_RESERVED_BIT));
+		Assert.False(LowReasonVocabulary.TryParse([_RETIRED_VALUE], out LowConfidenceReasons parsed));
+		Assert.Equal(LowConfidenceReasons.None, parsed);
+		Assert.Equal(LowReasonVocabulary.REASON_NOT_RECORDED_TEXT, LowReasonVocabulary.SentenceOf(_RESERVED_BIT));
 	}
 
 	/// <summary>The declared order is the order of the values in the artifact, the sentences in the report and the rows of the User Guide.</summary>
@@ -133,25 +137,24 @@ public sealed class LowReasonVocabularyTests
 			| LowConfidenceReasons.DemotedVendoredFile
 			| LowConfidenceReasons.DemotedSampleFile
 			| LowConfidenceReasons.DemotedMockFile
-			| LowConfidenceReasons.DemotedFile
 			| LowConfidenceReasons.CommentOrStringLiteral
 			| LowConfidenceReasons.PatternClass;
 
 		Assert.Equal(_declaredOrder, LowReasonVocabulary.ValuesOf(everyReason));
 		Assert.Equal(
-			[_GENERIC_SENTENCE, _COMMENT_SENTENCE, _DEMOTED_FILE_CSHARP_SENTENCE, _MOCK_SENTENCE, _SAMPLE_SENTENCE, _VENDORED_SENTENCE, _GENERATED_SENTENCE, _DEPLOYMENT_FOLDER_SENTENCE],
+			[_GENERIC_SENTENCE, _COMMENT_SENTENCE, _MOCK_SENTENCE, _SAMPLE_SENTENCE, _VENDORED_SENTENCE, _GENERATED_SENTENCE, _DEPLOYMENT_FOLDER_SENTENCE],
 			LowReasonVocabulary.SentenceOf(everyReason).Split("; "));
 	}
 
 	[Fact]
-	public void TheFlagsOfTheReasonsAreOneBitEachAndTheNewOnesFollowTheVendoredFlag()
+	public void TheFlagsOfTheReasonsAreOneBitEachAndBitFourStaysReserved()
 	{
 		Assert.Equal(8, (int)LowConfidenceReasons.DemotedVendoredFile);
 		Assert.Equal(16, (int)LowConfidenceReasons.DemotedMockFile);
 		Assert.Equal(32, (int)LowConfidenceReasons.DemotedSampleFile);
 		Assert.Equal(64, (int)LowConfidenceReasons.DemotedGeneratedFile);
 		Assert.Equal(128, (int)LowConfidenceReasons.DemotedDeploymentFolder);
-		Assert.Equal(4, (int)LowConfidenceReasons.DemotedFile);
+		Assert.DoesNotContain(Enum.GetValues<LowConfidenceReasons>(), reason => (int)reason == (int)_RESERVED_BIT);
 	}
 
 	[Fact]
@@ -178,39 +181,6 @@ public sealed class LowReasonVocabularyTests
 	}
 
 	[Fact]
-	public void ADemotedCSharpFileMayBeADeploymentFile()
-	{
-		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.CSharp);
-
-		Assert.Equal(_DEMOTED_FILE_CSHARP_SENTENCE, sentence);
-		Assert.Contains(_DEPLOYMENT_WORD, sentence, StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public void ADemotedPowerShellFileIsNeverCalledADeploymentFile()
-	{
-		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.PowerShell);
-		string joined = LowReasonVocabulary.SentenceOf(
-			LowConfidenceReasons.PatternClass | LowConfidenceReasons.DemotedFile,
-			"PS-013",
-			AssessedLanguage.PowerShell);
-
-		Assert.Equal(_DEMOTED_FILE_POWERSHELL_SENTENCE, sentence);
-		Assert.DoesNotContain(_DEPLOYMENT_WORD, sentence, StringComparison.Ordinal);
-		Assert.DoesNotContain(_DEPLOYMENT_WORD, joined, StringComparison.Ordinal);
-	}
-
-	/// <summary>The demoted-file sentence of VBNet leaves out "deployment", as for every language but C#.</summary>
-	[Fact]
-	public void ADemotedVBNetFileIsNeverCalledADeploymentFile()
-	{
-		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.DemotedFile, null, AssessedLanguage.VBNet);
-
-		Assert.Equal(_DEMOTED_FILE_POWERSHELL_SENTENCE, sentence);
-		Assert.DoesNotContain(_DEPLOYMENT_WORD, sentence, StringComparison.Ordinal);
-	}
-
-	[Fact]
 	public void ThePs012ReasonDoesNotClaimThatNoBasicCredentialIsSent()
 	{
 		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass, "PS-012");
@@ -222,10 +192,8 @@ public sealed class LowReasonVocabularyTests
 	[Fact]
 	public void TheReasonOfAClassThatIsLowIsJoinedToTheDemotionThatAlsoApplied()
 	{
-		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass | LowConfidenceReasons.DemotedFile, "PS-013");
+		string sentence = LowReasonVocabulary.SentenceOf(LowConfidenceReasons.PatternClass | LowConfidenceReasons.DemotedMockFile, "PS-013");
 
-		Assert.Equal(
-			_NON_HTTP_SINK_SENTENCE + "; the file's name, folder or content marks it as a test, sample, generated or deployment file",
-			sentence);
+		Assert.Equal(_NON_HTTP_SINK_SENTENCE + "; " + _MOCK_SENTENCE, sentence);
 	}
 }

@@ -55,7 +55,8 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// above. Never a timing threshold: elapsed time and the peak working set of the sampled process are
 /// recorded to the test output, not asserted.
 /// </summary>
-public sealed class CSharpAnalyzerVolumeProofTests
+[Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
+public sealed class CSharpAnalyzerVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	private const int _NOISE_FILE_COUNT = 50;
 	private const int _UNTERMINATED_LITERAL_FILE_COUNT = 50;

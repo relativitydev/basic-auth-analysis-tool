@@ -42,6 +42,11 @@ public static class WorstCaseFileContent
 	private const string _SHELL_SHEBANG_LINE = "#!/usr/bin/env bash\n";
 	private const string _SHELL_ANCHOR_LINE = "curl --silent --fail \"https://status.invalid/health\" > /dev/null\n";
 	private const string _SHELL_FUNCTION_FORMAT = "\nadd_amount{0}() {{\n\tlocal amount=\"$1\"\n\ttotal=$((total + amount * {0}))\n\techo \"$total\"\n}}\n";
+	private const string _JAVASCRIPT_HASHBANG_LINE = "#!/usr/bin/env node\n";
+	private const string _JAVASCRIPT_ANCHOR_LINE = "fetch(\"https://status.invalid/health\");\n";
+	private const string _JAVASCRIPT_COMMENT_PREFIX = "// Ordinary arithmetic for ";
+	private const string _JAVASCRIPT_TOTAL_DECLARATION = "let total = 0;";
+	private const string _JAVASCRIPT_FUNCTION_FORMAT = "\nfunction addAmount{0}(amount) {{\n\ttotal += amount * {0};\n\treturn total;\n}}\n";
 	private const string _POWERSHELL_ANCHOR_LINE = "$credentialSource = 'configured elsewhere'\n";
 	private const string _POWERSHELL_FUNCTION_FORMAT = "\nfunction Add-Amount{0}\n{{\n\tparam([int]$Amount)\n\t$script:total += $Amount * {0}\n\treturn $script:total\n}}\n";
 
@@ -80,6 +85,8 @@ public static class WorstCaseFileContent
 			WorstCaseFileKind.VBNetSource => Encode(VBNetText(options, plan.Index, typeName)),
 			WorstCaseFileKind.ShellScript => Encode(ShellText(options, plan.Index, typeName, shebang: false)),
 			WorstCaseFileKind.ShellShebangScript => Encode(ShellText(options, plan.Index, typeName, shebang: true)),
+			WorstCaseFileKind.JavaScriptSource or WorstCaseFileKind.JavaScriptJsxSource => Encode(JavaScriptText(options, plan.Index, typeName, hashbang: false)),
+			WorstCaseFileKind.JavaScriptNodeScript => Encode(JavaScriptText(options, plan.Index, typeName, hashbang: true)),
 			_ => Encode(FillerText(options, plan.Index, typeName))
 		};
 	}
@@ -267,6 +274,39 @@ public static class WorstCaseFileContent
 		for (int number = 0; number < functionCount; number++)
 		{
 			builder.Append(string.Format(CultureInfo.InvariantCulture, _SHELL_FUNCTION_FORMAT, number));
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// Ordinary JavaScript with no construct, in the same small, medium and large mix as the C# filler; a share of the files still carry one ordinary <c>fetch</c> call to a URL with no credential, a content-only preselection anchor
+	/// (<c>://</c>) of the shipped analyzer. The hashbang form starts with a <c>node</c> hashbang, which is the only thing that attributes an extensionless file.
+	/// </summary>
+	private static string JavaScriptText(WorstCaseTreeOptions options, long index, string functionName, bool hashbang)
+	{
+		StringBuilder builder = new();
+		int sizeRoll = DeterministicRandom.Below(_SIZE_DENOMINATOR, options.Seed, index, _STREAM_SIZE);
+		int functionCount = _SMALL_METHOD_COUNT;
+		bool mentionsAnchor = DeterministicRandom.Below(_ANCHOR_SHARE_DENOMINATOR, options.Seed, index, _STREAM_SHAPE) < _ANCHOR_SHARE_NUMERATOR;
+
+		if (sizeRoll < _LARGE_SIZE_THRESHOLD)
+		{
+			functionCount = _LARGE_METHOD_COUNT;
+		}
+		else if (sizeRoll < _MEDIUM_SIZE_THRESHOLD)
+		{
+			functionCount = _MEDIUM_METHOD_COUNT;
+		}
+
+		builder.Append(hashbang ? _JAVASCRIPT_HASHBANG_LINE : string.Empty);
+		builder.Append(_JAVASCRIPT_COMMENT_PREFIX).Append(functionName).Append(_LINE_END);
+		builder.Append(_JAVASCRIPT_TOTAL_DECLARATION).Append(_LINE_END);
+		builder.Append(mentionsAnchor ? _JAVASCRIPT_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _JAVASCRIPT_FUNCTION_FORMAT, number));
 		}
 
 		return builder.ToString();

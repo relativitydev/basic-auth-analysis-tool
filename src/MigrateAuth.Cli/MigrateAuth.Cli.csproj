@@ -18,8 +18,8 @@
 		The copyright holder is provisional until the licence is settled.
 	-->
 	<PropertyGroup>
-		<Version>0.4.0-alpha</Version>
-		<FileVersion>0.4.0.0</FileVersion>
+		<Version>0.5.1-alpha</Version>
+		<FileVersion>0.5.1.0</FileVersion>
 		<Company>NSerio</Company>
 		<Product>migrate-auth</Product>
 		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>
@@ -106,6 +106,17 @@
 		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
 		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
 		<BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+	</PropertyGroup>
+
+	<!--
+		Generator output kept for the structural guard.
+		The regular-expression source generator's own output is written under this project's
+		obj folder (never committed: obj is git-ignored), so a test can read it and check the
+		signature of a known generator defect against the generator actually in use.
+		It changes nothing in the compiled assembly.
+	-->
+	<PropertyGroup>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
 	</PropertyGroup>
 
 	<!--

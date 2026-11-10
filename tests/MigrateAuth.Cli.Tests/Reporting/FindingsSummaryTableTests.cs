@@ -380,7 +380,6 @@ public sealed class FindingsSummaryTableTests
 	[Theory]
 	[InlineData(LowConfidenceReasons.PatternClass, "this pattern class is Low by definition")]
 	[InlineData(LowConfidenceReasons.CommentOrStringLiteral, "the match sits in a comment or a string literal")]
-	[InlineData(LowConfidenceReasons.DemotedFile, "the file's name, folder or content marks it as a test, sample, generated or deployment file")]
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "the file sits in a vendor or third-party folder, so it is code the repository carries rather than its own")]
 	[InlineData(LowConfidenceReasons.DemotedMockFile, "the file's name, folder or content marks it as a mock, fake or stub, a test double")]
 	[InlineData(LowConfidenceReasons.DemotedSampleFile, "the file's name or folder marks it as a sample or example")]
@@ -478,20 +477,20 @@ public sealed class FindingsSummaryTableTests
 					ReportHarness.TEMPLATED_PATTERN_CLASS,
 					ConfidenceLevel.Low,
 					language: AssessedLanguage.PowerShell,
-					lowReasons: LowConfidenceReasons.DemotedFile)
+					lowReasons: LowConfidenceReasons.DemotedMockFile)
 			],
 			ConfidenceLevel.Low);
 
 		string report = Render(content);
 
-		Assert.Contains("- Low because: the file's name, folder or content marks it as a test, sample or generated file", report, StringComparison.Ordinal);
+		Assert.Contains("- Low because: the file's name, folder or content marks it as a mock, fake or stub, a test double", report, StringComparison.Ordinal);
 		Assert.DoesNotContain("deployment file", report, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public void SeveralReasonsAreAllStated()
 	{
-		LowConfidenceReasons both = LowConfidenceReasons.CommentOrStringLiteral | LowConfidenceReasons.DemotedFile;
+		LowConfidenceReasons both = LowConfidenceReasons.CommentOrStringLiteral | LowConfidenceReasons.DemotedMockFile;
 		ReportContent content = ContentOf(
 			[ReportHarness.FindingAt(1, _LOW_PATH, 1, ReportHarness.TEMPLATED_PATTERN_CLASS, ConfidenceLevel.Low, lowReasons: both)],
 			ConfidenceLevel.Low);
@@ -499,7 +498,7 @@ public sealed class FindingsSummaryTableTests
 		string report = Render(content);
 
 		Assert.Contains("comment or a string literal, so it is not executable code; the file's name", report, StringComparison.Ordinal);
-		Assert.Equal(["commentOrStringLiteral", "demotedFile"], ReadArtifact(content).Findings.Single().LowReasons!);
+		Assert.Equal(["commentOrStringLiteral", "demotedMockFile"], ReadArtifact(content).Findings.Single().LowReasons!);
 	}
 
 	[Fact]

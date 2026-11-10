@@ -28,7 +28,8 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// Each file carries a signal token chosen by its index (an interactive one, a fixed one, or none),
 /// so the evidence copied onto the retained findings can be checked against what was generated.
 /// </summary>
-public sealed class FlowSignalVolumeProofTests
+[Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
+public sealed class FlowSignalVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	private const int _FILE_COUNT = 40;
 	private const int _MATCHES_OFFERED_PER_FILE = 3_000;

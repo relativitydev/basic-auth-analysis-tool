@@ -58,6 +58,13 @@ public sealed record WorstCaseTreeOptions
 	/// </summary>
 	public int ShellScriptBasisPoints { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are JavaScript sources instead, a third with the <c>.js</c> extension, a third with <c>.jsx</c> and a third
+	/// extensionless with a <c>node</c> hashbang, drawn on streams of their own after the Shell share, so every other file keeps its kind. Zero, the default, writes no JavaScript file,
+	/// so a tree asked for nothing else is byte for byte the tree without this share.
+	/// </summary>
+	public int JavaScriptSourceBasisPoints { get; init; }
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 

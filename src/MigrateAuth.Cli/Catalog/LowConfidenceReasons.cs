@@ -25,8 +25,7 @@ public enum LowConfidenceReasons
 	/// <summary>The construct's anchor sits in a comment or a string literal rather than in code.</summary>
 	CommentOrStringLiteral = 2,
 
-	/// <summary>A demotion signal of the file - its name, its folder or its content - proposed Low.</summary>
-	DemotedFile = 4,
+	// The value 4 is reserved and must never be reused.
 
 	/// <summary>A demotion signal that names a vendored or third-party folder proposed Low.</summary>
 	DemotedVendoredFile = 8,

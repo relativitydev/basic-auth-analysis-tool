@@ -37,5 +37,14 @@ public enum WorstCaseFileKind
 	ShellScript = 10,
 
 	/// <summary>An extensionless Shell script whose first line is a <c>bash</c> shebang, so only its first line attributes it. Only a tree asked for a Shell share holds any.</summary>
-	ShellShebangScript = 11
+	ShellShebangScript = 11,
+
+	/// <summary>A JavaScript source with the <c>.js</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a JavaScript share holds any.</summary>
+	JavaScriptSource = 12,
+
+	/// <summary>A JavaScript source with the <c>.jsx</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a JavaScript share holds any.</summary>
+	JavaScriptJsxSource = 13,
+
+	/// <summary>An extensionless JavaScript script whose first line is a <c>node</c> hashbang, so only its first line attributes it. Only a tree asked for a JavaScript share holds any.</summary>
+	JavaScriptNodeScript = 14
 }

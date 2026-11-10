@@ -14,7 +14,7 @@ internal static partial class VBNetPatternExpressions
 
 	/// <summary>VB-010 · SdkConstructorWithUserAndPassword (the type name may end a longer one; arity three)</summary>
 	[GeneratedRegex(
-		@"\bNew[ \t]+" + _SDK_ENTRY_POINT_QUALIFIER + @"(?<construct>[A-Za-z0-9_]*ImportAPI)(?![A-Za-z0-9_])[ \t]*\(" + _GAP_IMPLICIT + _ARGUMENT_NAMED + _COMMA + @"(?<credential>" + _NAMED_PREFIX + _NOT_A_TOKEN_HELD_AS_PASSWORD + _ARGUMENT + @")" + _COMMA + _NAMED_PREFIX + @"(?:" + _STRING + @"|(?:" + _STATEMENT_UNIT + @"){1,200}?)" + _GAP_IMPLICIT + @"\)",
+		@"\bNew[ \t]+" + _SDK_ENTRY_POINT_QUALIFIER + @"(?<construct>[A-Za-z0-9_]*ImportAPI)(?![A-Za-z0-9_])[ \t]*\(" + _GAP_IMPLICIT + _ARGUMENT_NAMED + _COMMA + @"(?<credential>" + _NAMED_PREFIX + _NOT_A_TOKEN_HELD_AS_PASSWORD + _ARGUMENT + @")" + _COMMA + _NAMED_PREFIX + @"(?:" + _STRING + @"|(?:(?:" + _STATEMENT_UNIT + @")" + _BACKTRACK_POINT + @"){1,200}?)" + _GAP_IMPLICIT + @"\)",
 		OPTIONS, matchTimeoutMilliseconds: TIMEOUT_IN_MILLISECONDS)]
 	public static partial Regex SdkConstructorWithUserAndPassword();
 
@@ -98,7 +98,7 @@ internal static partial class VBNetPatternExpressions
 		@"=(?=[ \t]*" + _EMPTY_OPERAND + @"(?![ \t]*[&+.(]))(?<=(?:\A|[\n:])[ \t]*(?:(?:Dim|Static|Private|Public|Friend|Protected|Shared)[ \t]+)*(?<e>" + _NAME + @")(?:[ \t]+As[ \t]+[A-Za-z_][A-Za-z0-9_.]*)?[ \t]*=)[ \t]*" + _EMPTY_OPERAND;
 
 	/// <summary>Ten lines, each read to at most 200 characters: the window between the empty assignment and the pair.</summary>
-	private const string _LINE_WINDOW_TEN = @"(?:[^\n]{0,200}\n){0,10}?[^\n]{0,200}?";
+	private const string _LINE_WINDOW_TEN = @"(?:(?:[^\n]{0,200}\n)" + _BACKTRACK_POINT + @"){0,10}?[^\n]{0,200}?";
 
 	/// <summary>The lookahead that opens an inline pair: the colon as a literal, or the two placeholders, or the interpolation's colon, within the line.</summary>
 	private const string _INLINE_PAIR_SIGN = @"(?=(?>[^\n:]{0,303}):)(?:(?=[^\n]{0,300}" + _QUOTE + @":" + _QUOTE + @")|(?=[^\n]{0,300}\}:\{)|(?=[^\n]{0,300}\{0\}:\{1\}))";

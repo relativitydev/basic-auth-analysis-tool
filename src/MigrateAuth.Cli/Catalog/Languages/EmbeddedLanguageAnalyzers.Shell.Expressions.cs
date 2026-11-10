@@ -89,7 +89,7 @@ internal static partial class ShellPatternExpressions
 	/// <c>It</c> line with a quoted name. <c>CodeOnly</c>.
 	/// </summary>
 	[GeneratedRegex(
-		@"^[ \t]*Describe[ \t]+[\x27\x22][^\n]*\n(?:(?![ \t]*Describe[ \t])[^\n]*\n){0,100}?[ \t]*It[ \t]+[\x27\x22]",
+		@"^[ \t]*Describe[ \t]+[\x27\x22][^\n]*\n(?:(?:(?![ \t]*Describe[ \t])[^\n]*\n)" + _BACKTRACK_POINT + @"){0,100}?[ \t]*It[ \t]+[\x27\x22]",
 		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.Multiline,
 		matchTimeoutMilliseconds: RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS)]
 	public static partial Regex BehaviourDrivenTestContentMarker();

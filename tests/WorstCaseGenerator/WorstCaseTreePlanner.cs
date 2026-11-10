@@ -50,6 +50,13 @@ public static class WorstCaseTreePlanner
 	private const int _STREAM_SHELL_FORM = 10;
 	private const int _SHELL_FORM_COUNT = 2;
 	private const string _SHELL_SCRIPT_EXTENSION = ".sh";
+	private const int _STREAM_JAVASCRIPT_SHARE = 11;
+	private const int _STREAM_JAVASCRIPT_FORM = 12;
+	private const int _JAVASCRIPT_FORM_COUNT = 3;
+	private const int _JAVASCRIPT_PLAIN_FORM = 0;
+	private const int _JAVASCRIPT_JSX_FORM = 1;
+	private const string _JAVASCRIPT_SOURCE_EXTENSION = ".js";
+	private const string _JAVASCRIPT_JSX_EXTENSION = ".jsx";
 	private const string _NO_EXTENSION = "";
 
 	private static readonly string[] _NonCandidateExtensions = [".txt", ".md", ".json", ".xml"];
@@ -73,6 +80,9 @@ public static class WorstCaseTreePlanner
 			WorstCaseFileKind.VBNetSource => _VBNET_SOURCE_EXTENSION,
 			WorstCaseFileKind.ShellScript => _SHELL_SCRIPT_EXTENSION,
 			WorstCaseFileKind.ShellShebangScript => _NO_EXTENSION,
+			WorstCaseFileKind.JavaScriptSource => _JAVASCRIPT_SOURCE_EXTENSION,
+			WorstCaseFileKind.JavaScriptJsxSource => _JAVASCRIPT_JSX_EXTENSION,
+			WorstCaseFileKind.JavaScriptNodeScript => _NO_EXTENSION,
 			_ => _CANDIDATE_EXTENSION
 		};
 	}
@@ -100,7 +110,26 @@ public static class WorstCaseTreePlanner
 			kind = KindByBasisPoints(DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, STREAM_KIND));
 		}
 
-		return kind == WorstCaseFileKind.Filler ? ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index))) : kind;
+		return kind == WorstCaseFileKind.Filler ? JavaScriptInsteadOfFiller(options, index, ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index)))) : kind;
+	}
+
+	/// <summary>A file still ordinary after the Shell share is a JavaScript source for the share the options ask for, and its form (<c>.js</c>, <c>.jsx</c> or an extensionless <c>node</c> script) is decided on a stream of its own.</summary>
+	private static WorstCaseFileKind JavaScriptInsteadOfFiller(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		WorstCaseFileKind result = kind;
+
+		if (kind == WorstCaseFileKind.Filler
+			&& DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_JAVASCRIPT_SHARE) < options.JavaScriptSourceBasisPoints)
+		{
+			result = DeterministicRandom.Below(_JAVASCRIPT_FORM_COUNT, options.Seed, index, _STREAM_JAVASCRIPT_FORM) switch
+			{
+				_JAVASCRIPT_PLAIN_FORM => WorstCaseFileKind.JavaScriptSource,
+				_JAVASCRIPT_JSX_FORM => WorstCaseFileKind.JavaScriptJsxSource,
+				_ => WorstCaseFileKind.JavaScriptNodeScript
+			};
+		}
+
+		return result;
 	}
 
 	/// <summary>A file still ordinary after the Visual Basic share is a Shell script for the share the options ask for, and its form is decided on a stream of its own.</summary>

@@ -39,6 +39,11 @@ public sealed class WorstCaseTreeGeneratorTests
 	private const string _SHELL_LANGUAGE_NAME = "Shell";
 	private const string _SHELL_SHEBANG_LINE = "#!/usr/bin/env bash";
 	private const string _SHELL_SCRIPT_EXTENSION = ".sh";
+	private const int _JAVASCRIPT_BASIS_POINTS = 1_000;
+	private const string _JAVASCRIPT_LANGUAGE_NAME = "JavaScript";
+	private const string _JAVASCRIPT_HASHBANG_LINE = "#!/usr/bin/env node";
+	private const string _JAVASCRIPT_SOURCE_EXTENSION = ".js";
+	private const string _JAVASCRIPT_JSX_EXTENSION = ".jsx";
 	private const char _LINE_FEED = '\n';
 
 	[Fact]
@@ -142,7 +147,8 @@ public sealed class WorstCaseTreeGeneratorTests
 			OversizeFileCount = _OVERSIZE_FILE_COUNT,
 			PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS,
 			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS,
-			ShellScriptBasisPoints = _SHELL_BASIS_POINTS
+			ShellScriptBasisPoints = _SHELL_BASIS_POINTS,
+			JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS
 		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
@@ -294,6 +300,93 @@ public sealed class WorstCaseTreeGeneratorTests
 
 		Assert.Contains(true, preselected);
 		Assert.Contains(false, preselected);
+	}
+
+	[Fact]
+	public void ATreeAskedForNoJavaScriptHoldsNoJavaScriptFileAndTheJavaScriptShareReplacesOrdinaryFilesOnly()
+	{
+		WorstCaseTreeOptions withoutShare = new() { Seed = _SEED, OutputRoot = string.Empty, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS, VBNetSourceBasisPoints = _VBNET_BASIS_POINTS, ShellScriptBasisPoints = _SHELL_BASIS_POINTS };
+		WorstCaseTreeOptions withShare = withoutShare with { JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS };
+		List<(WorstCaseFileKind Before, WorstCaseFileKind After)> pairs = KindPairsOf(withoutShare, withShare);
+
+		Assert.DoesNotContain(pairs, pair => pair.Before is WorstCaseFileKind.JavaScriptSource or WorstCaseFileKind.JavaScriptJsxSource or WorstCaseFileKind.JavaScriptNodeScript);
+		Assert.All(pairs.Where(pair => pair.Before != pair.After), pair => Assert.Equal(WorstCaseFileKind.Filler, pair.Before));
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.JavaScriptSource);
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.JavaScriptJsxSource);
+		Assert.Contains(pairs, pair => pair.After == WorstCaseFileKind.JavaScriptNodeScript);
+	}
+
+	[Fact]
+	public void ATreeWithNoJavaScriptShareIsByteIdenticalWhetherTheJavaScriptShareIsLeftOutOrSetToZero()
+	{
+		using TemporaryFolder first = TemporaryFolder.Create();
+		using TemporaryFolder second = TemporaryFolder.Create();
+		WorstCaseTreeOptions baseline = new() { Seed = _SEED, OutputRoot = first.Path, FileCount = _SHAPE_FILE_COUNT, PowerShellScriptBasisPoints = _POWERSHELL_BASIS_POINTS, VBNetSourceBasisPoints = _VBNET_BASIS_POINTS, ShellScriptBasisPoints = _SHELL_BASIS_POINTS };
+		WorstCaseTreeOptions explicitZero = baseline with { OutputRoot = second.Path, JavaScriptSourceBasisPoints = 0 };
+
+		WorstCaseTreeGenerator.Generate(baseline);
+		WorstCaseTreeGenerator.Generate(explicitZero);
+
+		List<string> firstFiles = RelativeFilesOf(first.Path);
+		List<string> secondFiles = RelativeFilesOf(second.Path);
+
+		Assert.Equal(firstFiles, secondFiles);
+		Assert.All(firstFiles, relative => Assert.Equal(File.ReadAllBytes(Path.Combine(first.Path, relative)), File.ReadAllBytes(Path.Combine(second.Path, relative))));
+		Assert.DoesNotContain(firstFiles, relative => relative.EndsWith(_JAVASCRIPT_SOURCE_EXTENSION, StringComparison.Ordinal) || relative.EndsWith(_JAVASCRIPT_JSX_EXTENSION, StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void AJavaScriptFileIsAttributedToJavaScriptByItsExtensionOrByItsFirstLineAlone()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		LanguageAttribution attribution = new(LanguageCatalogRegistry.BuildEmbeddedCatalog());
+		RepositoryFolderPath repository = RepositoryFolderPath.FromSuppliedText(folder.Path);
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.JavaScriptSource));
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.JavaScriptJsxSource));
+		Assert.NotEmpty(PathsOf(plans, WorstCaseFileKind.JavaScriptNodeScript));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.JavaScriptSource), path => AssertAttributedToJavaScript(attribution, repository, folder.Path, path, _JAVASCRIPT_SOURCE_EXTENSION));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.JavaScriptJsxSource), path => AssertAttributedToJavaScript(attribution, repository, folder.Path, path, _JAVASCRIPT_JSX_EXTENSION));
+		Assert.All(PathsOf(plans, WorstCaseFileKind.JavaScriptNodeScript), path =>
+		{
+			(_, string firstLine) = ResolveScannedFile(repository, folder.Path, path);
+
+			Assert.Equal(string.Empty, Path.GetExtension(path));
+			Assert.Equal(_JAVASCRIPT_HASHBANG_LINE, firstLine);
+			AssertAttributedToJavaScript(attribution, repository, folder.Path, path, string.Empty);
+		});
+	}
+
+	[Fact]
+	public void AShareOfTheJavaScriptFilesIsPreselectedByTheShippedJavaScriptAnchorsAndTheRestIsNot()
+	{
+		using TemporaryFolder folder = TemporaryFolder.Create();
+		WorstCaseTreeOptions options = OptionsFor(folder, _SHAPE_FILE_COUNT, _SEED) with { JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS };
+		List<WorstCaseFilePlan> plans = PlansOf(options);
+		ILanguageAnalyzer javaScriptAnalyzer = LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName[_JAVASCRIPT_LANGUAGE_NAME];
+
+		WorstCaseTreeGenerator.Generate(options);
+
+		List<bool> preselected = PathsOf(plans, WorstCaseFileKind.JavaScriptSource)
+			.Concat(PathsOf(plans, WorstCaseFileKind.JavaScriptJsxSource))
+			.Concat(PathsOf(plans, WorstCaseFileKind.JavaScriptNodeScript))
+			.Select(path => CandidatePreselection.IsCandidate(javaScriptAnalyzer, File.ReadAllText(Path.Combine(folder.Path, path))))
+			.ToList();
+
+		Assert.Contains(true, preselected);
+		Assert.Contains(false, preselected);
+	}
+
+	private static void AssertAttributedToJavaScript(LanguageAttribution attribution, RepositoryFolderPath repository, string folderPath, string path, string expectedExtension)
+	{
+		(RepositoryRelativePath relativePath, string firstLine) = ResolveScannedFile(repository, folderPath, path);
+
+		Assert.Equal(expectedExtension, Path.GetExtension(path));
+		Assert.Equal(_JAVASCRIPT_LANGUAGE_NAME, attribution.Attribute(relativePath, firstLine).LanguageName);
 	}
 
 	[Fact]

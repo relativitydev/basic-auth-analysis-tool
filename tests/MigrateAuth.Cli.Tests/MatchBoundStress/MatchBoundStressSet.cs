@@ -132,7 +132,29 @@ internal static class MatchBoundStressSet
 	/// <summary>The statement that closes the identifier-rooted pair window.</summary>
 	internal const string ROOTED_PAIR_WINDOW_CLOSER = "\n\t\tstring rootedEncoded = Convert.ToBase64String(Encoding.ASCII.GetBytes(rootedPair));";
 
+	/// <summary>
+	/// A credential built from two calls whose argument lists span several lines, assigned to a variable and handed to
+	/// a handler that also asks for pre-authentication: the form whose directory-entry alternative of the non-HTTP
+	/// sink class reads the credential first and then looks forward over a bounded window of lines for a directory
+	/// entry that never comes, so the bounded window runs out of lines. The expression is evaluated
+	/// through the interpreted engine. Written with generic names.
+	/// </summary>
+	internal const string MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_WINDOW =
+		"\t\tvar serviceCredential = new NetworkCredential(\n"
+		+ "\t\t\tEnvironment.GetEnvironmentVariable(\n"
+		+ "\t\t\t\t\"SERVICE_ACCOUNT_NAME\"),\n"
+		+ "\t\t\tEnvironment.GetEnvironmentVariable(\n"
+		+ "\t\t\t\t\"SERVICE_ACCOUNT_SECRET\"));\n"
+		+ "\t\tvar serviceHandler = new HttpClientHandler();\n"
+		+ "\t\tserviceHandler.Credentials = serviceCredential;\n"
+		+ "\t\tserviceHandler.PreAuthenticate = true;";
+
+	/// <summary>The name of the shape that repeats <see cref="MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_WINDOW"/>.</summary>
+	internal const string MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_SHAPE_NAME = "multi-line-call-argument-credentials-with-an-exhausted-window";
+
+	private const int _FURTHER_LINES_AFTER_THE_WINDOW = 7;
 	private const string _LINE_BREAK = "\n";
+	private const char _LINE_BREAK_CHARACTER = '\n';
 	private const string _MEMBER_FORMAT = "\tinternal static void Member{0:D6}()\n\t{{\n{1}\t}}\n";
 	private const string _FILLER_STATEMENT = "\t\tint total = first + second;\n";
 
@@ -373,6 +395,7 @@ internal static class MatchBoundStressSet
 			Shape("literal-and-comment-heavy", FillWithMembers(_LITERAL_AND_COMMENT_LINES)),
 			Shape("indexer-and-inline-pair-near-misses", FillWithMembers(_INDEXER_AND_INLINE_PAIR_NEAR_MISSES)),
 			Shape("creation-form-near-misses", FillWithMembers(_CREATION_FORM_NEAR_MISSES)),
+			Shape(MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_SHAPE_NAME, FillWithMembers([MultiLineCallArgumentCredentialWithFurtherLines()])),
 			.. FlowShapes()
 		];
 	}
@@ -390,6 +413,17 @@ internal static class MatchBoundStressSet
 				FLOW_SHAPE_NAME_PREFIX + flowShape.Name,
 				FLOW_SHAPE_HIGH_CONSTRUCT_LINE + FillWithMembers([flowShape.Statements.TrimEnd('\n')])))
 		];
+	}
+
+	/// <summary>
+	/// The multi-line credential window followed by enough ordinary lines, none naming a directory entry, for the
+	/// bounded window that looks for one to run out of lines instead of ending at the end of the file.
+	/// </summary>
+	private static string MultiLineCallArgumentCredentialWithFurtherLines()
+	{
+		string furtherLines = string.Concat(Enumerable.Repeat(_FILLER_STATEMENT, _FURTHER_LINES_AFTER_THE_WINDOW)).TrimEnd(_LINE_BREAK_CHARACTER);
+
+		return $"{MULTI_LINE_CALL_ARGUMENT_CREDENTIAL_WINDOW}{_LINE_BREAK}{furtherLines}";
 	}
 
 	private static string OpenFlowWindowsWithFiller()

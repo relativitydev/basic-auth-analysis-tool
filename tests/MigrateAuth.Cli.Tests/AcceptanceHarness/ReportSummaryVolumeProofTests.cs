@@ -31,7 +31,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// RUN ALONE, like the other volume proofs, because the working set is process-wide.
 /// </summary>
 [Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
-public sealed class ReportSummaryVolumeProofTests
+public sealed class ReportSummaryVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	private const int _FINDING_COUNT = 50_000;
 	private const long _MEMORY_LIMIT_IN_BYTES = 1024L * 1024 * 1024;

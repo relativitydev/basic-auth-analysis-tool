@@ -25,7 +25,6 @@ public sealed class LowReasonOrderDocumentationTests
 	[
 		"patternClass",
 		"commentOrStringLiteral",
-		"demotedFile",
 		"demotedMockFile",
 		"demotedSampleFile",
 		"demotedVendoredFile",

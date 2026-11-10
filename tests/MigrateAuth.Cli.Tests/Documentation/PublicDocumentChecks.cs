@@ -43,8 +43,13 @@ internal static class PublicDocumentChecks
 	public const string DESKTOP_VARIANT_MARKER = "**Desktop variant.**";
 	public const string MANUAL_COPY_VARIANT_MARKER = "**Receive the code, by the manual copy (primary).**";
 	public const string LOOPBACK_LISTENER_VARIANT_MARKER = "**Loopback listener variant (optional, per system).**";
+	public const string CACHE_AND_RE_ACQUIRE_WITHOUT_COMMA_MARKER = "**Cache the token and re-acquire it on expiry";
+	public const string BROWSER_VARIANT_MARKER = "**Variant 1 — Browser with a server-side component**";
+	public const string NODE_SERVER_VARIANT_MARKER = "**Variant 2 — Node.js server**";
+	public const string NODE_COMMAND_LINE_VARIANT_MARKER = "**Variant 3 — Node.js command line or desktop**";
 
 	private const string _FENCE_MARKER = "```";
+	private const string _CODE_SPAN_DELIMITER = "`";
 	private const string _LABEL_TERMINATOR = ":";
 	private const string _SECTION_END_PREFIX_LEVEL_ONE = "# ";
 	private const string _SECTION_END_PREFIX_LEVEL_TWO = "## ";
@@ -154,7 +159,7 @@ internal static class PublicDocumentChecks
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 		string? section = SectionOf(partA, UNSUPPORTED_SECTION_HEADING);
-		string normalizedSection = NormalizeWhitespace(section ?? string.Empty);
+		string normalizedSection = NormalizeWhitespace((section ?? string.Empty).Replace(_CODE_SPAN_DELIMITER, string.Empty, StringComparison.Ordinal));
 
 		if (section is null)
 		{
@@ -163,7 +168,7 @@ internal static class PublicDocumentChecks
 
 		foreach (DeclaredUnsupportedCoverage entry in declared)
 		{
-			if (!normalizedSection.Contains(NormalizeWhitespace(entry.Construct), StringComparison.OrdinalIgnoreCase))
+			if (!normalizedSection.Contains(NormalizeWhitespace(entry.Construct.Replace(_CODE_SPAN_DELIMITER, string.Empty, StringComparison.Ordinal)), StringComparison.OrdinalIgnoreCase))
 			{
 				problems.Add($"Part A does not list the unsupported construct: {entry.Construct}");
 			}
@@ -237,7 +242,7 @@ internal static class PublicDocumentChecks
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 		string oauth2Client = OAuth2ClientConfigurationBlocks.For(key.Flow);
 
-		foreach ((string element, string marker) in CommonElementMarkers(key))
+		foreach ((string element, string marker) in CommonElementMarkers(key, language))
 		{
 			AddIfMissing(problems, block, element, marker);
 		}
@@ -258,7 +263,7 @@ internal static class PublicDocumentChecks
 		return problems.ToImmutable();
 	}
 
-	private static IEnumerable<(string Element, string Marker)> CommonElementMarkers(PartCBlockKey key)
+	private static IEnumerable<(string Element, string Marker)> CommonElementMarkers(PartCBlockKey key, DocumentedLanguage language)
 	{
 		yield return ("how to confirm the flow and the default", PartCBlockComposition.CONFIRMING_THE_FLOW_MARKER);
 		yield return ("the OAuth2 Client label", RecommendationComposer.OAUTH2_CLIENT_LABEL + _LABEL_TERMINATOR);
@@ -270,7 +275,7 @@ internal static class PublicDocumentChecks
 			yield return ("the after form", RecommendationRenderer.TARGET_FORM_LABEL + _LABEL_TERMINATOR);
 			yield return (
 				"token caching and expiry",
-				key.Flow == CredentialFlow.ClientCredentials ? CACHE_AND_RE_ACQUIRE_MARKER : ON_EXPIRY_MARKER);
+				key.Flow == CredentialFlow.ClientCredentials ? language.CacheAndReacquireMarker : ON_EXPIRY_MARKER);
 		}
 	}
 

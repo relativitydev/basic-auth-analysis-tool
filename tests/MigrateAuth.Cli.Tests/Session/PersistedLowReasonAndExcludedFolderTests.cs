@@ -38,6 +38,8 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	private const string _CONFIDENCE_LOW = "\"confidenceLevel\":\"Low\"";
 	private const string _CONFIDENCE_HIGH = "\"confidenceLevel\":\"High\"";
 	private const string _UNKNOWN_REASON_VALUE = "somethingTheEngineNeverWrote";
+	private const string _RETIRED_REASON_VALUE = "demotedFile";
+	private const string _SCHEMA_VERSION_NINE_FIELD = "\"schemaVersion\":9";
 	private const string _ESCAPING_EXCLUDED_PATH = "../outside";
 	private const string _CATALOG_MAJOR_OF_ANOTHER_CATALOG = "\"catalogVersionMajor\":9999";
 
@@ -172,7 +174,6 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 	[InlineData(LowConfidenceReasons.DemotedGeneratedFile, "demotedGeneratedFile")]
 	[InlineData(LowConfidenceReasons.DemotedDeploymentFolder, "demotedDeploymentFolder")]
 	[InlineData(LowConfidenceReasons.DemotedVendoredFile, "demotedVendoredFile")]
-	[InlineData(LowConfidenceReasons.DemotedFile, "demotedFile")]
 	public void EachDemotionReasonSurvivesASaveAndLoadUnderItsOwnValue(LowConfidenceReasons reason, string value)
 	{
 		using SavedSession saved = SavedSession.Create(reason);
@@ -218,6 +219,20 @@ public sealed class PersistedLowReasonAndExcludedFolderTests
 
 		SessionStateLoad reloaded = saved.Load();
 
+		Assert.False(reloaded.WasResumed);
+		Assert.Equal(SessionStateRejectionReason.FindingNotWellFormed, reloaded.RejectionReason);
+	}
+
+	/// <summary>A value outside the closed vocabulary is refused at schema 9, and the file is not read.</summary>
+	[Fact]
+	public void TheRetiredDemotedFileValueRefusesTheDocumentAndTheSchemaStaysNine()
+	{
+		using SavedSession saved = SavedSession.Create();
+		saved.Edit(_REASON_VALUE, _RETIRED_REASON_VALUE);
+
+		SessionStateLoad reloaded = saved.Load();
+
+		Assert.Contains(_SCHEMA_VERSION_NINE_FIELD, saved.Text(), StringComparison.Ordinal);
 		Assert.False(reloaded.WasResumed);
 		Assert.Equal(SessionStateRejectionReason.FindingNotWellFormed, reloaded.RejectionReason);
 	}

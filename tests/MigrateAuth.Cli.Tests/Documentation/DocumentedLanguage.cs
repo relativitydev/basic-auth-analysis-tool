@@ -30,6 +30,9 @@ public sealed record DocumentedLanguage(
 		("the desktop variant", PublicDocumentChecks.DESKTOP_VARIANT_MARKER)
 	];
 
+	/// <summary>The label of the Client Credentials advice on caching the token, as each language's templates write it.</summary>
+	public string CacheAndReacquireMarker { get; init; } = PublicDocumentChecks.CACHE_AND_RE_ACQUIRE_MARKER;
+
 	/// <summary>The first language: Part A and Part C of C#.</summary>
 	public static readonly DocumentedLanguage CSharp = new(
 		"C#",
@@ -81,8 +84,28 @@ public sealed record DocumentedLanguage(
 		]
 	};
 
+	/// <summary>The fifth language: Part A and Part C of JavaScript.</summary>
+	public static readonly DocumentedLanguage JavaScript = new(
+		"JavaScript",
+		"JavaScript",
+		AssessedLanguage.JavaScript,
+		"part-a-javascript.md",
+		"part-c-javascript.md",
+		JavaScriptRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"javascript",
+		"*.js")
+	{
+		CacheAndReacquireMarker = PublicDocumentChecks.CACHE_AND_RE_ACQUIRE_WITHOUT_COMMA_MARKER,
+		AuthorizationCodeVariantMarkers =
+		[
+			("the browser variant", PublicDocumentChecks.BROWSER_VARIANT_MARKER),
+			("the Node.js server variant", PublicDocumentChecks.NODE_SERVER_VARIANT_MARKER),
+			("the Node.js command line or desktop variant", PublicDocumentChecks.NODE_COMMAND_LINE_VARIANT_MARKER)
+		]
+	};
+
 	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
-	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell];
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()

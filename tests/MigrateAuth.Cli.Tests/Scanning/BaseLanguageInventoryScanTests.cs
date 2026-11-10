@@ -9,12 +9,12 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
 /// THE ACCEPTANCE TEST: A REPOSITORY WITH ALL EIGHT LANGUAGES, THROUGH THE REAL SCAN
-/// STAGE, WITH FOUR OF THEM SHIPPING AN ANALYZER.
+/// STAGE, WITH FIVE OF THEM SHIPPING AN ANALYZER.
 ///
-/// The embedded catalog this harness builds carries the real `CSharp`, `PowerShell`, `VBNet` and `Shell` analyzers
-/// and the invented reference profile - nothing for the other four. This class proves each file of those five in this tree is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
-/// from candidate selection, and that the two genuinely unrecognized files - no extension and no
-/// shebang, and a `.txt` file - are the only ones still counted as unrecognized.
+/// The embedded catalog this harness builds carries the real `CSharp`, `JavaScript`, `PowerShell`, `VBNet` and `Shell` analyzers
+/// and the invented reference profile - nothing for the other three. This class proves each file of those three in this tree is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
+/// from candidate selection, and that the three genuinely unrecognized files - no extension and no
+/// table-named shebang, and a `.txt` file - are the only ones still counted as unrecognized.
 /// </summary>
 public sealed class BaseLanguageInventoryScanTests
 {
@@ -30,6 +30,11 @@ public sealed class BaseLanguageInventoryScanTests
 	private const string _PYTHON_SHEBANG_FILE_NAME = "run-python";
 	private const string _BASH_SHEBANG_FILE_NAME = "run-bash";
 	private const string _PWSH_SHEBANG_FILE_NAME = "run-pwsh";
+	private const string _NODE_ENV_SHEBANG_FILE_NAME = "run-node-env";
+	private const string _NODE_DIRECT_SHEBANG_FILE_NAME = "run-node-direct";
+	private const string _NODE_ENV_SPLIT_SHEBANG_FILE_NAME = "run-node-env-split";
+	private const string _NODEJS_SHEBANG_FILE_NAME = "run-nodejs";
+	private const string _PERL_SHEBANG_FILE_NAME = "run-perl";
 	private const string _EXTENSIONLESS_NO_SHEBANG_FILE_NAME = "README";
 	private const string _TEXT_FILE_NAME = "notes.txt";
 
@@ -40,17 +45,27 @@ public sealed class BaseLanguageInventoryScanTests
 	private const string _PYTHON_SHEBANG_CONTENT = "#!/usr/bin/env python3\nprint('hi')\n";
 	private const string _BASH_SHEBANG_CONTENT = "#!/bin/bash\necho hi\n";
 	private const string _PWSH_SHEBANG_CONTENT = "#!/usr/bin/env pwsh\nWrite-Host hi\n";
+	private const string _NODE_ENV_SHEBANG_CONTENT = "#!/usr/bin/env node\nconsole.log('hi');\n";
+	private const string _NODE_DIRECT_SHEBANG_CONTENT = "#!/usr/bin/node\nconsole.log('hi');\n";
+	private const string _NODE_ENV_SPLIT_SHEBANG_CONTENT = "#!/usr/bin/env -S node --experimental-vm-modules\nconsole.log('hi');\n";
+	private const string _NODEJS_SHEBANG_CONTENT = "#!/usr/bin/env nodejs\nconsole.log('hi');\n";
+	private const string _PERL_SHEBANG_CONTENT = "#!/usr/bin/perl\nprint \"hi\";\n";
 
-	private const int _TOTAL_FILE_COUNT = 13;
+	private const int _TOTAL_FILE_COUNT = 18;
 
 	/// <summary>
-	/// JavaScript, TypeScript and Go carry one file each; Python carries two - its own named-extension
+	/// TypeScript and Go carry one file each; Python carries two - its own named-extension
 	/// file plus the shebang file that resolves to the same language. PowerShell and Shell also carry
-	/// two each and are assessed, as is VBNet with its one. 1 + 1 + 1 + 2 = 5.
+	/// two each and are assessed, as is VBNet with its one, and JavaScript with its `app.js` and the four
+	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. 1 + 1 + 2 = 4.
 	/// </summary>
-	private const int _UNASSESSED_FILE_COUNT = 5;
+	private const int _UNASSESSED_FILE_COUNT = 4;
 
-	private const int _UNRECOGNIZED_FILE_COUNT = 2;
+	/// <summary>`app.js` plus the four extensionless `node` and `nodejs` shebang files, all assessed.</summary>
+	private const int _JAVASCRIPT_FILE_COUNT = 5;
+
+	/// <summary>`README`, `notes.txt` and the extensionless `perl` shebang file, which the table does not name.</summary>
+	private const int _UNRECOGNIZED_FILE_COUNT = 3;
 	private const int _SINGLE_FILE_LANGUAGE_COUNT = 1;
 	private const int _EXTENSION_AND_SHEBANG_LANGUAGE_COUNT = 2;
 
@@ -65,7 +80,10 @@ public sealed class BaseLanguageInventoryScanTests
 		Assert.Equal(_TOTAL_FILE_COUNT, inventory.Inventory.TotalFileCount);
 		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.CSharp), _SINGLE_FILE_LANGUAGE_COUNT);
 		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.VBNet), _SINGLE_FILE_LANGUAGE_COUNT);
-		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), _SINGLE_FILE_LANGUAGE_COUNT);
+
+		// app.js plus the four extensionless node and nodejs shebang files: counted and assessed.
+		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), _JAVASCRIPT_FILE_COUNT);
+
 		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), _SINGLE_FILE_LANGUAGE_COUNT);
 		AssertRowFileCount(inventory, AssessedLanguages.CanonicalName(AssessedLanguage.Go), _SINGLE_FILE_LANGUAGE_COUNT);
 
@@ -93,7 +111,7 @@ public sealed class BaseLanguageInventoryScanTests
 	}
 
 	[Fact]
-	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheFourShippedOnesAreNot()
+	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheFiveShippedOnesAreNot()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
@@ -104,7 +122,7 @@ public sealed class BaseLanguageInventoryScanTests
 
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.CSharp), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.VBNet), assessed: true);
-		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), assessed: false);
+		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: false);
@@ -160,6 +178,11 @@ public sealed class BaseLanguageInventoryScanTests
 		harness.Fixture.WriteText(_PYTHON_SHEBANG_FILE_NAME, _PYTHON_SHEBANG_CONTENT);
 		harness.Fixture.WriteText(_BASH_SHEBANG_FILE_NAME, _BASH_SHEBANG_CONTENT);
 		harness.Fixture.WriteText(_PWSH_SHEBANG_FILE_NAME, _PWSH_SHEBANG_CONTENT);
+		harness.Fixture.WriteText(_NODE_ENV_SHEBANG_FILE_NAME, _NODE_ENV_SHEBANG_CONTENT);
+		harness.Fixture.WriteText(_NODE_DIRECT_SHEBANG_FILE_NAME, _NODE_DIRECT_SHEBANG_CONTENT);
+		harness.Fixture.WriteText(_NODE_ENV_SPLIT_SHEBANG_FILE_NAME, _NODE_ENV_SPLIT_SHEBANG_CONTENT);
+		harness.Fixture.WriteText(_NODEJS_SHEBANG_FILE_NAME, _NODEJS_SHEBANG_CONTENT);
+		harness.Fixture.WriteText(_PERL_SHEBANG_FILE_NAME, _PERL_SHEBANG_CONTENT);
 		harness.Fixture.WriteText(_EXTENSIONLESS_NO_SHEBANG_FILE_NAME, _ORDINARY_CONTENT);
 		harness.Fixture.WriteText(_TEXT_FILE_NAME, _ORDINARY_CONTENT);
 	}

@@ -22,6 +22,7 @@ public sealed class DemotionKindEvaluationTests
 		let credentials = NewExemplarCredentials(operatorName, "hunter2")
 		""";
 
+	private const LowConfidenceReasons _RESERVED_GENERAL_REASON_BIT = (LowConfidenceReasons)4;
 	private const string _TEST_SUFFIX = ".spec.ex1";
 	private const string _MOCK_PREFIX = "fake-";
 	private const string _GENERATED_FOLDER = "gen";
@@ -104,7 +105,7 @@ public sealed class DemotionKindEvaluationTests
 	}
 
 	[Fact]
-	public void NoCombinationOfKindsEverEmitsTheGeneralDemotedFileReason()
+	public void NoCombinationOfKindsEverSetsTheReservedGeneralDemotedFileBit()
 	{
 		LanguageShapedDemotionSignals signals = BuildSignals(reverseDeclaredOrder: false);
 		string[] paths =
@@ -117,7 +118,7 @@ public sealed class DemotionKindEvaluationTests
 
 		Assert.All(
 			paths,
-			path => Assert.False(RecognizeUnder(signals, path).LowReasons.HasFlag(LowConfidenceReasons.DemotedFile), path));
+			path => Assert.False(RecognizeUnder(signals, path).LowReasons.HasFlag(_RESERVED_GENERAL_REASON_BIT), path));
 	}
 
 	private static RecognizedConstruct RecognizeUnder(

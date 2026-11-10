@@ -39,7 +39,7 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 /// for a reason that has nothing to do with the cap.
 /// </summary>
 [Collection(SessionStateVolumeProofTests.COLLECTION_NAME)]
-public sealed class FindingsCapVolumeProofTests
+public sealed class FindingsCapVolumeProofTests : IClassFixture<VolumeProofMemoryRelease>
 {
 	private const int _FILE_COUNT = 40;
 	private const int _MATCHES_OFFERED_PER_FILE = 3_000;

@@ -36,15 +36,42 @@ public sealed class AnalyzerListConsistencyTests
 	private static readonly Regex _languageList = new(_LANGUAGE_LIST_PATTERN, RegexOptions.CultureInvariant);
 	private static readonly Regex _earlierVersion = new(_EARLIER_VERSION_PATTERN, RegexOptions.CultureInvariant);
 
-	/// <summary>The languages the documentation covers are exactly the languages the catalog registers an analyzer for.</summary>
+	private const string _PRE_RELEASE_SUFFIX = "-alpha";
+
+	/// <summary>
+	/// The languages whose analyzer is registered and whose Part A and Part C are not written yet. The list is not a way round the rule: documented plus pending must
+	/// equal the registered analyzers, the two lists are disjoint, and a non-empty list is refused in any build that is not a pre-release.
+	/// </summary>
+	private static readonly string[] _registeredDocumentationPending = [];
+
+	/// <summary>
+	/// The languages whose Part A and Part C are written and whose public pages (the README, the release notes, the limits, the index and
+	/// the OAuth 2.0 essentials) do not name them yet. The list is not a way round the
+	/// rule: it holds only languages that are documented, and a non-empty list is refused in any build that is not a pre-release.
+	/// </summary>
+	private static readonly string[] _publicPagesPending = [];
+
+	/// <summary>The languages the documentation covers, plus the interim pending list, are exactly the languages the catalog registers an analyzer for.</summary>
 	[Fact]
-	public void TheDocumentedLanguagesAreExactlyTheRegisteredAnalyzers()
+	public void TheDocumentedLanguagesPlusThePendingOnesAreExactlyTheRegisteredAnalyzers()
 	{
 		string[] registered = [.. CSharpRenderedTexts.Catalog().AnalyzersByLanguageName.Keys.Order(StringComparer.Ordinal)];
-		string[] documented = [.. DocumentedLanguage.All.Select(language => language.LanguageName).Order(StringComparer.Ordinal)];
+		string[] documented = [.. DocumentedLanguage.All.Select(language => language.LanguageName)];
+		string[] covered = [.. documented.Concat(_registeredDocumentationPending).Order(StringComparer.Ordinal)];
 
-		Assert.Equal(registered, documented);
+		Assert.Equal(registered, covered);
+		Assert.Empty(documented.Intersect(_registeredDocumentationPending));
+		Assert.Empty(_publicPagesPending.Except(documented));
 		Assert.Contains("VB.NET", DocumentedLanguage.All.Select(language => language.DisplayName));
+	}
+
+	/// <summary>A registered language may wait for its documentation only in a pre-release build; the release must flip this list to empty.</summary>
+	[Fact]
+	public void ThePendingDocumentationListIsEmptyUnlessTheToolIsAPreReleaseBuild()
+	{
+		bool preRelease = MigrateAuth.Cli.Reporting.ToolVersion.CURRENT.EndsWith(_PRE_RELEASE_SUFFIX, StringComparison.Ordinal);
+
+		Assert.True(preRelease || (_registeredDocumentationPending.Length == 0 && _publicPagesPending.Length == 0), "A release build may not carry a registered language without its documentation.");
 	}
 
 	/// <summary>A page that links Part A or Part C of one language links Part A or Part C of every registered analyzer.</summary>
@@ -87,7 +114,7 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		string stale = "This release analyzes C# and PowerShell.\n\nSee [Part A](part-a-csharp.md) and [Part A](part-a-powershell.md).";
 		string history = "The release 0.2.0-alpha analyzed C# and PowerShell.";
-		string current = "This release analyzes C#, PowerShell, VB.NET and Shell.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md).";
+		string current = "This release analyzes C#, PowerShell, VB.NET, Shell and JavaScript.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md), [Part A](part-a-javascript.md).";
 
 		Assert.NotEmpty(LanguageListProblems("stale", stale));
 		Assert.NotEmpty(MissingLinks("stale", stale, "a"));
@@ -149,6 +176,11 @@ public sealed class AnalyzerListConsistencyTests
 		return problems.ToImmutable();
 	}
 
+	private static IEnumerable<DocumentedLanguage> PageLanguages()
+	{
+		return DocumentedLanguage.All.Where(language => !_publicPagesPending.Contains(language.LanguageName));
+	}
+
 	private static bool IsAPerLanguagePart(string path)
 	{
 		string name = Path.GetFileName(path);
@@ -160,7 +192,7 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		return
 		[
-			.. DocumentedLanguage.All
+			.. PageLanguages()
 				.Select(language => string.Format(CultureInfo.InvariantCulture, _LINK_TEMPLATE, part, language.LanguageName.ToLowerInvariant()))
 				.Where(link => !text.Contains(link, StringComparison.Ordinal))
 				.Select(link => $"{pageName} links Part {part.ToUpperInvariant()} of some language but not {link}.")
@@ -178,7 +210,7 @@ public sealed class AnalyzerListConsistencyTests
 
 			if (!insideFence && _languageList.IsMatch(line) && !_earlierVersion.IsMatch(line))
 			{
-				string[] missing = [.. DocumentedLanguage.All.Select(language => language.DisplayName).Where(name => !line.Contains(name, StringComparison.Ordinal))];
+				string[] missing = [.. PageLanguages().Select(language => language.DisplayName).Where(name => !line.Contains(name, StringComparison.Ordinal))];
 
 				if (missing.Length > 0)
 				{

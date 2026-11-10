@@ -207,6 +207,77 @@ public sealed class ScannerThroughputTimingTests
 		Assert.True(nesting.SecondsPerMegabyte / baseline.SecondsPerMegabyte < _ADMITTED_COST_RATIO * _ADMITTED_COST_RATIO);
 	}
 
+	/// <summary>
+	/// THE PREDICATE THROUGHPUT GATE OF THE `JavaScript` PROFILE. The backward predicate that decides whether a slash opens a regular expression or
+	/// divides is not charged to the lexical budget, so nothing bounds it but its own definition: it reads backwards from the slash over whitespace, line feeds included, for at most
+	/// 10,000 characters, and then over the identifier that precedes the slash. It is gated here and not in <c>LexicalBudgetTimingTests</c>, on its worst shapes: long whitespace gaps,
+	/// ten thousand slashes and identifier gaps. The assertion is the shape of the volume proof above: per-megabyte cost at the file-size ceiling stays within the admitted ratio of the same cost at
+	/// 64 KiB, so a predicate that scanned more than its own gap and word would show as growth. The figures are this machine's and are reported.
+	/// </summary>
+	[Fact]
+	public void JavaScriptPredicateCostOnLongWhitespaceGapsDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_WHITESPACE_GAP_BELOW_THE_CAP_UNIT, "whitespace gap just below the 10,000 character cap, then a slash");
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_WHITESPACE_GAP_ABOVE_THE_CAP_UNIT, "whitespace gap across blank lines above the 10,000 character cap, then a slash");
+	}
+
+	[Fact]
+	public void JavaScriptPredicateCostOnTenThousandSlashesDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_DIVISION_CHAIN_UNIT, "ten thousand slashes as a division chain");
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_SPACED_SLASHES_UNIT, "ten thousand slashes each after a slash");
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_REGEX_THEN_DIVISION_UNIT, "regular expression literals and divisions interleaved");
+	}
+
+	[Fact]
+	public void JavaScriptPredicateCostOnIdentifierGapsDoesNotDegradeAtTheFileSizeCeiling()
+	{
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_IDENTIFIER_GAP_UNIT, "identifier of 9,990 characters, then a slash");
+		AssertTheJavaScriptPredicateShapeDoesNotDegrade(_KEYWORD_LOOKALIKE_GAP_UNIT, "keyword look-alike of 9,990 characters, then a slash");
+	}
+
+	private void AssertTheJavaScriptPredicateShapeDoesNotDegrade(string unit, string label)
+	{
+		LexicalScanner scanner = new(JavaScriptShapedProfile.Build());
+		string smallFile = NestingSource(unit, _SMALL_FILE_SIZE_IN_CHARACTERS);
+		string ceilingFile = NestingSource(unit, _CEILING_FILE_SIZE_IN_CHARACTERS);
+
+		WarmUp(scanner, smallFile);
+
+		Measurement small = Measure(scanner, [smallFile], $"{label}, 64 KiB");
+		Measurement ceiling = Measure(scanner, [ceilingFile], $"{label}, 2 MB ceiling");
+		double ratio = ceiling.SecondsPerMegabyte / small.SecondsPerMegabyte;
+
+		_output.WriteLine(string.Format(CultureInfo.InvariantCulture, _RATIO_FORMAT, ratio));
+		Assert.True(ratio < _ADMITTED_COST_RATIO, $"Per-megabyte cost of the JavaScript predicate grew with file size on: {label}.");
+		Assert.False(scanner.Scan(ceilingFile).WasAbandonedMidFile, label);
+	}
+
+	private const int _WHITESPACE_GAP_BELOW_THE_CAP_IN_CHARACTERS = 9_980;
+	private const int _BLANK_LINE_LENGTH_IN_CHARACTERS = 9_990;
+	private const int _BLANK_LINES_ABOVE_THE_CAP = 3;
+	private const int _DIVISION_CHAIN_REPETITIONS = 499;
+	private const int _SPACED_SLASHES_PER_LINE = 4_990;
+	private const int _IDENTIFIER_GAP_IN_CHARACTERS = 9_990;
+	private const int _KEYWORD_LOOKALIKE_PREFIX_IN_CHARACTERS = 9_980;
+	private const string _DIVISION_CHAIN_LINK = "a/b/c/d/e/f/g/h/i/j/";
+	private const string _SPACED_SLASH_LINK = "/ ";
+	private const string _REGEX_THEN_DIVISION_UNIT = "x = /ab[/]c/g; y = a / b / /re/.test(z); w = (p) / q; v = r ? /s/ : t / u;\n";
+
+	private static readonly string _BLANK_LINE = $"{new string(' ', _BLANK_LINE_LENGTH_IN_CHARACTERS)}\n";
+
+	private static readonly string _WHITESPACE_GAP_BELOW_THE_CAP_UNIT = $"a{new string(' ', _WHITESPACE_GAP_BELOW_THE_CAP_IN_CHARACTERS)}/ b / c\n";
+
+	private static readonly string _WHITESPACE_GAP_ABOVE_THE_CAP_UNIT = $"{string.Concat(Enumerable.Repeat(_BLANK_LINE, _BLANK_LINES_ABOVE_THE_CAP))}/ x\n";
+
+	private static readonly string _DIVISION_CHAIN_UNIT = $"{string.Concat(Enumerable.Repeat(_DIVISION_CHAIN_LINK, _DIVISION_CHAIN_REPETITIONS))}k\n";
+
+	private static readonly string _SPACED_SLASHES_UNIT = $"{string.Concat(Enumerable.Repeat(_SPACED_SLASH_LINK, _SPACED_SLASHES_PER_LINE))}\n";
+
+	private static readonly string _IDENTIFIER_GAP_UNIT = $"{new string('a', _IDENTIFIER_GAP_IN_CHARACTERS)}/b\n";
+
+	private static readonly string _KEYWORD_LOOKALIKE_GAP_UNIT = $"{new string('a', _KEYWORD_LOOKALIKE_PREFIX_IN_CHARACTERS)}return/b\n";
+
 	private const string _NESTING_BALANCED_UNIT =
 		"$a = \"id $(Get-Item (Join-Path (Get-Root) 'x')) end\"\n$b = @\"  \nbody line\n\"@\n# a comment (with parens)\n";
 
