@@ -187,4 +187,27 @@ public sealed class CommandRegistryTests
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() => CommandRegistry.WorkflowCommandsAfter(CommandId.Help));
 	}
+
+	/// <summary>The description of the optional stage is the one that says what it does now, not that it is absent.</summary>
+	[Fact]
+	public void TheAiAssistDescriptionSaysWhatTheStageDoes()
+	{
+		const string expectedDescription =
+			"Prepare a prompt pack for an AI-assisted review of the findings, and optionally launch your own AI command-line tool against it.";
+
+		Assert.Equal(expectedDescription, CommandRegistry.Describe(CommandId.AiAssist).Description);
+		Assert.DoesNotContain("Not available", CommandRegistry.Describe(CommandId.AiAssist).Description, StringComparison.Ordinal);
+		Assert.DoesNotContain("later deliverable", CommandRegistry.Describe(CommandId.AiAssist).Description, StringComparison.Ordinal);
+	}
+
+	/// <summary>The help listing shows that description and no other for the stage.</summary>
+	[Fact]
+	public void HelpListsTheAiAssistDescription()
+	{
+		using StringWriter writer = new();
+
+		HelpRenderer.Render(writer);
+
+		Assert.Contains(CommandRegistry.Describe(CommandId.AiAssist).Description, writer.ToString(), StringComparison.Ordinal);
+	}
 }

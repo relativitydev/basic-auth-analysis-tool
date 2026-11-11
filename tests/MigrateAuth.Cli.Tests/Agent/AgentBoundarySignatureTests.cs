@@ -28,7 +28,7 @@ namespace MigrateAuth.Cli.Tests.Agent;
 /// </summary>
 public sealed class AgentBoundarySignatureTests
 {
-	private const int _CONTRACT_OPERATION_COUNT = 2;
+	private const int _CONTRACT_OPERATION_COUNT = 4;
 	private const string _TRY_FACTORY_PREFIX = "Try";
 
 	/// <summary>
@@ -46,7 +46,9 @@ public sealed class AgentBoundarySignatureTests
 	[
 		typeof(PromptPackFilePath),
 		typeof(AgentAvailability),
-		typeof(AgentTerminationStatus)
+		typeof(AgentLaunchEligibility),
+		typeof(AgentTerminationStatus),
+		typeof(AgentResolutionDescription)
 	];
 
 	/// <summary>
@@ -71,7 +73,8 @@ public sealed class AgentBoundarySignatureTests
 
 	/// <summary>
 	/// The four finding-record fields, in the types <see cref="Finding"/> carries them in, plus
-	/// the case that selects the static text. A sixth entry here is the change to refuse.
+	/// the case that selects the static text, the sequential index, the flow and the default-flow mark.
+	/// A ninth entry here is the change to refuse.
 	/// </summary>
 	private static readonly Type[] _permittedPackEntryParameterTypes =
 	[
@@ -79,7 +82,10 @@ public sealed class AgentBoundarySignatureTests
 		typeof(RepositoryRelativePath),
 		typeof(int),
 		typeof(ConfidenceLevel),
-		typeof(RecommendationKind)
+		typeof(RecommendationKind),
+		typeof(int),
+		typeof(CredentialFlow?),
+		typeof(bool)
 	];
 
 	private static MethodInfo[] ContractOperations =>
@@ -97,7 +103,12 @@ public sealed class AgentBoundarySignatureTests
 	{
 		Assert.Equal(_CONTRACT_OPERATION_COUNT, ContractOperations.Length);
 		Assert.Equal(
-			[nameof(IExternalAgentLauncher.CheckAvailability), nameof(IExternalAgentLauncher.Launch)],
+			[
+				nameof(IExternalAgentLauncher.CheckAvailability),
+				nameof(IExternalAgentLauncher.CheckLaunchable),
+				nameof(IExternalAgentLauncher.DescribeResolution),
+				nameof(IExternalAgentLauncher.Launch)
+			],
 			ContractOperations.Select(operation => operation.Name).Order(StringComparer.Ordinal));
 	}
 
@@ -142,6 +153,48 @@ public sealed class AgentBoundarySignatureTests
 
 		Assert.Empty(checkAvailability.GetParameters());
 		Assert.Equal(typeof(AgentAvailability), checkAvailability.ReturnType);
+	}
+
+	/// <summary>
+	/// The offer gate takes the pack that was written and nothing else, and answers with a closed
+	/// enumeration: no text and no repository-derived type enters or leaves it.
+	/// </summary>
+	[Fact]
+	public void TheLaunchEligibilityCheckTakesTheWrittenPackAndReturnsAClosedEnumeration()
+	{
+		MethodInfo checkLaunchable =
+			typeof(IExternalAgentLauncher).GetMethod(nameof(IExternalAgentLauncher.CheckLaunchable))!;
+
+		Assert.Equal([typeof(PromptPackFilePath)], checkLaunchable.GetParameters().Select(parameter => parameter.ParameterType));
+		Assert.Equal(typeof(AgentLaunchEligibility), checkLaunchable.ReturnType);
+		Assert.True(typeof(AgentLaunchEligibility).IsEnum);
+	}
+
+	/// <summary>The description of the resolution carries a file name, a start kind and two positions: no absolute path.</summary>
+	[Fact]
+	public void TheResolutionDescriptionTakesNothingAndCarriesNoPath()
+	{
+		MethodInfo describe = typeof(IExternalAgentLauncher).GetMethod(nameof(IExternalAgentLauncher.DescribeResolution))!;
+
+		Assert.Empty(describe.GetParameters());
+		Assert.Equal(typeof(AgentResolutionDescription), describe.ReturnType);
+		Assert.Equal(
+			["FileName", "StartKind", "EntryPosition", "EntryCount"],
+			typeof(AgentResolutionDescription).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+				.Where(property => property.Name != "EqualityContract")
+				.Select(property => property.Name));
+		Assert.Equal(["Direct", "ThroughCommandInterpreter"], Enum.GetNames<AgentStartKind>());
+	}
+
+	[Fact]
+	public void TheAvailabilityAndEligibilityEnumerationsHaveExactlyTheirDeclaredValues()
+	{
+		Assert.Equal(
+			["NotFound", "Available", "NotFoundMatchInsideRepositoryIgnored"],
+			Enum.GetNames<AgentAvailability>());
+		Assert.Equal(
+			["Launchable", "UnsafeCommandLine", "PathContainsControlCharacter", "WrapperNeedsLocalRepository"],
+			Enum.GetNames<AgentLaunchEligibility>());
 	}
 
 	/// <summary>
@@ -198,6 +251,34 @@ public sealed class AgentBoundarySignatureTests
 		Assert.Equal(
 			_permittedPackEntryParameterTypes,
 			onlyConstructor.GetParameters().Select(parameter => parameter.ParameterType));
+	}
+
+	[Fact]
+	public void ThePackEntryExposesOnlyClosedValuesAndTheTextTheRouteSelects()
+	{
+		string[] publicMembers =
+		[
+			.. typeof(PromptPackFindingEntry)
+				.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+				.Where(property => property.Name != "EqualityContract")
+				.Select(property => $"{property.Name}:{property.PropertyType.Name}")
+				.Order(StringComparer.Ordinal)
+		];
+
+		Assert.Equal(
+			[
+				"Flow:Nullable`1",
+				"FlowWasDefaulted:Boolean",
+				"Guidance:RecommendationKind",
+				"Identifier:String",
+				"InstructionText:String",
+				"Level:ConfidenceLevel",
+				"Line:Int32",
+				"Path:RepositoryRelativePath",
+				"PatternClass:RuleIdentifier",
+				"SequentialIndex:Int32"
+			],
+			publicMembers);
 	}
 
 	/// <summary>

@@ -2,8 +2,9 @@
 .SYNOPSIS
 	Builds the release artifact for one runtime identifier: a Native AOT publish of the command-line tool from the current commit.
 .DESCRIPTION
-	Refuses a working tree with modified tracked files, publishes the Release configuration for the requested runtime identifier,
-	fails when the publish reports any warning, copies the published binary to the output folder as migrate-auth-<version>-<rid> (with .exe for a win-* identifier only), and writes beside it the hash
+	Refuses a working tree with modified tracked files, runs every dotnet command from the repository root, refuses an SDK other than the one global.json pins
+	and a Native AOT compiler package other than the expected one, restores and publishes the Release configuration for the requested runtime identifier,
+	fails when the restore or the publish reports any warning, copies the published binary to the output folder as migrate-auth-<version>-<rid> (with .exe for a win-* identifier only), and writes beside it the hash
 	line (sha256sum format) and a small build record. It signs nothing, notarizes nothing, creates no release and no tag,
 	and contacts no service other than what dotnet publish itself needs.
 	The output folder must be outside the repository.
@@ -27,6 +28,10 @@ $ArtifactBaseName = 'migrate-auth'
 $WindowsRidPrefix = 'win'
 $WindowsExtension = '.exe'
 $VersionPattern = '<Version>([^<]+)</Version>'
+$GlobalJsonRelativePath = 'global.json'
+$IlCompilerPackageName = 'Microsoft.DotNet.ILCompiler'
+$ExpectedIlCompilerVersion = '10.0.14'
+$ProjectAssetsRelativePath = 'src/MigrateAuth.Cli/obj/project.assets.json'
 $PublishLogName = 'publish.log'
 $WarningPattern = 'warning [A-Za-z]+[0-9]+'
 $AllowedWarningCount = 0
@@ -63,15 +68,65 @@ function Test-TrackedTreeClean {
 	return -not $changes
 }
 
+function Invoke-LoggedDotnet {
+	param([string[]]$Arguments, [string]$LogPath, [bool]$Append)
+	$previousPreference = $ErrorActionPreference
+	$ErrorActionPreference = 'Continue'
+	& dotnet @Arguments 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $LogPath -Append:$Append | Out-Host
+	$dotnetExit = $LASTEXITCODE
+	$ErrorActionPreference = $previousPreference
+	return $dotnetExit
+}
+
+function Invoke-Restore {
+	param([string]$LogPath)
+	$projectPath = Join-Path $Repository $ProjectRelativePath
+	return Invoke-LoggedDotnet -Arguments @('restore', $projectPath, '-r', $RuntimeIdentifier) -LogPath $LogPath -Append $false
+}
+
 function Invoke-Publish {
 	param([string]$PublishFolder, [string]$LogPath)
 	$projectPath = Join-Path $Repository $ProjectRelativePath
-	$previousPreference = $ErrorActionPreference
-	$ErrorActionPreference = 'Continue'
-	& dotnet publish $projectPath -c Release -r $RuntimeIdentifier -o $PublishFolder 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $LogPath | Out-Host
-	$publishExit = $LASTEXITCODE
-	$ErrorActionPreference = $previousPreference
-	return $publishExit
+	return Invoke-LoggedDotnet -Arguments @('publish', $projectPath, '-c', 'Release', '-r', $RuntimeIdentifier, '--no-restore', '-o', $PublishFolder) -LogPath $LogPath -Append $true
+}
+
+function Get-PinnedSdkVersion {
+	$globalJsonPath = Join-Path $Repository $GlobalJsonRelativePath
+	$pinned = ''
+	if (Test-Path $globalJsonPath) {
+		$pinned = [string](Get-Content -Raw -Path $globalJsonPath | ConvertFrom-Json).sdk.version
+	}
+	return $pinned
+}
+
+function Get-ResolvedIlCompilerVersions {
+	$assetsPath = Join-Path $Repository $ProjectAssetsRelativePath
+	$found = @()
+	if (Test-Path $assetsPath) {
+		$found = Select-String -Path $assetsPath -Pattern "$([regex]::Escape($IlCompilerPackageName))/[0-9][^`"]*" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value } | Sort-Object -Unique
+	}
+	return @($found)
+}
+
+function Test-Toolchain {
+	param([string]$LogPath)
+	$pinnedSdk = Get-PinnedSdkVersion
+	$actualSdk = "$(& dotnet --version 2>$null)".Trim()
+	$verified = $false
+	if (-not $pinnedSdk) {
+		Write-Host "no SDK version is pinned in $GlobalJsonRelativePath"
+	} elseif ($actualSdk -ne $pinnedSdk) {
+		Write-Host "the .NET SDK in use is '$actualSdk' but $pinnedSdk is pinned"
+	} elseif ((Invoke-Restore -LogPath $LogPath) -ne 0) {
+		Write-Host 'restore failed'
+	} else {
+		$resolved = (Get-ResolvedIlCompilerVersions) -join ','
+		$verified = $resolved -eq "$IlCompilerPackageName/$ExpectedIlCompilerVersion"
+		if (-not $verified) {
+			Write-Host "the Native AOT compiler package resolved to '$resolved' but $ExpectedIlCompilerVersion is required"
+		}
+	}
+	return $verified
 }
 
 function Get-PublishWarningCount {
@@ -86,6 +141,7 @@ function Write-BuildRecord {
 		"commit: $Commit",
 		"runtime identifier: $RuntimeIdentifier",
 		"dotnet sdk: $(& dotnet --version)",
+		"ilcompiler: $ExpectedIlCompilerVersion",
 		"publish warnings: $Warnings",
 		"artifact: $(Split-Path -Leaf $ArtifactPath)",
 		"artifact size (bytes): $((Get-Item $ArtifactPath).Length)",
@@ -108,15 +164,30 @@ function Invoke-ReleaseBuild {
 	}
 	$commit = (& git -C $repositoryPath rev-parse HEAD).Trim()
 	$workFolder = Join-Path ([System.IO.Path]::GetTempPath()) ("build-release-" + [guid]::NewGuid().ToString('N'))
-	$logPath = Join-Path $outputPath $PublishLogName
-	$publishExit = Invoke-Publish -PublishFolder (Join-Path $workFolder 'publish') -LogPath $logPath
+	$script:Repository = $repositoryPath
 	$result = $ExitFailed
-	if ($publishExit -ne 0) {
-		Write-Host "publish failed with exit code $publishExit"
-	} else {
-		$result = Complete-ReleaseBuild -PublishedPath (Join-Path (Join-Path $workFolder 'publish') (Get-PublishedBinaryName)) -OutputPath $outputPath -LogPath $logPath -Commit $commit -ArtifactName (Get-ArtifactName)
+	Push-Location $repositoryPath
+	try {
+		$result = Invoke-BuildSteps -WorkFolder $workFolder -OutputPath $outputPath -Commit $commit
+	} finally {
+		Pop-Location
+		if (Test-Path $workFolder) { Remove-Item -Recurse -Force $workFolder }
 	}
-	if (Test-Path $workFolder) { Remove-Item -Recurse -Force $workFolder }
+	return $result
+}
+
+function Invoke-BuildSteps {
+	param([string]$WorkFolder, [string]$OutputPath, [string]$Commit)
+	$logPath = Join-Path $OutputPath $PublishLogName
+	$result = $ExitFailed
+	if (Test-Toolchain -LogPath $logPath) {
+		$publishExit = Invoke-Publish -PublishFolder (Join-Path $WorkFolder 'publish') -LogPath $logPath
+		if ($publishExit -ne 0) {
+			Write-Host "publish failed with exit code $publishExit"
+		} else {
+			$result = Complete-ReleaseBuild -PublishedPath (Join-Path (Join-Path $WorkFolder 'publish') (Get-PublishedBinaryName)) -OutputPath $OutputPath -LogPath $logPath -Commit $Commit -ArtifactName (Get-ArtifactName)
+		}
+	}
 	return $result
 }
 
@@ -125,7 +196,7 @@ function Complete-ReleaseBuild {
 	$warnings = Get-PublishWarningCount -LogPath $LogPath
 	$result = $ExitFailed
 	if ($warnings -ne $AllowedWarningCount) {
-		Write-Host "the publish reported $warnings warning(s); none are allowed"
+		Write-Host "the restore and publish reported $warnings warning(s); none are allowed"
 	} elseif (-not (Test-Path $PublishedPath)) {
 		Write-Host "the publish did not produce $(Get-PublishedBinaryName)"
 	} else {

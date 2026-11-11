@@ -2,3 +2,6 @@
 scripts/*.sh text eol=lf
 # The public documentation holds generated blocks that a drift test compares byte for byte; LF on every platform keeps that comparison identical on a Windows checkout too.
 docs/public/** text eol=lf
+# The licence text is compared byte for byte by its SHA-256 and the SDK pin is read by the build scripts: LF on every platform keeps both reproducible on a Windows checkout too.
+LICENSE text eol=lf
+global.json text eol=lf

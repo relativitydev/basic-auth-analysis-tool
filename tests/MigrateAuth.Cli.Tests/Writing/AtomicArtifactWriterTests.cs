@@ -305,6 +305,66 @@ public sealed class AtomicArtifactWriterTests
 			OutputArtifactNaming.BuildFileName(OutputArtifactKind.MarkdownReport, _artifactDate, 1));
 	}
 
+	/// <summary>The string overload records nothing, even for a writer built with a holder.</summary>
+	[Fact]
+	public void TheStringOverloadDoesNotRecordTheReportInAHolderTheWriterWasBuiltWith()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder destinationFolder = TemporaryFolder.Create();
+
+		ReportWriteHolder holder = new();
+		AtomicArtifactWriter writer = new(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromSuppliedText(destinationFolder.Path),
+			holder);
+
+		ArtifactWriteResult result = writer.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.True(result.Wrote);
+		Assert.Null(holder.Current);
+	}
+
+	[Fact]
+	public void AWriterBuiltWithAHolderWritesTheStringOverloadByteForByteLikeOneWithout()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder plainFolder = TemporaryFolder.Create();
+		using TemporaryFolder holderFolder = TemporaryFolder.Create();
+
+		ArtifactWriteResult plain = BuildWriter(repositoryFolder, plainFolder)
+			.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+		ArtifactWriteResult withHolder = new AtomicArtifactWriter(
+			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),
+			DocumentationDestinationFolderPath.FromSuppliedText(holderFolder.Path),
+			new ReportWriteHolder())
+			.WriteShareableArtifact(OutputArtifactKind.MarkdownReport, _artifactDate, _FIRST_BODY);
+
+		Assert.Equal(plain.FileNameWritten, withHolder.FileNameWritten);
+		Assert.Equal(
+			File.ReadAllBytes(plainFolder.Combine(plain.FileNameWritten)),
+			File.ReadAllBytes(holderFolder.Combine(withHolder.FileNameWritten)));
+	}
+
+	[Fact]
+	public void TheStringOverloadRefusesThePromptPackKind()
+	{
+		using TemporaryFolder repositoryFolder = TemporaryFolder.Create();
+		using TemporaryFolder destinationFolder = TemporaryFolder.Create();
+
+		Assert.Throws<ArgumentOutOfRangeException>(
+			() => BuildWriter(repositoryFolder, destinationFolder)
+				.WriteShareableArtifact(OutputArtifactKind.PromptPack, _artifactDate, _FIRST_BODY));
+		Assert.Empty(Directory.GetFileSystemEntries(destinationFolder.Path));
+	}
+
+	[Fact]
+	public void ThePackCollisionMessageSaysPromptPackWhereTheReportMessageSaysReport()
+	{
+		Assert.Contains("prompt pack", AtomicArtifactWriter.PACK_NAME_COLLISION_LIMIT_MESSAGE_FORMAT, StringComparison.Ordinal);
+		Assert.DoesNotContain("today", AtomicArtifactWriter.PACK_NAME_COLLISION_LIMIT_MESSAGE_FORMAT, StringComparison.Ordinal);
+		Assert.Contains("today's report", AtomicArtifactWriter.NAME_COLLISION_LIMIT_MESSAGE_FORMAT, StringComparison.Ordinal);
+	}
+
 	private static AtomicArtifactWriter BuildWriter(TemporaryFolder repositoryFolder, TemporaryFolder destinationFolder) =>
 		new(
 			RepositoryFolderPath.FromSuppliedText(repositoryFolder.Path),

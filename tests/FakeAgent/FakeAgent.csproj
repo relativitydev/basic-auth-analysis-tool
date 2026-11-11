@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>MigrateAuth.FakeAgent</RootNamespace>
+		<AssemblyName>fake-agent</AssemblyName>
+		<IsPackable>false</IsPackable>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+		<!--
+			A test double, not the shipped binary: it stands in for an external agent so that no test
+			launches a real one. The solution build produces it framework-dependent, like the other
+			tool projects; make-sentinels.py publishes it self-contained and single-file for the
+			platform it will run on, so it starts under a replaced PATH without DOTNET_ROOT. It
+			references nothing from the product.
+		-->
+	</PropertyGroup>
+
+</Project>

@@ -15,11 +15,11 @@
 		that the product version the operating system shows reads exactly the release number.
 		FileVersion is numeric because the compiler rejects a pre-release string there; the
 		pre-release label is carried by the product version.
-		The copyright holder is provisional until the licence is settled.
+		Copyright carries the notice that opens the licence text, and a test ties it to the first line of LICENSE.
 	-->
 	<PropertyGroup>
-		<Version>0.6.1-alpha</Version>
-		<FileVersion>0.6.1.0</FileVersion>
+		<Version>0.7.1-alpha</Version>
+		<FileVersion>0.7.1.0</FileVersion>
 		<Company>NSerio</Company>
 		<Product>migrate-auth</Product>
 		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>
@@ -60,7 +60,7 @@
 		System.Private.StackTraceMetadata auto-initialized, so managed frames still carry
 		method identity in the published binary. It is the ILC default today; it is stated
 		explicitly because a future default flip would silently remove the one artifact
-		same-sprint triage depends on, against client repositories NSerio cannot see.
+		same-sprint triage depends on, against user repositories the maintainers cannot see.
 
 		UseSystemResourceKeys=false keeps full framework exception messages instead of
 		substituting bare resource keys. Trimmed builds are the scenario where the key-only
@@ -122,12 +122,24 @@
 	<!--
 		Version 1 ships sequential.
 		Workstation, non-concurrent GC: no server GC heaps and no background collection
-		thread, so the process runs without runtime-introduced worker threads. This project
-		introduces no parallelism, no thread pool use and no concurrency primitives.
+		thread, so the collector adds no worker threads. The analysis path introduces no parallelism,
+		no thread pool use and no concurrency primitives. Launching an external agent does use the
+		runtime's own threads, for the child process and for signal handling, and the console
+		handler of the session already runs on another thread; none of them touches the analysis.
 	-->
 	<PropertyGroup>
 		<ServerGarbageCollection>false</ServerGarbageCollection>
 		<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+	</PropertyGroup>
+
+	<!--
+		Source-generated native calls.
+		The Windows console calls are bound by the LibraryImport source generator, which emits
+		pointer-based marshalling code and so needs unsafe blocks to compile. The product's own
+		code contains no unsafe block; a test also fails any DllImport in the source.
+	-->
+	<PropertyGroup>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 </Project>

@@ -33,6 +33,9 @@ internal static class FreshSessionLoadMeter
 	internal static FreshSessionLoad Measure(string repositoryFolderPath, string destinationFolderPath)
 	{
 		ProcessStartInfo startInfo = BuildStartInfo(repositoryFolderPath, destinationFolderPath);
+
+		using ChildPathReplacement pathReplacement = ChildPathReplacement.Apply(startInfo, agentFolderPath: null);
+
 		Stopwatch stopwatch = Stopwatch.StartNew();
 		FreshSessionLoad measured;
 
