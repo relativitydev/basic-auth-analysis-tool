@@ -2,14 +2,20 @@ using System.Globalization;
 
 namespace MigrateAuth.Cli.Writing;
 
-/// <summary>The two files the Report stage produces, which share one naming rule.</summary>
+/// <summary>
+/// The files this product writes. The first two, which the Report stage produces, share one dated naming
+/// rule; the prompt pack is named from a compiled stem and carries no date.
+/// </summary>
 public enum OutputArtifactKind
 {
 	/// <summary>The consolidated Markdown report.</summary>
 	MarkdownReport = 0,
 
 	/// <summary>The machine-readable findings artifact.</summary>
-	StructuredDataArtifact = 1
+	StructuredDataArtifact = 1,
+
+	/// <summary>The AI-assisted review prompt pack, named through <see cref="OutputArtifactNaming.BuildPromptPackFileName"/>.</summary>
+	PromptPack = 2
 }
 
 /// <summary>
@@ -59,6 +65,24 @@ public static class OutputArtifactNaming
 			: $"-{ordinal.ToString(CultureInfo.InvariantCulture)}";
 
 		return $"{FILE_NAME_STEM}-{datePart}{ordinalPart}{DescribeExtension(kind)}";
+	}
+
+	/// <summary>
+	/// The name of a prompt pack for an ordinal: the first is <c>stem.md</c> and the next ones carry
+	/// <c>-2</c>, <c>-3</c> and so on. There is no date, so a second run for the same environment on any
+	/// day takes the next suffix. The stem is a compiled constant of the environment descriptor, never
+	/// input, and is not validated here beyond being present.
+	/// </summary>
+	public static string BuildPromptPackFileName(string stem, int ordinal)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(stem);
+		ArgumentOutOfRangeException.ThrowIfLessThan(ordinal, UNSUFFIXED_ORDINAL);
+
+		string ordinalPart = ordinal == UNSUFFIXED_ORDINAL
+			? string.Empty
+			: $"-{ordinal.ToString(CultureInfo.InvariantCulture)}";
+
+		return $"{stem}{ordinalPart}{MARKDOWN_FILE_EXTENSION}";
 	}
 
 	private static string DescribeExtension(OutputArtifactKind kind)

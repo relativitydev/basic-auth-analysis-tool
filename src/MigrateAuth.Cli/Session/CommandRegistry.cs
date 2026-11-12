@@ -129,6 +129,9 @@ public static class CommandRegistry
 
 	private const int _FIRST_ORDER_WITHIN_GROUP = 1;
 
+	private const string _AI_ASSIST_DESCRIPTION =
+		"Prepare a prompt pack for an AI-assisted review of the findings, and optionally launch your own AI command-line tool against it.";
+
 	private static readonly ImmutableArray<CommandDescriptor> _commandsInHelpOrder = BuildValidatedCommands();
 
 	private static readonly ImmutableArray<CommandDescriptor> _workflowCommandsInRunOrder =
@@ -266,7 +269,7 @@ public static class CommandRegistry
 				Name = "ai-assist",
 				Group = CommandGroup.Workflow,
 				OrderWithinGroup = 5,
-				Description = "Not available in this release: AI-assisted review ships in a later deliverable.",
+				Description = _AI_ASSIST_DESCRIPTION,
 				GatingPredecessor = CommandId.Report
 			},
 			new CommandDescriptor

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Builds the release artifact for one runtime identifier: a Native AOT publish of the command-line tool from the current commit.
 #
-# It refuses a working tree with modified tracked files, publishes the Release configuration for the requested runtime identifier,
-# fails when the publish reports any warning, copies the artifact to the output folder as migrate-auth-<version>-<rid> (with .exe on Windows), and writes beside it the hash line
+# It refuses a working tree with modified tracked files, runs every dotnet command from the repository root, refuses an SDK other than the one
+# global.json pins and a Native AOT compiler package other than the expected one, restores and publishes the Release configuration for the requested
+# runtime identifier, fails when the restore or the publish reports any warning, copies the artifact to the output folder as migrate-auth-<version>-<rid> (with .exe on Windows), and writes beside it the hash line
 # (sha256sum format) and a small build record. It signs nothing, notarizes nothing, creates no release and no tag,
 # and contacts no service other than what dotnet publish itself needs.
 #
@@ -23,6 +24,11 @@ readonly ARTIFACT_BASE_NAME="migrate-auth"
 readonly WINDOWS_RID_PREFIX="win"
 readonly WINDOWS_EXTENSION=".exe"
 readonly VERSION_PATTERN='s:.*<Version>\([^<]*\)</Version>.*:\1:p'
+readonly GLOBAL_JSON_RELATIVE_PATH="global.json"
+readonly SDK_VERSION_PATTERN='s|.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*|\1|p'
+readonly ILCOMPILER_PACKAGE_NAME="Microsoft.DotNet.ILCompiler"
+readonly EXPECTED_ILCOMPILER_VERSION="10.0.14"
+readonly PROJECT_ASSETS_RELATIVE_PATH="src/MigrateAuth.Cli/obj/project.assets.json"
 readonly PUBLISH_LOG_NAME="publish.log"
 readonly WARNING_PATTERN='warning [A-Za-z]+[0-9]+'
 readonly ALLOWED_WARNING_COUNT=0
@@ -89,9 +95,37 @@ count_publish_warnings() {
 	grep -Eo "[^ ]*${WARNING_PATTERN}[^ ]*" "$1" | sort -u | wc -l | tr -d ' '
 }
 
+pinned_sdk_version() {
+	sed -n "$SDK_VERSION_PATTERN" "$repository/$GLOBAL_JSON_RELATIVE_PATH" 2> /dev/null | head -n 1 | tr -d '\r'
+}
+
+resolved_ilcompiler_versions() {
+	grep -Eo "${ILCOMPILER_PACKAGE_NAME}/[0-9][^\"]*" "$repository/$PROJECT_ASSETS_RELATIVE_PATH" 2> /dev/null | sort -u
+}
+
+run_restore() {
+	local log_path="$1"
+	dotnet restore "$repository/$PROJECT_RELATIVE_PATH" -r "$rid" 2>&1 | tee "$log_path"
+	return "${PIPESTATUS[0]}"
+}
+
+verify_toolchain() {
+	local log_path="$1" pinned_sdk actual_sdk resolved
+	pinned_sdk="$(pinned_sdk_version)"
+	[ -n "$pinned_sdk" ] || { echo "no SDK version is pinned in $GLOBAL_JSON_RELATIVE_PATH"; return 1; }
+	actual_sdk="$(dotnet --version 2> /dev/null)"
+	[ "$actual_sdk" = "$pinned_sdk" ] || { echo "the .NET SDK in use is '$actual_sdk' but $pinned_sdk is pinned"; return 1; }
+	run_restore "$log_path" || { echo "restore failed"; return 1; }
+	resolved="$(resolved_ilcompiler_versions)"
+	[ "$resolved" = "$ILCOMPILER_PACKAGE_NAME/$EXPECTED_ILCOMPILER_VERSION" ] || {
+		echo "the Native AOT compiler package resolved to '${resolved:-nothing}' but $EXPECTED_ILCOMPILER_VERSION is required"
+		return 1
+	}
+}
+
 run_publish() {
 	local publish_folder="$1" log_path="$2"
-	dotnet publish "$repository/$PROJECT_RELATIVE_PATH" -c Release -r "$rid" -o "$publish_folder" 2>&1 | tee "$log_path"
+	dotnet publish "$repository/$PROJECT_RELATIVE_PATH" -c Release -r "$rid" --no-restore -o "$publish_folder" 2>&1 | tee -a "$log_path"
 	return "${PIPESTATUS[0]}"
 }
 
@@ -101,6 +135,7 @@ write_build_record() {
 		echo "commit: $commit"
 		echo "runtime identifier: $rid"
 		echo "dotnet sdk: $(dotnet --version)"
+		echo "ilcompiler: $EXPECTED_ILCOMPILER_VERSION"
 		echo "publish warnings: $warnings"
 		echo "artifact: $(basename "$artifact_path")"
 		echo "artifact size (bytes): $(wc -c < "$artifact_path" | tr -d ' ')"
@@ -113,6 +148,7 @@ main() {
 	repository="$(cd "$repository" && pwd)" || return $EXIT_USAGE
 	output_folder="$(absolute_path "$output_folder")" || return $EXIT_USAGE
 	output_is_outside_repository "$output_folder" || { echo "the output folder is inside the repository"; return $EXIT_USAGE; }
+	cd "$repository" || return $EXIT_USAGE
 	tracked_tree_is_clean || { echo "the working tree has modified tracked files; commit or stash them first"; return $EXIT_FAILED; }
 
 	local commit name published_name work_folder warnings artifact_hash
@@ -120,9 +156,10 @@ main() {
 	name="$(artifact_name)" || return $EXIT_FAILED
 	published_name="$(published_binary_name)"
 	work_folder="$(mktemp -d)"
+	verify_toolchain "$output_folder/$PUBLISH_LOG_NAME" || { rm -rf "$work_folder"; return $EXIT_FAILED; }
 	run_publish "$work_folder/publish" "$output_folder/$PUBLISH_LOG_NAME" || { echo "publish failed"; return $EXIT_FAILED; }
 	warnings="$(count_publish_warnings "$output_folder/$PUBLISH_LOG_NAME")"
-	[ "$warnings" -eq "$ALLOWED_WARNING_COUNT" ] || { echo "the publish reported $warnings warning(s); none are allowed"; return $EXIT_FAILED; }
+	[ "$warnings" -eq "$ALLOWED_WARNING_COUNT" ] || { echo "the restore and publish reported $warnings warning(s); none are allowed"; return $EXIT_FAILED; }
 	[ -f "$work_folder/publish/$published_name" ] || { echo "the publish did not produce $published_name"; return $EXIT_FAILED; }
 
 	cp "$work_folder/publish/$published_name" "$output_folder/$name"

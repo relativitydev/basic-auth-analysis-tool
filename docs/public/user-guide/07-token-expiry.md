@@ -4,7 +4,7 @@ An access token stops working after a fixed time. This section says what control
 
 ## What the Access Token Lifetime controls
 
-The **Access Token Lifetime** field of the OAuth2 Client sets how long each access token issued to that client stays valid. The field is expressed in minutes. The recommended setting is the same for both flows:
+The **Access Token Lifetime** field of the OAuth2 Client sets out how long each access token issued to that client stays valid. The field is expressed in minutes. The recommended setting is the same for both flows:
 
 > Access Token Lifetime: 60 minutes, stated in minutes because the field is in minutes. Relativity documentation: tokens for this flow must have a short lifetime, and the recommended value matches the Identity Server default.
 

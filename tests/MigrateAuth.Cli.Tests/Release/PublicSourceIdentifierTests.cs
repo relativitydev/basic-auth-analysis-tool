@@ -47,6 +47,8 @@ public sealed partial class PublicSourceIdentifierTests
 	private static readonly string[] _publishedLooseFilePaths =
 	[
 		"Directory.Build.props",
+		"global.json",
+		"LICENSE",
 		"migrate-auth.sln",
 		"scripts/check-public-links.ps1",
 		"scripts/sha256sums.sh"
