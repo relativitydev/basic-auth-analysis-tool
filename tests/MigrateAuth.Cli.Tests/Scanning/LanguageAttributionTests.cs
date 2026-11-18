@@ -151,7 +151,11 @@ public sealed class LanguageAttributionTests
 	public void ABaseTableExtensionNamesTheLanguageWithNoAnalyzer()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
-		LanguageAttribution attribution = new(harness.Catalog);
+		string goLanguageName = AssessedLanguages.CanonicalName(AssessedLanguage.Go);
+		LanguageCatalog catalogWithoutGo = new(
+			harness.Catalog.Version,
+			[.. harness.Catalog.Analyzers.Where(analyzer => !analyzer.LanguageIdentification.DeclaredLanguageNames.Contains(goLanguageName))]);
+		LanguageAttribution attribution = new(catalogWithoutGo);
 
 		AttributedLanguage attributed = attribution.Attribute(harness.PathOf("script.go"), firstLine: null);
 

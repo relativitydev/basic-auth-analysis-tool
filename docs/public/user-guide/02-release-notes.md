@@ -2,6 +2,41 @@
 
 These notes describe the releases of `migrate-auth`, the newest first. They are updated with every release.
 
+## Version 0.9.0-alpha
+
+This is an **alpha** release. It follows `0.8.0-alpha` and adds `Go`, so the tool analyzes all eight languages of the plan: C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go. The detection catalog is version `1.51.0`. The version string is `0.9.0-alpha`; the tool prints it with `--version`, in the session banner and in the provenance of the report and of the JSON data file, and the Windows file version is `0.9.0.0`. The optional `ai-assist` command of `0.7.1-alpha` is part of this line.
+
+Use an alpha release to assess repositories and to give feedback. Read every finding and recommendation before you act on it: the tool locates Basic Authentication and proposes a migration, and you decide.
+
+### Changes in this release, from 0.8.0-alpha
+
+- **Go is analyzed.** The tool analyzes Go files: files ending in `.go`. It has thirteen pattern classes, `GO-001` to `GO-013`: four are reported at High, six at Medium and three, `GO-010`, `GO-011` and `GO-012`, always at Low for manual review. They read the `SetBasicAuth` method of a request, an `Authorization` header written by `Set`, `Add`, an index assignment or a header literal with the scheme `Basic`, a Base64 pair of a user name and a password, the user information of an address, and a function that builds a Basic value and is called in the same file. The report and the JSON data file name the class of a Go finding with an identifier from `GO-001` to `GO-013`. **A repository whose Go files were counted and not analyzed in an earlier release can now report Go findings.** A file with no extension is not read as Go, because Go has no first-line signature, and Go written inside a file of another type is not read. A finding in test code is reported at Medium at most, and a mock, sample, vendored or generated file stays Low, as in the other languages. See [Go: what the tool reads and what it does not](03-limits.md#go-what-the-tool-reads-and-what-it-does-not) for what is not read, among it a credential that is held and handed over in another statement or another file, a request written to a socket, and the places where a credential usually lives, such as an environment file. [Part A for Go](../migration/part-a-go.md) gives the rules and [Part C for Go](../migration/part-c-go.md) the migration suggestions.
+- **Every High or Medium Go finding is given a recommended flow and a migration recommendation.** The flow is Client Credentials or Authorization Code, with a note that asks you to confirm it. The recommendation for Client Credentials has a variant for a Go process that acts as itself and one for a web service that does not act for a signed-in user; the recommendation for Authorization Code has a variant for a Go web server and one for a command-line tool or a desktop process. The code in them uses the standard library only.
+- **A Go judgement is bounded, and no accuracy figure is stated for it.** No Go repository was available to calibrate the catalog, and the benchmark was planted from the catalog itself, so a figure measured on it says how consistent the tool is with its catalog and not how it performs on real Go code. See [Go](03-limits.md#go).
+- **Enabling `Go` in the configuration file now assesses Go files.** `Go` is one of the language names that the configuration file accepts, and a Go file is assessed and listed in the scan summary like a file of any other analyzed language. The scan no longer says of Go files that they were not assessed.
+- **A session saved by an earlier release is not resumed when its detection catalog version differs from this release's.** See known issue 6.
+
+### What this release supports
+
+- **Languages: C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go.** Files in any other language are counted in the scan summary and are **not analyzed**, and an empty result for them does not mean that no Basic Authentication was found.
+- **Both OAuth 2.0 flows, the session, the four stages and the reports, and `ai-assist`.** As in `0.7.1-alpha`.
+
+### Known issues added in this release
+
+The entries 63 to 68 are added in this release and describe Go. Each says what you will see and what it means for you. The known issues 1 to 62 still apply.
+
+63. **A Go user name and password joined in one statement and encoded in a later one is not reported at the encoder.** When the pair is built in a statement of its own and held in a variable, a buffer or a builder, and the variable is given to the Base64 encoder in a later statement, the tool finds no pair at the encoder, because it does not follow a variable from one statement to another. A header written with the encoded value is reported only where the file shows the scheme word `Basic` in a form the tool reads. A repository can therefore hold more Basic Authentication than the report lists. Search for `EncodeToString` and for the header writes by hand, and change every statement of the construction when you migrate.
+
+64. **A Go call to a helper that builds the Basic value is followed only inside one file.** The tool follows an `Authorization` header written by `Set`, `Add` or an index assignment whose value is a call to a Basic helper declared once in the same file: it reports the call at Medium and the helper at Low where it is defined. A call to a helper in another file or in another package, a method call (`client.authValue(token)`), a call through a function held in a variable and a call to a name that the file declares twice are not followed, so they give no finding at the place where the header is set. The helper is reported in its own file when its body holds a construct the tool reads. When you migrate such a helper, search for its callers by hand.
+
+65. **A `Bearer` helper declared close to a Basic helper can be reported as a Basic helper.** The tool reads a window of about thirty lines after the head of a function and does not stop at the function's closing brace. A function that builds a `Bearer` value and is declared within that window of a function that builds a Basic value in the same file can be read as a Basic helper, and a header written by a call to it is reported at Medium although it is not Basic. Open the helper that the finding names before you migrate; if it builds a `Bearer` value, dismiss the finding.
+
+66. **A Go OAuth 2.0 token request that sends the client ID and secret with `SetBasicAuth` is reported at High.** A request to a token endpoint with the client credentials grant that authenticates the client with `request.SetBasicAuth(clientID, clientSecret)` uses Basic Authentication only to authenticate the client to the token endpoint, which is the documented way, and is already the target of a migration. The tool cannot tell it apart from a pair sent to an API, so it reports it. Check whether the request goes to a token endpoint with the client credentials grant; if it does, no migration is needed.
+
+67. **In Go, too, the flow is chosen from signals in the finding's own file.** Known issue 8 describes this for the other languages, and it holds for Go in the same way: when the credential reaches the file from another one, the finding takes the default flow with a note asking who supplies the credential.
+
+68. **A Go test that builds the expected Basic value to compare it with the header a test server received is reported at Medium.** A test that encodes test credentials to check the header a local test server received gives a `GO-006` finding at Medium, marked as test code. It is an extra item to review; when the credentials are test values only, you can set it aside.
+
 ## Version 0.8.0-alpha
 
 This is an **alpha** release. It follows `0.7.1-alpha` and adds `Python`; the detection catalog is version `1.50.0`. The version string is `0.8.0-alpha`; the tool prints it with `--version`, in the session banner and in the provenance of the report and of the JSON data file, and the Windows file version is `0.8.0.0`. **`Go` is not in this release.** `Go` files are counted in the scan summary and are not analyzed, and an empty result for `Go` does not mean that no Basic Authentication was found. The optional `ai-assist` command of `0.7.1-alpha` is part of this line.
@@ -279,16 +314,15 @@ Report an issue through the channel this release was distributed with, the place
 
 ## What's next
 
-This release is the base, C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript and Python, with the optional `ai-assist` command, which is already part of it and is not pending. The items below are **pending and outside this release**. None has a date.
+This release is the base, C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go, with the optional `ai-assist` command, which is already part of it and is not pending. No language of the plan is pending. The item below is **pending and outside this release**. It has no date.
 
 | Item | Status |
 | --- | --- |
-| Go | Pending, and not in this release. Its files are counted and are not analyzed until it is delivered; enabling `Go` in the configuration file changes nothing yet. |
 | An automated build and release workflow | Pending. The binaries of a release are still built by hand; see known issue 4. |
 
-Each release updates these release notes. The User Guide is complete for the seven languages and `ai-assist` and is not the final version: it is updated again when Go is delivered. To report an issue after this release, see [How to report an issue after this release](#how-to-report-an-issue-after-this-release).
+Each release updates these release notes. The User Guide is complete for the eight languages and `ai-assist`. To report an issue after this release, see [How to report an issue after this release](#how-to-report-an-issue-after-this-release).
 
-Also planned: code examples for token handling in the C# recommendations. In this release the entries in [Part C for C#](../migration/part-c-csharp.md#migration-suggestions-by-pattern-class) describe how to acquire a token, how to cache it and how to handle its expiry in words, and contain no token-handling code. The PowerShell, VB.NET, Shell, JavaScript, TypeScript and Python recommendations carry code that acquires the token and calls the API; how to cache the token and how to handle its expiry or refresh are described in words, as for C#, and the scripts do not implement them. This is pending and is outside this release.
+Also planned: code examples for token handling in the C# recommendations. In this release the entries in [Part C for C#](../migration/part-c-csharp.md#migration-suggestions-by-pattern-class) describe how to acquire a token, how to cache it and how to handle its expiry in words, and contain no token-handling code. The PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go recommendations carry code that acquires the token and calls the API; how to cache the token and how to handle its expiry or refresh are described in words, as for C#, and the scripts do not implement them. This is pending and is outside this release.
 
 ## Version 0.5.1-alpha
 

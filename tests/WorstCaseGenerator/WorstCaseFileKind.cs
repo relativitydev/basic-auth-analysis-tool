@@ -78,6 +78,6 @@ public enum WorstCaseFileKind
 	/// <summary>An extensionless Python script whose first line is a <c>python3</c> shebang, so only its first line attributes it. Only a tree asked for a Python share holds any.</summary>
 	PythonShebangScript = 24,
 
-	/// <summary>A Go source with the <c>.go</c> extension, present and unassessed on a line that registers no Go analyzer. Only a tree asked for a Go share holds any.</summary>
+	/// <summary>A Go source with the <c>.go</c> extension, ordinary code, a share of which carries constructs the shipped Go analyzer recognizes. Only a tree asked for a Go share holds any.</summary>
 	GoSource = 25
 }

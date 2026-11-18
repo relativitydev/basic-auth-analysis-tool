@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using MigrateAuth.Cli.Writing;
 using MigrateAuth.FakeAgent;
 
 using Xunit;
@@ -61,7 +62,7 @@ public sealed class FakeAgentTests
 	{
 		using FakeAgentFolder folder = new();
 		string executable = folder.Install(_AGENT_NAME, new FakeAgentBehavior());
-		string workingDirectory = Directory.CreateDirectory(Path.Combine(folder.FolderPath, "work here")).FullName;
+		string workingDirectory = CanonicalPath.Resolve(Directory.CreateDirectory(Path.Combine(folder.FolderPath, "work here")).FullName);
 
 		RunToEnd(executable, [], null, workingDirectory);
 

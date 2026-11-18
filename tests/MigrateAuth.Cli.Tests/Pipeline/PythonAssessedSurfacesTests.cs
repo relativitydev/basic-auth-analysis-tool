@@ -110,7 +110,7 @@ public sealed class PythonAssessedSurfacesTests
 	}
 
 	[Fact]
-	public void GoIsStillNotAssessedWhilePythonIsAssessed()
+	public void GoIsAssessedLikePythonAndItsFileWithoutAnAnchorIsNotACandidate()
 	{
 		using PipelineHarness harness = PipelineHarness.CreateOverTheEmbeddedCatalog();
 		harness.WriteSourceFile(_PYTHON_FILE_PATH, _PYTHON_FINDING_CONTENT);
@@ -121,7 +121,7 @@ public sealed class PythonAssessedSurfacesTests
 		string[] goRows = [.. harness.Transcript.Split('\n').Where(line => line.Contains(AssessedLanguages.CanonicalName(AssessedLanguage.Go), StringComparison.Ordinal))];
 
 		Assert.NotEmpty(goRows);
-		Assert.All(goRows, row => Assert.Contains(ScanStage.UNASSESSED_ROW_SUFFIX.Trim(), row, StringComparison.Ordinal));
+		Assert.All(goRows, row => Assert.DoesNotContain(ScanStage.UNASSESSED_ROW_SUFFIX.Trim(), row, StringComparison.Ordinal));
 		Assert.Equal([_PYTHON_FILE_PATH], harness.State.CandidateRelativePaths);
 	}
 

@@ -50,7 +50,6 @@ public sealed partial class UserGuideChecklistTests
 	private const string _ALPHA_WORD = "alpha";
 	private const string _CSRF_RULE = "X-CSRF-Header: -";
 	private const string _CSRF_CONSEQUENCE = "404";
-	private const string _NOT_ANALYZED_SENTENCE = "not analyzed in this release";
 	private const string _EMPTY_RESULT_SENTENCE = "does not mean that no Basic Authentication was found";
 	private const string _DEFAULT_EXPECTED_SENTENCE = "`Default` is the expected decision for most real integrations";
 	private const string _TWO_FILES_SENTENCE = "reported as **two files**";
@@ -163,16 +162,15 @@ public sealed partial class UserGuideChecklistTests
 		Assert.Contains("Run anyway", usingTheTool, StringComparison.Ordinal);
 	}
 
-	/// <summary>The release notes name the version, say alpha, list each known issue and state the not-analyzed sentence.</summary>
+	/// <summary>The release notes name the version, say alpha, list each known issue and state the empty-result sentence. The retired sentence that said a language is not analyzed in this release is checked absent from the current pages by <see cref="CurrentPagesLanguageStatementTests"/>.</summary>
 	[Fact]
-	public void TheReleaseNotesNameTheVersionListTheKnownIssuesAndStateTheNotAnalyzedSentence()
+	public void TheReleaseNotesNameTheVersionListTheKnownIssuesAndStateTheEmptyResultSentence()
 	{
 		string notes = PublicDocuments.ReadUserGuideRow(PublicDocuments.ROW_RELEASE_NOTES);
 
 		Assert.Contains(ToolVersion.CURRENT, notes, StringComparison.Ordinal);
 		Assert.Contains(_ALPHA_WORD, notes, StringComparison.Ordinal);
 		Assert.All(_knownIssuePhrases, phrase => Assert.Contains(phrase, notes, StringComparison.Ordinal));
-		Assert.Contains(_NOT_ANALYZED_SENTENCE, notes, StringComparison.Ordinal);
 		Assert.Contains(_EMPTY_RESULT_SENTENCE, notes, StringComparison.Ordinal);
 	}
 

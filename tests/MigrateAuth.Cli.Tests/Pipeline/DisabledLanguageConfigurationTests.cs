@@ -193,7 +193,7 @@ public sealed class DisabledLanguageConfigurationTests
 
 		Assert.True(ScanSummaryOf(artifact).GetProperty(_DIFFERS_FROM_SESSION_FIELD).GetBoolean());
 		Assert.EndsWith(
-			$"| {MarkdownReportRenderer.ASSESSED_NO} |",
+			$"| {MarkdownReportRenderer.ASSESSED_YES} |",
 			MarkdownTableRow(markdown, AssessedLanguage.Go),
 			StringComparison.Ordinal);
 	}

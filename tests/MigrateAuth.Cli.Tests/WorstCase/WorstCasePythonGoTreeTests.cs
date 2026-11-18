@@ -12,8 +12,8 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.WorstCase;
 
 /// <summary>
-/// THE PYTHON AND GO SHARES OF THE WORST-CASE GENERATOR AND ITS TWO TREE SHAPES: a Python share (sources, type stubs and extensionless scripts with a shebang), a Go share (present and unassessed on a line that
-/// registers no Go analyzer), a virtual-environment-shaped tree and a vendored tree. Every earlier tree stays byte-identical when the new options are left at zero, the new shares replace only ordinary files, each shape
+/// THE PYTHON AND GO SHARES OF THE WORST-CASE GENERATOR AND ITS TWO TREE SHAPES: a Python share (sources, type stubs and extensionless scripts with a shebang), a Go share (sources, assessed by the Go
+/// analyzer), a virtual-environment-shaped tree and a vendored tree. Every earlier tree stays byte-identical when the new options are left at zero, the new shares replace only ordinary files, each shape
 /// places the Python and Go files where it says, the product's walk reaches every file of a shape, and the same options always produce the same tree.
 /// </summary>
 public sealed class WorstCasePythonGoTreeTests

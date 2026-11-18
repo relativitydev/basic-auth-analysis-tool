@@ -21,6 +21,11 @@ public sealed class LanguageAssessmentTests
 
 	private static readonly LanguageCatalog _emptyCatalog = new(LanguageCatalog.CurrentVersion, []);
 
+	/// <summary>A catalog that holds the covered language's analyzer and no other, so that the uncovered language stays uncovered whichever analyzers the embedded catalog registers.</summary>
+	private static readonly LanguageCatalog _coveredLanguageOnlyCatalog = new(
+		LanguageCatalog.CurrentVersion,
+		[.. EmbeddedLanguageAnalyzers.CreateAll().Where(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains(_COVERED_LANGUAGE_NAME))]);
+
 	[Fact]
 	public void ALanguageWithARegisteredAnalyzerIsAssessed()
 	{
@@ -40,9 +45,9 @@ public sealed class LanguageAssessmentTests
 	[Fact]
 	public void AnEnabledLanguageNoAnalyzerCoversIsNotAssessed()
 	{
-		Assert.False(_catalog.AnalyzersByLanguageName.ContainsKey(_UNCOVERED_LANGUAGE_NAME));
+		Assert.False(_coveredLanguageOnlyCatalog.AnalyzersByLanguageName.ContainsKey(_UNCOVERED_LANGUAGE_NAME));
 
-		LanguageAssessmentState state = LanguageAssessment.StateOf(_catalog, _UNCOVERED_LANGUAGE_NAME, AllLanguagesEnabled());
+		LanguageAssessmentState state = LanguageAssessment.StateOf(_coveredLanguageOnlyCatalog, _UNCOVERED_LANGUAGE_NAME, AllLanguagesEnabled());
 
 		Assert.Equal(LanguageAssessmentState.NotAssessed, state);
 	}
