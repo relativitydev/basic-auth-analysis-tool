@@ -7,7 +7,7 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// symbol table, and the use-site expression that joins to it.
 ///
 /// THE MEMBER EXPRESSION (EX-JS-102) is anchored at a line start and reads one member per line, in either of two shapes: an object-literal member line <c>name: value</c> (the key bare or quoted) and a
-/// property-assignment line <c>receiver.name = value</c> (the receiver a chain of one to eight identifiers, <c>this</c> included). The name ends with <c>authorization</c> in any case and is not a flag key
+/// property-assignment line <c>receiver.name = value</c> (the receiver a chain of one to eight identifiers, <c>this</c> included). The name contains <c>authorization</c>, at any position and in any case, and is not a flag key
 /// (<c>require</c>, <c>skip</c>, <c>enable</c>, <c>disable</c>, <c>is</c>, <c>has</c>, <c>use</c> at a camel boundary). The value is either an environment read in one of the five forms of the class JS-018
 /// (the read alone, the read with one fallback literal, a template whose only hole is the read) whose variable name holds one of the credential words, which marks the record with the empty group
 /// <c>environment</c> and carries the word of its fallback in <c>fallbackWord</c>; or any other value, which is collected without the marker so that a name assigned twice, in any form, is indeterminate.
@@ -15,26 +15,27 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// without an initializer) is no assignment and is not a record either; a class field with an initializer, annotated or not, is collected as another form and can never resolve (declared not read). The expression has no look-behind, no unbounded quantifier and no lazy loop, captures nothing outside
 /// its own span and runs on the file's match bound.
 ///
-/// THE USE-SITE EXPRESSION (EX-JS-019) is a carrier of JS-018 (K1 to K5), a value <c>receiver.property</c> whose property ends with <c>authorization</c> (the group <c>scheme</c> holds the property
+/// THE USE-SITE EXPRESSION (EX-JS-019) is a carrier of JS-018 (K1 to K5), a value <c>receiver.property</c> whose property contains <c>authorization</c> (the group <c>scheme</c> holds the property
 /// name, which is what the member dictionary is keyed by), and the guard of JS-018 as the same constant. The receiver is a chain of one to eight identifiers, no segment of which is <c>headers</c> and
 /// none of which opens an environment read. A value of JS-018 is an environment read or an identifier that no dot follows, and a value of JS-019 is a dotted chain that is not an environment read, so
 /// no span carries both classes.
 /// </summary>
 internal static partial class JavaScriptPatternExpressions
 {
-	/// <summary>The word every member name ends with, in any case.</summary>
-	private const string _SETTINGS_PROPERTY_SUFFIX = @"(?i:authorization)";
+	/// <summary>The word every member name contains, at any position and in any case. It is the one place the word is kept: the member record and the use site both read it.</summary>
+	private const string _SETTINGS_PROPERTY_WORD = @"(?i:authorization)";
 
 	/// <summary>
-	/// A member name that ends with the suffix, at most 64 characters, as one look-ahead over the word and the name itself: the look-ahead walks the identifier characters and gives back to the suffix,
-	/// the name takes the same characters, and the end of the word is asserted after both. A flag-key prefix at a camel boundary refuses the name before anything else is read.
+	/// A member name that contains the word at any position, at most 64 characters, as one look-ahead over the identifier characters up to the word and the name itself: the look-ahead walks the
+	/// identifier characters and gives back to the word (a literal that is rare), and the name takes the same characters up to the end of the identifier. A flag-key prefix at a camel boundary
+	/// refuses the name before anything else is read; a flag word after the word is not refused.
 	/// </summary>
 	private const string _SETTINGS_PROPERTY_NAME =
-		@"(?!(?i:require|skip|enable|disable|is|has|use)(?![a-z]))(?=[\w$]{0,63}" + _SETTINGS_PROPERTY_SUFFIX + @"(?![\w$]))[A-Za-z_$][\w$]{0,63}(?![\w$])";
+		@"(?!(?i:require|skip|enable|disable|is|has|use)(?![a-z]))(?=[\w$]{0,63}" + _SETTINGS_PROPERTY_WORD + @")[A-Za-z_$][\w$]{0,63}(?![\w$])";
 
 	/// <summary>The name of the property at the use: the same word, without the flag-key refusal (a flag key has no member record, so the use is indeterminate and silent).</summary>
 	private const string _SETTINGS_PROPERTY_NAME_AT_THE_USE =
-		@"(?=[\w$]{0,63}" + _SETTINGS_PROPERTY_SUFFIX + @"(?![\w$]))[A-Za-z_$][\w$]{0,63}";
+		@"(?=[\w$]{0,63}" + _SETTINGS_PROPERTY_WORD + @")[A-Za-z_$][\w$]{0,63}";
 
 	/// <summary>The receiver of a property assignment: one to eight identifiers, each followed by a dot, the last dot directly before the member name.</summary>
 	private const string _MEMBER_RECEIVER =
@@ -106,7 +107,7 @@ internal static partial class JavaScriptPatternExpressions
 		@"^[ \t]{0,64}(?<opening>)(?:(?:" + _MEMBER_RECEIVER + @"(?<name>" + _SETTINGS_PROPERTY_NAME + @")[ \t]{0,8}=(?!=))[ \t]{0,8}(?:" + _MEMBER_ENVIRONMENT_DECLARATION + _MEMBER_VALUE_TERMINATOR + @"|" + _MEMBER_VALUE_OF_ANY_OTHER_FORM + @")|(?:" + _MEMBER_ANNOTATED_PROPERTY_HEAD + @"|" + _MEMBER_MODIFIERS + @"(?<name>" + _SETTINGS_PROPERTY_NAME + @")[ \t]{0,8}=(?!=))[ \t]{0,8}" + _MEMBER_VALUE_OF_ANY_OTHER_FORM + @"|(?:" + _MEMBER_MODIFIERS + @"(?:[\x27\x22](?<name>" + _SETTINGS_PROPERTY_NAME + @")[\x27\x22]|(?<name>" + _SETTINGS_PROPERTY_NAME + @"))[ \t]{0,8}:(?!:)(?![ \t]{0,8}" + _MEMBER_TYPE_ONLY_DECLARATION + @"))[ \t]{0,8}(?:" + _MEMBER_ENVIRONMENT_DECLARATION + _MEMBER_VALUE_TERMINATOR + @"|" + _MEMBER_VALUE_OF_ANY_OTHER_FORM + @"))";
 
 	/// <summary>
-	/// The value of the header read by JS-019: a dotted chain of one to eight identifiers whose last segment ends with the suffix, no segment named <c>headers</c> and no chain that opens an environment read, then
+	/// The value of the header read by JS-019: a dotted chain of one to eight identifiers whose last segment contains the word, no segment named <c>headers</c> and no chain that opens an environment read, then
 	/// a value terminator. The group <c>scheme</c> holds the property name. The property is not followed by a dot, a call or an index.
 	/// </summary>
 	private const string _SETTINGS_PROPERTY_VALUE =

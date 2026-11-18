@@ -8,7 +8,7 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// The declarations below are partial methods with no body of their own. A language whose
 /// file does not implement one contributes nothing.
 ///
-/// The embedded catalog is exactly <c>CSharp</c>, <c>JavaScript</c>, <c>PowerShell</c>, <c>Shell</c>, <c>TypeScript</c> and <c>VBNet</c>, six languages, in every build: the shipped binary is the
+/// The embedded catalog is exactly <c>CSharp</c>, <c>JavaScript</c>, <c>PowerShell</c>, <c>Python</c>, <c>Shell</c>, <c>TypeScript</c> and <c>VBNet</c>, seven languages, in every build: the shipped binary is the
 /// tested binary, and no reference language is registered here.
 /// </summary>
 public static partial class EmbeddedLanguageAnalyzers
@@ -24,6 +24,7 @@ public static partial class EmbeddedLanguageAnalyzers
 		AddShellAnalyzer(analyzers);
 		AddJavaScriptAnalyzer(analyzers);
 		AddTypeScriptAnalyzer(analyzers);
+		AddPythonAnalyzer(analyzers);
 
 		return [.. analyzers];
 	}
@@ -39,4 +40,6 @@ public static partial class EmbeddedLanguageAnalyzers
 	static partial void AddJavaScriptAnalyzer(ICollection<ILanguageAnalyzer> analyzers);
 
 	static partial void AddTypeScriptAnalyzer(ICollection<ILanguageAnalyzer> analyzers);
+
+	static partial void AddPythonAnalyzer(ICollection<ILanguageAnalyzer> analyzers);
 }

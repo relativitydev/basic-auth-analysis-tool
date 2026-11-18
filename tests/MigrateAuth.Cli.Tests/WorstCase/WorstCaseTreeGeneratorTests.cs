@@ -34,6 +34,8 @@ public sealed class WorstCaseTreeGeneratorTests
 	private const string _POWERSHELL_SHEBANG_LINE = "#!/usr/bin/env pwsh";
 	private const string _POWERSHELL_SCRIPT_EXTENSION = ".ps1";
 	private const int _POWERSHELL_BASIS_POINTS = 1_000;
+	private const int _PYTHON_BASIS_POINTS = 1_000;
+	private const int _GO_BASIS_POINTS = 1_000;
 	private const int _VBNET_BASIS_POINTS = 1_000;
 	private const int _SHELL_BASIS_POINTS = 1_000;
 	private const string _SHELL_LANGUAGE_NAME = "Shell";
@@ -158,7 +160,9 @@ public sealed class WorstCaseTreeGeneratorTests
 			VBNetSourceBasisPoints = _POWERSHELL_BASIS_POINTS,
 			ShellScriptBasisPoints = _SHELL_BASIS_POINTS,
 			JavaScriptSourceBasisPoints = _JAVASCRIPT_BASIS_POINTS,
-			TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS
+			TypeScriptSourceBasisPoints = _TYPESCRIPT_BASIS_POINTS,
+			PythonSourceBasisPoints = _PYTHON_BASIS_POINTS,
+			GoSourceBasisPoints = _GO_BASIS_POINTS
 		};
 
 		WorstCaseTreeSummary summary = WorstCaseTreeGenerator.Generate(options);
@@ -512,7 +516,7 @@ public sealed class WorstCaseTreeGeneratorTests
 
 	private static bool IsTypeScriptKind(WorstCaseFileKind kind)
 	{
-		return kind >= WorstCaseFileKind.TypeScriptSource;
+		return kind is >= WorstCaseFileKind.TypeScriptSource and <= WorstCaseFileKind.TypeScriptCommonJsDeclarationFile;
 	}
 
 	private static void AssertAttributedToJavaScript(LanguageAttribution attribution, RepositoryFolderPath repository, string folderPath, string path, string expectedExtension)

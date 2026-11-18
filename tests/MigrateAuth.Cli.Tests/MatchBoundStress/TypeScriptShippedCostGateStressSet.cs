@@ -78,13 +78,43 @@ internal static class TypeScriptShippedCostGateStressSet
 		return shapes;
 	}
 
+	/// <summary>
+	/// The shipped gate's shapes by family, in the order <see cref="Build"/> returns them (three families, one timing test each). The families are disjoint and together
+	/// are exactly <see cref="Build"/>, which a non-timing test pins.
+	/// </summary>
+	internal static ImmutableArray<MatchBoundStressShape> BuildTheFamily(ShippedShapeFamily family)
+	{
+		return family switch
+		{
+			ShippedShapeFamily.EarlierPerExpressionSet => TypeScriptMatchBoundStressSet.Build(),
+			ShippedShapeFamily.GenericArgumentGroupAndTailRefusal => BuildTheGenericArgumentGroupAndTailRefusalShapes(),
+			ShippedShapeFamily.RemainingAddedShapes => BuildTheRemainingAddedShapes(),
+			_ => throw new ArgumentOutOfRangeException(nameof(family), family, "Unknown shape family.")
+		};
+	}
+
 	/// <summary>The shapes the shipped gate adds to the per-expression set: every one's name begins with <see cref="SHAPE_NAME_PREFIX"/>.</summary>
 	internal static ImmutableArray<MatchBoundStressShape> BuildTheAddedShapes()
+	{
+		return [.. BuildTheGenericArgumentGroupAndTailRefusalShapes(), .. BuildTheRemainingAddedShapes()];
+	}
+
+	/// <summary>The group on every callee the amended expressions read and the refusal on every tail it refuses or declines.</summary>
+	private static ImmutableArray<MatchBoundStressShape> BuildTheGenericArgumentGroupAndTailRefusalShapes()
 	{
 		ImmutableArray<MatchBoundStressShape>.Builder shapes = ImmutableArray.CreateBuilder<MatchBoundStressShape>();
 
 		AddEveryCalleeOfTheGenericArgumentGroup(shapes);
 		AddEveryTailOfTheRefusal(shapes);
+
+		return shapes.ToImmutable();
+	}
+
+	/// <summary>The extension shapes, the backward predicate, the deep declarations, the member pass and the C4 object-key window shapes.</summary>
+	private static ImmutableArray<MatchBoundStressShape> BuildTheRemainingAddedShapes()
+	{
+		ImmutableArray<MatchBoundStressShape>.Builder shapes = ImmutableArray.CreateBuilder<MatchBoundStressShape>();
+
 		AddTheExtensionShapes(shapes);
 		AddTheBackwardPredicateShapes(shapes);
 		AddTheDeepDeclarationShapes(shapes);
@@ -98,6 +128,19 @@ internal static class TypeScriptShippedCostGateStressSet
 	internal static string RelativePathOf(MatchBoundStressShape shape)
 	{
 		return TypeScriptMatchBoundStressSet.RelativePathOf(shape);
+	}
+
+	/// <summary>The three families the shipped cost gate is split into, one timing test each.</summary>
+	internal enum ShippedShapeFamily
+	{
+		/// <summary>Every shape of <see cref="TypeScriptMatchBoundStressSet"/>, taken as it stands.</summary>
+		EarlierPerExpressionSet,
+
+		/// <summary>The generic-argument group on each callee and the tail refusal on each tail.</summary>
+		GenericArgumentGroupAndTailRefusal,
+
+		/// <summary>Extensions, backward predicate, deep declarations, member pass and the C4 shapes.</summary>
+		RemainingAddedShapes
 	}
 
 	/// <summary>The group at the length bound, one unit past it, and unclosed just under it, on each callee the amended expressions read, each repeated to the line ceiling.</summary>

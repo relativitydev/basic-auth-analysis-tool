@@ -17,7 +17,7 @@ namespace MigrateAuth.Cli.Tests.Agent;
 public sealed class PromptPackDeterminismTests
 {
 	private const byte _BYTE_ORDER_MARK_FIRST_BYTE = 0xEF;
-	private const string _EXPECTED_CLAUDE_CODE_PACK_HASH = "75E87BE54296C02A5A7184358122140FF6AB04D82BD375DB01D3BCD6B024D0EB";
+	private const string _EXPECTED_CLAUDE_CODE_PACK_HASH = "7CFE28ACC0B927210AB659E2F960885A807CFAD3A3AD85F5771387176F6406DE";
 
 	[Fact]
 	public void TwoWritesOfTheSamePackAreByteIdentical()

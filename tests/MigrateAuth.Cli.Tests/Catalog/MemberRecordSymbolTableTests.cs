@@ -14,7 +14,7 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 
 /// <summary>
 /// THE MEMBER RECORDS OF THE FILE SYMBOL TABLE (a second dictionary, keyed by member name, beside the variable dictionary). A member record is a line-start
-/// object-literal member or property assignment whose property name ends with <c>authorization</c> in any case; every such assignment of the name is collected in any form and only an
+/// object-literal member or property assignment whose property name contains <c>authorization</c>, at any position and in any case; every such assignment of the name is collected in any form and only an
 /// environment read can resolve; two or more records are indeterminate; resolution is order-free; a flag key and an environment name that holds no credential word are not records;
 /// the variable dictionary, <see cref="FileSymbolTable.DeclarationCountOf"/> and <see cref="FileSymbolTable.TryResolveRecordUnambiguously"/> are not touched by any of it. The
 /// validator refuses a member expression without the match bound or without the group <c>name</c>, and a member cell in a profile that declares no member expression. Every script is
@@ -134,19 +134,81 @@ public sealed class MemberRecordSymbolTableTests
 	}
 
 	[Theory]
-	[InlineData("\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER,\n")]
 	[InlineData("\tauth: process.env.SERVICE_AUTH_HEADER,\n")]
 	[InlineData("settings.authHeader = process.env.SERVICE_AUTH_HEADER;\n")]
 	[InlineData("\t'x-authorization': process.env.SERVICE_AUTH_HEADER,\n")]
 	[InlineData("\t'service-authorization': process.env.SERVICE_AUTH_HEADER,\n")]
-	public void APropertyThatDoesNotEndWithTheWordAndAKeyThatIsNotAnIdentifierAreNoRecord(string source)
+	[InlineData("\tauthorizedUsers: process.env.SERVICE_AUTH_HEADER,\n")]
+	[InlineData("settings.unauthorizedMessage = process.env.SERVICE_AUTH_HEADER;\n")]
+	[InlineData("\tauthorizeUrl: process.env.SERVICE_AUTH_HEADER,\n")]
+	public void APropertyThatDoesNotContainTheWordAndAKeyThatIsNotAnIdentifierAreNoRecord(string source)
 	{
+		// Names that hold the word at any position are records; this list holds the names that do not hold it, including the names that only resemble it.
 		FileSymbolTable table = TableOf(source);
 
 		Assert.Equal(0, table.MemberRecordCountOf(_MEMBER));
-		Assert.Equal(0, table.MemberRecordCountOf("authorizationHeader"));
 		Assert.Equal(0, table.MemberRecordCountOf("authHeader"));
 		Assert.Equal(0, table.MemberRecordCountOf("auth"));
+		Assert.Equal(0, table.MemberRecordCountOf("authorizedUsers"));
+		Assert.Equal(0, table.MemberRecordCountOf("unauthorizedMessage"));
+		Assert.Equal(0, table.MemberRecordCountOf("authorizeUrl"));
+	}
+
+	// ---- The widened name test: the property name contains the word, at any position and in any case ----
+
+	[Theory]
+	[InlineData("\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER,\n", "authorizationHeader")]
+	[InlineData("\tserviceAuthorizationValue: process.env.SERVICE_AUTH_HEADER,\n", "serviceAuthorizationValue")]
+	[InlineData("\tmyAUTHORIZATIONHeader: process.env.SERVICE_AUTH_HEADER,\n", "myAUTHORIZATIONHeader")]
+	[InlineData("settings.authorizationHeader = process.env.SERVICE_AUTH_HEADER;\n", "authorizationHeader")]
+	[InlineData("\tthis.serviceAuthorizationValue = process.env['SERVICE_AUTH_HEADER'];\n", "serviceAuthorizationValue")]
+	[InlineData("\t'authorizationHeader': Deno.env.get('SERVICE_AUTH_HEADER'),\n", "authorizationHeader")]
+	[InlineData("\tauthorizationEnabled: process.env.SERVICE_AUTH_HEADER,\n", "authorizationEnabled")]
+	[InlineData("\tauthorizationRequired: Bun.env.SERVICE_AUTH_HEADER,\n", "authorizationRequired")]
+	public void AnEnvironmentReadUnderANameThatHoldsTheWordAtAnyPositionIsAnEnvironmentRecord(string source, string name)
+	{
+		FileSymbolTable table = TableOf(source);
+
+		Assert.Equal(1, table.MemberRecordCountOf(name));
+		Assert.True(table.TryResolveMemberRecordUnambiguously(name, out ResolvedSymbol record), source);
+		Assert.Equal(SymbolSourceKind.Environment, record.SourceKind);
+	}
+
+	[Theory]
+	[InlineData("\trequireAuthorizationHeader: process.env.SERVICE_AUTH_FLAG,\n", "requireAuthorizationHeader")]
+	[InlineData("\tskipAuthorizationCheck: process.env.SERVICE_AUTH_FLAG,\n", "skipAuthorizationCheck")]
+	[InlineData("\tisAuthorizationRequired: process.env.SERVICE_AUTH_FLAG,\n", "isAuthorizationRequired")]
+	[InlineData("settings.useAuthorizationHeader = process.env.SERVICE_AUTH_FLAG;\n", "useAuthorizationHeader")]
+	[InlineData("\thasAuthorizationHeader: 'yes',\n", "hasAuthorizationHeader")]
+	public void AFlagWordAtTheStartOfAWidenedNameIsStillRefusedInAnyForm(string source, string name)
+	{
+		FileSymbolTable table = TableOf(source);
+
+		Assert.Equal(0, table.MemberRecordCountOf(name));
+		Assert.False(table.TryResolveMemberRecordUnambiguously(name, out _));
+	}
+
+	[Theory]
+	[InlineData("\tauthorizationHeader: 'static',\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER,\n")]
+	[InlineData("\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER,\n\tauthorizationHeader: process.env.OTHER_AUTH_HEADER,\n")]
+	[InlineData("settings.authorizationHeader = loadValue();\nsettings.authorizationHeader = process.env.SERVICE_AUTH_HEADER;\n")]
+	public void AWidenedNameAssignedTwiceInAnyFormIsCollectedTwiceAndIsIndeterminate(string source)
+	{
+		FileSymbolTable table = TableOf(source);
+
+		Assert.Equal(2, table.MemberRecordCountOf("authorizationHeader"));
+		Assert.False(table.TryResolveMemberRecordUnambiguously("authorizationHeader", out _));
+	}
+
+	[Theory]
+	[InlineData("\tauthorizationHeader: process.env.SERVICE_HOST,\n")]
+	[InlineData("settings.serviceAuthorizationValue = import.meta.env.VITE_ENDPOINT;\n")]
+	public void AWidenedNameFilledFromAnEnvironmentNameWithNoCredentialWordIsNoRecordAtAll(string source)
+	{
+		FileSymbolTable table = TableOf(source);
+
+		Assert.Equal(0, table.MemberRecordCountOf("authorizationHeader"));
+		Assert.Equal(0, table.MemberRecordCountOf("serviceAuthorizationValue"));
 	}
 
 	[Theory]

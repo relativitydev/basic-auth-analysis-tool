@@ -6,7 +6,7 @@ namespace MigrateAuth.Cli.Tests.Agent;
 
 /// <summary>
 /// THE COST NOTICE IS IN THE PACK, with every element, for each environment: its own account with the named provider and
-/// possible charges, billed by the provider and not by this tool, outside the engagement's contract, growing with the
+/// possible charges, billed by the provider and not by this tool, growing with the
 /// repository and the number of findings, with the count of entries.
 /// </summary>
 public sealed class PromptPackNoticeTests
@@ -27,7 +27,7 @@ public sealed class PromptPackNoticeTests
 		Assert.Contains($"Launching the review runs {agent} under your own subscription or account with {provider}", pack, StringComparison.Ordinal);
 		Assert.Contains($"and {provider} may charge you for it", pack, StringComparison.Ordinal);
 		Assert.Contains($"Those charges are billed by {provider}; they are not charges for this tool", pack, StringComparison.Ordinal);
-		Assert.Contains("they are outside this engagement's contract", pack, StringComparison.Ordinal);
+		Assert.DoesNotContain("contract", pack, StringComparison.Ordinal);
 		Assert.Contains("The cost grows with the size of the repository and with the number of findings under review", pack, StringComparison.Ordinal);
 		Assert.Contains("this pack lists 6 entries", pack, StringComparison.Ordinal);
 	}

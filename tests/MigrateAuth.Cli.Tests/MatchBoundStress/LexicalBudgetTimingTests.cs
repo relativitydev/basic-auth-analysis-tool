@@ -116,6 +116,12 @@ public sealed class LexicalBudgetTimingTests
 	/// </summary>
 	internal const double SHELL_UNOPTIMIZED_CEILING_MILLISECONDS = MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE * LexicalEnginePolicy.PROVISIONAL_LEXICAL_BUDGET_IN_MILLISECONDS;
 
+	/// <summary>The per-file design target the Shell opening predicates are held to (they are not charged to the lexical budget): the design aim of the Shell cost gate.</summary>
+	internal const double SHELL_PREDICATE_TARGET_MILLISECONDS = ShellMatchBoundTimingTests.AIM_WORST_FILE_MILLISECONDS;
+
+	/// <summary>The predicate ceiling on a build with the JIT optimizer disabled: ten times the target, rounded up to the next 250 ms.</summary>
+	internal const double SHELL_PREDICATE_UNOPTIMIZED_CEILING_MILLISECONDS = MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE * SHELL_PREDICATE_TARGET_MILLISECONDS;
+
 	internal const string SHELL_REPORT_PATH_VARIABLE_NAME = "MIGRATE_AUTH_LEXICAL_BUDGET_REPORT_SHELL";
 
 	private const string _CONTIGUOUS_MATCH_ANCHOR = "\\G";
@@ -202,8 +208,8 @@ public sealed class LexicalBudgetTimingTests
 		ShellLexicalTiming worst = scans.OrderByDescending(scan => scan.ArithmeticChargedMilliseconds).First();
 		ShellLexicalTiming worstPredicate = scans.OrderByDescending(scan => scan.PredicateMilliseconds).First();
 		double predicateCeiling = ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
-			? ShellMatchBoundTimingTests.TARGET_WORST_FILE_MILLISECONDS
-			: ShellMatchBoundTimingTests.UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
+			? SHELL_PREDICATE_TARGET_MILLISECONDS
+			: SHELL_PREDICATE_UNOPTIMIZED_CEILING_MILLISECONDS;
 
 		_output.WriteLine(string.Format(
 			CultureInfo.InvariantCulture,
@@ -229,8 +235,8 @@ public sealed class LexicalBudgetTimingTests
 		ImmutableArray<ShellLexicalTiming> scans = _shellScanTimings.Value;
 		ShellLexicalTiming worst = scans.OrderByDescending(scan => scan.CommentPredicateMilliseconds).First();
 		double ceiling = ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
-			? ShellMatchBoundTimingTests.TARGET_WORST_FILE_MILLISECONDS
-			: ShellMatchBoundTimingTests.UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
+			? SHELL_PREDICATE_TARGET_MILLISECONDS
+			: SHELL_PREDICATE_UNOPTIMIZED_CEILING_MILLISECONDS;
 
 		_output.WriteLine(string.Format(
 			CultureInfo.InvariantCulture,

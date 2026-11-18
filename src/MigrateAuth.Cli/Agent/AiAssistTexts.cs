@@ -159,7 +159,7 @@ public static class AiAssistTexts
 
 	/// <summary>The cost notice's text after its title: agent, provider, entry count with its noun.</summary>
 	public const string COST_NOTICE_BODY_FORMAT =
-		"Launching the review runs {0} under your own subscription or account with {1}, and {1} may charge you for it. Those charges are billed by {1}; they are not charges for this tool, and they are outside this engagement's contract. The cost grows with the size of the repository and with the number of findings under review; this pack lists {2}.";
+		"Launching the review runs {0} under your own subscription or account with {1}, and {1} may charge you for it. Those charges are billed by {1}; they are not charges for this tool. The cost grows with the size of the repository and with the number of findings under review; this pack lists {2}.";
 
 	/// <summary>The repository-access statement's title, on its own line on the console.</summary>
 	public const string REPOSITORY_ACCESS_TITLE = "Repository access.";

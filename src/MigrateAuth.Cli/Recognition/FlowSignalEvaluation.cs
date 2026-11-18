@@ -25,7 +25,9 @@ namespace MigrateAuth.Cli.Recognition;
 /// A SIGNAL FIRES ONLY AT A TRUSTWORTHY ANCHOR. The anchor is the optional capture group
 /// named <see cref="FlowSignal.AnchorGroupName"/>, or else the start of the match. A position past
 /// <see cref="ZoneMask.ValidThroughPosition"/> is one the scanner does not vouch for and fires
-/// nothing. <see cref="FlowSignalZone.CodeOnly"/> admits the code zone only - a delimiter is not
+/// nothing, and neither does a position the file's conditional-region map marks inactive
+/// (<see cref="ConditionalRegionMap.IsInactiveAt"/>): a signal written in a branch the file's own symbols switch off is not evidence.
+/// A signal in a branch the tool cannot decide, or in a live one, still counts. <see cref="FlowSignalZone.CodeOnly"/> admits the code zone only - a delimiter is not
 /// code - and <see cref="FlowSignalZone.CodeOrStringBody"/> admits every zone except a comment.
 ///
 /// A LITERAL CREDENTIAL IS NOT FLOW EVIDENCE. Nothing here reads the recognized
@@ -58,9 +60,10 @@ internal static class FlowSignalEvaluation
 	/// meaningful only when this returns <see langword="true"/> - the convention
 	/// <see cref="FileDemotionSignals.TryEvaluate"/> already uses.
 	/// </summary>
-	internal static bool TryEvaluate(FileRecognitionContext context, MatchBoundWatch matchBoundWatch, out FlowEvidence evidence)
+	internal static bool TryEvaluate(FileRecognitionContext context, ConditionalRegionMap regions, MatchBoundWatch matchBoundWatch, out FlowEvidence evidence)
 	{
 		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(regions);
 		ArgumentNullException.ThrowIfNull(matchBoundWatch);
 
 		CandidateSelectionAndRecommendation element = context.Analyzer.CandidateSelectionAndRecommendation;
@@ -86,7 +89,7 @@ internal static class FlowSignalEvaluation
 
 			if (DialectAllows(signal, dialect))
 			{
-				fires = SignalFires(signal, context, matchBoundWatch, references, out completed);
+				fires = SignalFires(signal, new SignalReading(context, regions), matchBoundWatch, references, out completed);
 			}
 
 			// Polled after the signal's last attempt too, on the same terms a detection rule's own
@@ -131,11 +134,12 @@ internal static class FlowSignalEvaluation
 	/// </summary>
 	private static bool SignalFires(
 		FlowSignal signal,
-		FileRecognitionContext context,
+		SignalReading reading,
 		MatchBoundWatch matchBoundWatch,
 		VariableReferenceIndex references,
 		out bool completed)
 	{
+		(FileRecognitionContext context, ConditionalRegionMap regions) = (reading.Context, reading.Regions);
 		bool fires = false;
 		completed = true;
 		VariableUseTracking.VariableUseWalk walk = new(context, references, matchBoundWatch);
@@ -143,7 +147,7 @@ internal static class FlowSignalEvaluation
 
 		while (completed && match.Success && !fires)
 		{
-			fires = AnchorIsAdmitted(signal, match, context.Mask)
+			fires = AnchorIsAdmitted(signal, match, context.Mask, regions)
 				&& !IsSuppressedByVariableUse(signal, match, walk, out completed)
 				&& completed;
 
@@ -189,13 +193,17 @@ internal static class FlowSignalEvaluation
 		return included && !excluded;
 	}
 
-	private static bool AnchorIsAdmitted(FlowSignal signal, Match match, ZoneMask mask)
+	/// <summary>What one signal is read against: the file and the conditional-region map of that file.</summary>
+	private readonly record struct SignalReading(FileRecognitionContext Context, ConditionalRegionMap Regions);
+
+	private static bool AnchorIsAdmitted(FlowSignal signal, Match match, ZoneMask mask, ConditionalRegionMap regions)
 	{
 		Group anchorGroup = match.Groups[FlowSignal.AnchorGroupName];
 		int anchorPosition = anchorGroup.Success ? anchorGroup.Index : match.Index;
-
-		return signal.Zone is FlowSignalZone.CodeOnly
+		bool admittedByZone = signal.Zone is FlowSignalZone.CodeOnly
 			? FileDemotionSignals.IsTrustworthyCodeAt(mask, anchorPosition)
 			: FileDemotionSignals.IsTrustworthyOutsideACommentAt(mask, anchorPosition);
+
+		return admittedByZone && !regions.IsInactiveAt(anchorPosition);
 	}
 }

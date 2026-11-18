@@ -22,7 +22,6 @@ public sealed class Base64PairFollowedByAConcatenationTests
 	[InlineData("const header = 'Basic ' + btoa(\"exampleUser:exampleSecret\" + suffix);\n")]
 	[InlineData("const header = 'Basic ' + btoa('exampleUser:exampleSecret' + suffix + more);\n")]
 	[InlineData("const header = 'Basic ' + btoa( 'exampleUser:exampleSecret'+suffix );\n")]
-	[InlineData("headers.set('Authorization', 'Basic ' + btoa('exampleUser:exampleSecret' + suffix));\n")]
 	public void ALiteralPairFollowedByAConcatenationIsReadAtMediumWithNoLiteralCredentialInJavaScript(string source)
 	{
 		AssertReadWithNoLiteralCredential(new JavaScriptRecognitionHarness().Recognize(source));
@@ -33,7 +32,6 @@ public sealed class Base64PairFollowedByAConcatenationTests
 	[InlineData("const header: string = 'Basic ' + btoa(\"exampleUser:exampleSecret\" + suffix);\n")]
 	[InlineData("const header: string = 'Basic ' + btoa('exampleUser:exampleSecret' + suffix + more);\n")]
 	[InlineData("const header: string = 'Basic ' + btoa( 'exampleUser:exampleSecret'+suffix );\n")]
-	[InlineData("headers.set('Authorization', 'Basic ' + btoa('exampleUser:exampleSecret' + suffix));\n")]
 	public void ALiteralPairFollowedByAConcatenationIsReadAtMediumWithNoLiteralCredentialInTypeScript(string source)
 	{
 		AssertReadWithNoLiteralCredential(new TypeScriptRecognitionHarness().Recognize(source));

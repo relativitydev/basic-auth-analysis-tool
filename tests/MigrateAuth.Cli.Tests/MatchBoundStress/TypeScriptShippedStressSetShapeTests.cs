@@ -21,6 +21,7 @@ public sealed class TypeScriptShippedStressSetShapeTests
 	private const string _GENERIC_GROUP_SHAPE_FRAGMENT = "generic-body";
 	private const string _REFUSAL_SHAPE_FRAGMENT = "refusal";
 	private const int _MINIMUM_ADDED_SHAPE_COUNT = 40;
+	private const int _EXPECTED_FAMILY_COUNT = 3;
 	private const int _MINIMUM_TEN_THOUSAND_LINE_COUNT = 10_000;
 	private const char _LINE_FEED = '\n';
 
@@ -50,6 +51,20 @@ public sealed class TypeScriptShippedStressSetShapeTests
 		Assert.True(added.Length >= _MINIMUM_ADDED_SHAPE_COUNT, $"{added.Length} shapes added.");
 		Assert.Equal(_shapes.Value.Length - added.Length, TypeScriptMatchBoundStressSet.Build().Length);
 		Assert.All(added, shape => Assert.StartsWith(TypeScriptShippedCostGateStressSet.SHAPE_NAME_PREFIX, shape.Name, StringComparison.Ordinal));
+	}
+
+	/// <summary>The cost gate is split into one timing test per family: the families are disjoint, none is empty, and in order they are exactly the shipped set.</summary>
+	[Fact]
+	public void TheThreeShapeFamiliesOfTheSplitCostGateAreDisjointAndTogetherAreExactlyTheShippedSet()
+	{
+		ImmutableArray<TypeScriptShippedCostGateStressSet.ShippedShapeFamily> families = [.. Enum.GetValues<TypeScriptShippedCostGateStressSet.ShippedShapeFamily>()];
+		ImmutableArray<MatchBoundStressShape> inFamilyOrder = [.. families.SelectMany(family => TypeScriptShippedCostGateStressSet.BuildTheFamily(family))];
+
+		Assert.Equal(_EXPECTED_FAMILY_COUNT, families.Length);
+		Assert.All(families, family => Assert.NotEmpty(TypeScriptShippedCostGateStressSet.BuildTheFamily(family)));
+		Assert.Equal(_shapes.Value.Select(shape => shape.Name), inFamilyOrder.Select(shape => shape.Name));
+		Assert.Equal(_shapes.Value.Select(shape => shape.Text), inFamilyOrder.Select(shape => shape.Text));
+		Assert.Equal(_shapes.Value.Select(shape => shape.FileExtension), inFamilyOrder.Select(shape => shape.FileExtension));
 	}
 
 	[Fact]

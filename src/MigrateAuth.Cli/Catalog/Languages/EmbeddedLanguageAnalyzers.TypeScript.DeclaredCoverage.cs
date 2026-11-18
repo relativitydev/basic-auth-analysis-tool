@@ -97,10 +97,10 @@ internal static class TypeScriptDeclaredCoverage
 					"a constant declaration that follows a brace or a semicolon on the same line, a literal continued over lines by a backslash, a template with a hole, and a declared value that carries a TypeScript tail",
 					"the declaration is read one line at a time from the start of the line, which keeps the cost linear, and a name assigned from an environment read is read the same way, so a declaration of it that follows a brace or a semicolon on the same line is not counted either; a value followed by a non-null mark, a cast, a satisfies clause or an angle-bracket assertion, a value that reads another name or a call, and an annotation that holds an equals sign are not counted either; a name with one counted and one uncounted declaration can be resolved to the wrong value, which is a missed or misplaced finding")),
 			(
-				"a settings property used as the value of an Authorization header whose name does not end with authorization",
+				"a settings property used as the value of an Authorization header whose name does not contain authorization",
 				Entry(
-					"a property of a settings interface, type or class used as the value of an Authorization header whose name does not end with authorization (for example auth or authHeader), although it is filled from an environment value",
-					"the tool joins the property to the environment value by a name that ends with authorization, which is the form it was shown to occur in; a property under another name is not read, so such a header is not reported; review headers whose value comes from a typed settings object by hand")),
+					"a property of a settings interface, type or class used as the value of an Authorization header whose name does not contain authorization (for example auth or authHeader), although it is filled from an environment value",
+					"the tool joins the property to the environment value by a name that contains authorization, which is the form it was shown to occur in; a property under another name is not read, so such a header is not reported; review headers whose value comes from a typed settings object by hand")),
 			(
 				"a settings property read by bracket access",
 				Entry(

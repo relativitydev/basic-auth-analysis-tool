@@ -20,6 +20,15 @@ public static class WorstCaseFileContent
 	private const int _STREAM_SHAPE = 3;
 	private const int _STREAM_SIZE = 4;
 	private const int _STREAM_NAME = 5;
+	private const int _STREAM_PYTHON_CONSTRUCT_SHARE = 18;
+	private const int _STREAM_PYTHON_CONSTRUCT_COUNT = 19;
+	private const int _PYTHON_CONSTRUCT_MAXIMUM_COUNT = 3;
+
+	/// <summary>
+	/// How many of every ten thousand Python sources and shebang scripts carry constructs the shipped analyzer recognizes: five hundred, one file in twenty. Each such file holds one to three,
+	/// so a generated Python file adds a modest number of findings and never reaches the per-file cap. Stubs never carry any: no analyzer claims <c>.pyi</c>.
+	/// </summary>
+	public const int PYTHON_CONSTRUCT_BASIS_POINTS = 500;
 	private const int _HIGH_TAIL_MAXIMUM_CONSTRUCTS = 3;
 	private const int _HIGH_TAIL_VARIANT_COUNT = 3;
 	private const int _SIZE_DENOMINATOR = 1_000;
@@ -55,6 +64,20 @@ public static class WorstCaseFileContent
 	private const string _TYPESCRIPT_DECLARATION_FORMAT = "\nexport declare function addAmount{0}(amount: number): number;\n";
 	private const string _TYPESCRIPT_DECLARATION_ANCHOR_FORMAT = "export declare const endpoint{0}: \"https://status.invalid/health{0}\";\n";
 	private const string _TYPESCRIPT_DECLARATION_HEADER = "export {};\n";
+	private const string _PYTHON_SHEBANG_LINE = "#!/usr/bin/env python3\n";
+	private const string _PYTHON_COMMENT_PREFIX = "# Ordinary arithmetic for ";
+	private const string _PYTHON_TOTAL_DECLARATION = "total = 0";
+	private const string _PYTHON_ANCHOR_LINE = "ENDPOINT = \"https://status.invalid/health\"\n";
+	private const string _PYTHON_FUNCTION_FORMAT = "\n\ndef add_amount{0}(amount):\n\tglobal total\n\ttotal += amount * {0}\n\treturn total\n";
+	private const string _PYTHON_CONSTRUCT_FORMAT = "session_{0} = HTTPBasicAuth(account_a, account_b)\n";
+	private const string _PYTHON_STUB_HEADER = "total: int\n";
+	private const string _PYTHON_STUB_ANCHOR_LINE = "ENDPOINT: str\n";
+	private const string _PYTHON_STUB_FUNCTION_FORMAT = "\ndef add_amount{0}(amount: int) -> int: ...\n";
+	private const string _GO_PACKAGE_LINE = "package ordinary\n";
+	private const string _GO_TOTAL_DECLARATION = "var total int";
+	private const string _GO_ANCHOR_LINE = "const endpoint = \"https://status.invalid/health\"\n";
+	private const string _GO_COMMENT_PREFIX = "// Ordinary arithmetic for ";
+	private const string _GO_FUNCTION_FORMAT = "\nfunc AddAmount{0}(amount int) int {{\n\ttotal += amount * {0}\n\treturn total\n}}\n";
 	private const string _POWERSHELL_ANCHOR_LINE = "$credentialSource = 'configured elsewhere'\n";
 	private const string _POWERSHELL_FUNCTION_FORMAT = "\nfunction Add-Amount{0}\n{{\n\tparam([int]$Amount)\n\t$script:total += $Amount * {0}\n\treturn $script:total\n}}\n";
 
@@ -98,6 +121,10 @@ public static class WorstCaseFileContent
 			WorstCaseFileKind.TypeScriptSource or WorstCaseFileKind.TypeScriptModuleSource or WorstCaseFileKind.TypeScriptCommonJsSource => Encode(TypeScriptText(options, plan.Index, typeName, isTsx: false)),
 			WorstCaseFileKind.TypeScriptTsxSource => Encode(TypeScriptText(options, plan.Index, typeName, isTsx: true)),
 			WorstCaseFileKind.TypeScriptDeclarationFile or WorstCaseFileKind.TypeScriptModuleDeclarationFile or WorstCaseFileKind.TypeScriptCommonJsDeclarationFile => Encode(TypeScriptDeclarationText(options, plan.Index)),
+			WorstCaseFileKind.PythonSource => Encode(PythonText(options, plan.Index, typeName, shebang: false)),
+			WorstCaseFileKind.PythonShebangScript => Encode(PythonText(options, plan.Index, typeName, shebang: true)),
+			WorstCaseFileKind.PythonStubFile => Encode(PythonStubText(options, plan.Index)),
+			WorstCaseFileKind.GoSource => Encode(GoText(options, plan.Index, typeName)),
 			_ => Encode(FillerText(options, plan.Index, typeName))
 		};
 	}
@@ -383,6 +410,80 @@ public static class WorstCaseFileContent
 		{
 			builder.Append(string.Format(CultureInfo.InvariantCulture, _TYPESCRIPT_DECLARATION_FORMAT, number));
 			builder.Append(anchorDense ? string.Format(CultureInfo.InvariantCulture, _TYPESCRIPT_DECLARATION_ANCHOR_FORMAT, number) : string.Empty);
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// Ordinary Python, one file in twenty with one to three recognized constructs (see <see cref="PythonConstructCountOf"/>), in the same small, medium and large mix as the C# filler; a share of the files still carry one assignment of a URL with no credential, a content-only preselection anchor
+	/// (<c>://</c>) of the shipped analyzer. The shebang form starts with a <c>python3</c> shebang, which is the only thing that attributes an extensionless file. Indentation is one tab, so the text is valid Python.
+	/// </summary>
+	private static string PythonText(WorstCaseTreeOptions options, long index, string moduleName, bool shebang)
+	{
+		StringBuilder builder = new();
+		int functionCount = FunctionCountOf(options, index);
+
+		builder.Append(shebang ? _PYTHON_SHEBANG_LINE : string.Empty);
+		builder.Append(_PYTHON_COMMENT_PREFIX).Append(moduleName).Append(_LINE_END);
+		builder.Append(_PYTHON_TOTAL_DECLARATION).Append(_LINE_END);
+		builder.Append(MentionsAnchor(options, index) ? _PYTHON_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < PythonConstructCountOf(options, index); number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _PYTHON_CONSTRUCT_FORMAT, number));
+		}
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _PYTHON_FUNCTION_FORMAT, number));
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>
+	/// How many constructs a generated Python source or shebang script holds: none for most files, and for <see cref="PYTHON_CONSTRUCT_BASIS_POINTS"/> of every ten thousand one to three, each a call of the Basic
+	/// helper class with held names, a High class of the shipped analyzer. Drawn on streams of their own, so no other file and no other draw changes.
+	/// </summary>
+	public static int PythonConstructCountOf(WorstCaseTreeOptions options, long index)
+	{
+		bool carriesConstructs = DeterministicRandom.Below(WorstCaseTreePlanner.BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_PYTHON_CONSTRUCT_SHARE) < PYTHON_CONSTRUCT_BASIS_POINTS;
+
+		return carriesConstructs ? 1 + DeterministicRandom.Below(_PYTHON_CONSTRUCT_MAXIMUM_COUNT, options.Seed, index, _STREAM_PYTHON_CONSTRUCT_COUNT) : 0;
+	}
+
+	/// <summary>A type stub: the signatures of the functions of a module, in the same small, medium and large mix. No analyzer claims the <c>.pyi</c> extension, so the file is enumerated and never read as a candidate.</summary>
+	private static string PythonStubText(WorstCaseTreeOptions options, long index)
+	{
+		StringBuilder builder = new();
+		int functionCount = FunctionCountOf(options, index);
+
+		builder.Append(_PYTHON_STUB_HEADER);
+		builder.Append(MentionsAnchor(options, index) ? _PYTHON_STUB_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _PYTHON_STUB_FUNCTION_FORMAT, number));
+		}
+
+		return builder.ToString();
+	}
+
+	/// <summary>Ordinary Go with no construct, in the same small, medium and large mix; a share of the files still carry one constant holding a URL with no credential. A line that registers no Go analyzer enumerates the file and does not assess it.</summary>
+	private static string GoText(WorstCaseTreeOptions options, long index, string functionName)
+	{
+		StringBuilder builder = new();
+		int functionCount = FunctionCountOf(options, index);
+
+		builder.Append(_GO_COMMENT_PREFIX).Append(functionName).Append(_LINE_END);
+		builder.Append(_GO_PACKAGE_LINE).Append(_LINE_END);
+		builder.Append(_GO_TOTAL_DECLARATION).Append(_LINE_END);
+		builder.Append(MentionsAnchor(options, index) ? _GO_ANCHOR_LINE : string.Empty);
+
+		for (int number = 0; number < functionCount; number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _GO_FUNCTION_FORMAT, number));
 		}
 
 		return builder.ToString();

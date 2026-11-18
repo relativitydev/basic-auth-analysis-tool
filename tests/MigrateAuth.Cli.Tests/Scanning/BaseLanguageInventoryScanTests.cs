@@ -55,12 +55,11 @@ public sealed class BaseLanguageInventoryScanTests
 	private const int _TOTAL_FILE_COUNT = 18;
 
 	/// <summary>
-	/// Go carries one file; Python carries two - its own named-extension
-	/// file plus the shebang file that resolves to the same language. PowerShell and Shell also carry
-	/// two each and are assessed, as is VBNet with its one, TypeScript with its `app.ts`, and JavaScript with its `app.js` and the four
-	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. 1 + 2 = 3.
+	/// Go carries the one file no analyzer assesses on this line. Python, PowerShell and Shell carry two each (the named-extension
+	/// file plus the shebang file that resolves to the same language) and are assessed, as is VBNet with its one, TypeScript with its `app.ts`, and JavaScript with its `app.js` and the four
+	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. The unassessed total is 1.
 	/// </summary>
-	private const int _UNASSESSED_FILE_COUNT = 3;
+	private const int _UNASSESSED_FILE_COUNT = 1;
 
 	/// <summary>`app.js` plus the four extensionless `node` and `nodejs` shebang files, all assessed.</summary>
 	private const int _JAVASCRIPT_FILE_COUNT = 5;
@@ -112,7 +111,7 @@ public sealed class BaseLanguageInventoryScanTests
 	}
 
 	[Fact]
-	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheSixShippedOnesAreNot()
+	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheSevenShippedOnesAreNot()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
@@ -125,7 +124,7 @@ public sealed class BaseLanguageInventoryScanTests
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.VBNet), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), assessed: true);
-		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: false);
+		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: false);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.PowerShell), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Shell), assessed: true);

@@ -1319,8 +1319,8 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a declaration or a flow signal inside a switched-off conditional-compilation block, counted for code outside it",
-				Reason = "the tool reads constants and flow evidence over the whole file, so a name declared in each branch of a conditional is counted twice and may hide a finding, and evidence in a switched-off block may decide the flow of code outside it; review such files by hand"
+				Construct = "a declaration or a flow signal inside a conditional-compilation block whose condition the tool cannot decide, counted for code outside it",
+				Reason = "the tool cannot tell which branch of such a conditional is built, so a name declared in each branch is counted twice and may lower or hide a finding, and evidence in one branch may decide the flow of code outside it; review such files by hand"
 			}
 		];
 

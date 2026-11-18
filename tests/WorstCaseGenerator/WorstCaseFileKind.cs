@@ -67,5 +67,17 @@ public enum WorstCaseFileKind
 	TypeScriptModuleDeclarationFile = 20,
 
 	/// <summary>A declaration file with the <c>.d.cts</c> extension, shaped like the <c>.d.ts</c> form. Only a tree asked for a TypeScript share holds any.</summary>
-	TypeScriptCommonJsDeclarationFile = 21
+	TypeScriptCommonJsDeclarationFile = 21,
+
+	/// <summary>A Python source with the <c>.py</c> extension, ordinary code, a share of which mentions a candidate anchor word. Only a tree asked for a Python share holds any.</summary>
+	PythonSource = 22,
+
+	/// <summary>A Python type stub with the <c>.pyi</c> extension, which no analyzer claims. Only a tree asked for a Python share holds any.</summary>
+	PythonStubFile = 23,
+
+	/// <summary>An extensionless Python script whose first line is a <c>python3</c> shebang, so only its first line attributes it. Only a tree asked for a Python share holds any.</summary>
+	PythonShebangScript = 24,
+
+	/// <summary>A Go source with the <c>.go</c> extension, present and unassessed on a line that registers no Go analyzer. Only a tree asked for a Go share holds any.</summary>
+	GoSource = 25
 }

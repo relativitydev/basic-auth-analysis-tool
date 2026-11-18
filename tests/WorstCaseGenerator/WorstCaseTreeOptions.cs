@@ -72,6 +72,21 @@ public sealed record WorstCaseTreeOptions
 	/// </summary>
 	public int TypeScriptSourceBasisPoints { get; init; }
 
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are Python instead: seven in ten with the <c>.py</c> extension, two in ten type stubs (<c>.pyi</c>) and one in ten extensionless with a <c>python3</c> shebang,
+	/// drawn on streams of their own after the TypeScript share, so every other file keeps its kind. Zero, the default, writes no Python file, so a tree asked for nothing else is the tree the earlier scenarios recorded, byte for byte.
+	/// </summary>
+	public int PythonSourceBasisPoints { get; init; }
+
+	/// <summary>
+	/// How many of every ten thousand otherwise-ordinary files are Go sources (<c>.go</c>) instead, drawn on a stream of its own after the Python share, so every other file keeps its kind. Zero, the default,
+	/// writes no Go file, so a tree asked for nothing else is the tree the earlier scenarios recorded, byte for byte.
+	/// </summary>
+	public int GoSourceBasisPoints { get; init; }
+
+	/// <summary>Where the Python and Go files are placed; the default leaves every file in the plain layout. A shape moves a file and never changes its kind, its bytes or the files around it.</summary>
+	public WorstCaseTreeShape TreeShape { get; init; } = WorstCaseTreeShape.Standard;
+
 	/// <summary>The scenario's progress cadence: one line per 50,000 files.</summary>
 	public const int SCENARIO_PROGRESS_BLOCK_SIZE = 50_000;
 
