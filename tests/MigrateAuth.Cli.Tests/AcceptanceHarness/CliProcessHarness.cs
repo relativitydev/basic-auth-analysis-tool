@@ -132,14 +132,17 @@ internal static class CliProcessHarness
 
 	/// <summary>
 	/// Runs one session end to end: both folders by name on the command line, the entered commands
-	/// on standard input, and the process's own exit code back.
+	/// on standard input, and the process's own exit code back. The child's search path is replaced
+	/// (see <see cref="ChildPathReplacement"/>): <paramref name="agentFolderPath"/> is its first entry,
+	/// an empty folder when it is not given.
 	/// </summary>
 	internal static CliProcessOutcome Run(
 		string repositoryFolderPath,
 		string destinationFolderPath,
-		IEnumerable<string> enteredCommands)
+		IEnumerable<string> enteredCommands,
+		string? agentFolderPath = null)
 	{
-		return RunProcess(BuildStartInfo(repositoryFolderPath, destinationFolderPath), enteredCommands);
+		return RunProcess(BuildStartInfo(repositoryFolderPath, destinationFolderPath), enteredCommands, agentFolderPath);
 	}
 
 	/// <summary>
@@ -208,13 +211,18 @@ internal static class CliProcessHarness
 	/// deadlocking against a parent that is not reading yet.
 	///
 	/// Every process is launched with its profile and home folders pointed at an empty temporary
-	/// folder, removed when the run ends.
+	/// folder, removed when the run ends, with its search path replaced and the provider credential
+	/// variables removed.
 	/// </summary>
-	private static CliProcessOutcome RunProcess(ProcessStartInfo startInfo, IEnumerable<string> enteredCommands)
+	private static CliProcessOutcome RunProcess(
+		ProcessStartInfo startInfo,
+		IEnumerable<string> enteredCommands,
+		string? agentFolderPath = null)
 	{
 		RequireTheEntryAssemblyExists();
 
 		using TemporaryFolder emptyProfileFolder = TemporaryFolder.Create();
+		using ChildPathReplacement pathReplacement = ChildPathReplacement.Apply(startInfo, agentFolderPath);
 
 		IsolateProfile(startInfo, emptyProfileFolder.Path);
 

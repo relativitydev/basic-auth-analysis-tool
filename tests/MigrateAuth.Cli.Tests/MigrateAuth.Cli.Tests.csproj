@@ -27,6 +27,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\MigrateAuth.Cli\MigrateAuth.Cli.csproj" />
 		<ProjectReference Include="..\WorstCaseGenerator\WorstCaseGenerator.csproj" />
+		<ProjectReference Include="..\FakeAgent\FakeAgent.csproj" />
 	</ItemGroup>
 
 </Project>

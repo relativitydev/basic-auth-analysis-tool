@@ -4,6 +4,7 @@ using System.Text.Json;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Findings;
 using MigrateAuth.Cli.Reporting;
+using MigrateAuth.Cli.Agent;
 using MigrateAuth.Cli.Session;
 using MigrateAuth.Cli.Writing;
 
@@ -184,51 +185,72 @@ public sealed class PipelineWiringTests
 	}
 
 	/// <summary>
-	/// THE STAGE THAT MUST NOT HAVE BEEN TOUCHED. <c>ai-assist</c> is a workflow command like the
-	/// four above it, so it is the one most easily wired by accident - and the isolation boundary leaves its launcher
-	/// to the AI-assisted review feature. It must still resolve to <see cref="AiAssistNotAvailableStageRunner"/>,
-	/// still say so in its own client-facing words, and still report
-	/// <see cref="StageRunOutcome.NotAvailable"/> rather than <see cref="StageRunOutcome.Completed"/>.
+	/// <c>ai-assist</c> is a workflow command like the four above it, and the runner at the bottom of the chain is
+	/// the one that handles it: it prints its own line, and it reports <see cref="StageRunOutcome.SelfReported"/>
+	/// rather than <see cref="StageRunOutcome.Completed"/>, so the shell commits nothing. With no input to read, the
+	/// selection ends and says that nothing was written.
 	/// </summary>
 	[Fact]
-	public void AiAssistStillResolvesToTheNotAvailableRunner()
+	public void AiAssistResolvesToTheAiAssistRunnerAndReportsItselfAsSelfReported()
 	{
 		using PipelineHarness harness = PipelineHarness.Create();
 
 		harness.RunTheWholeWorkflow();
 
-		Assert.Equal(StageRunOutcome.NotAvailable, harness.Run(CommandId.AiAssist));
-		Assert.Contains(
-			string.Format(
-				System.Globalization.CultureInfo.InvariantCulture,
-				AiAssistNotAvailableStageRunner.AI_ASSIST_NOT_AVAILABLE_MESSAGE_FORMAT,
-				CommandRegistry.Describe(CommandId.AiAssist).Name),
-			harness.Transcript,
-			StringComparison.Ordinal);
+		Assert.Equal(StageRunOutcome.SelfReported, harness.Run(CommandId.AiAssist));
+		Assert.Contains(AiAssistTexts.NO_ENVIRONMENT_CHOSEN, harness.Transcript, StringComparison.Ordinal);
 	}
 
 	/// <summary>
-	/// The four wired stages must NOT print the not-available runner's message. It is the
-	/// complement of the test above and it is what would catch a decorator wired to the wrong
-	/// command identity.
+	/// The four wired stages must NOT print the ai-assist runner's lines. It is the complement of the test above
+	/// and it is what would catch a decorator wired to the wrong command identity.
 	/// </summary>
 	[Fact]
-	public void NoWiredStageReportsItselfAsUnavailable()
+	public void NoWiredStagePrintsAnAiAssistLine()
 	{
 		using PipelineHarness harness = PipelineHarness.Create();
 		harness.WriteSourceFile(_CREDENTIAL_FILE_NAME, _credentialContent);
 
 		harness.RunTheWholeWorkflow();
 
-		foreach (CommandId wiredStage in (CommandId[])[CommandId.Scan, CommandId.Analyze, CommandId.Suggest, CommandId.Report])
+		Assert.DoesNotContain(AiAssistTexts.CONSOLE_LINE_PREFIX, harness.Transcript, StringComparison.Ordinal);
+		Assert.DoesNotContain(AiAssistTexts.SELECTION_HEADING, harness.Transcript, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// The harness builds the report writer as the product does: with the report holder, which a report write
+	/// fills with the name and the length of the report it wrote. The test-only variable that drops the holder is read
+	/// by the harness alone; with it set to the off value the holder is absent and nothing records the report.
+	/// </summary>
+	[Fact]
+	public void TheHarnessBuildsTheReportWriterWithTheHolderUnlessTheTestVariableTurnsItOff()
+	{
+		string? original = Environment.GetEnvironmentVariable(PipelineHarness.REPORT_HOLDER_VARIABLE_NAME);
+
+		try
 		{
-			Assert.DoesNotContain(
-				string.Format(
-					System.Globalization.CultureInfo.InvariantCulture,
-					AiAssistNotAvailableStageRunner.AI_ASSIST_NOT_AVAILABLE_MESSAGE_FORMAT,
-					CommandRegistry.Describe(wiredStage).Name),
-				harness.Transcript,
-				StringComparison.Ordinal);
+			Environment.SetEnvironmentVariable(PipelineHarness.REPORT_HOLDER_VARIABLE_NAME, null);
+
+			using (PipelineHarness withHolder = PipelineHarness.Create())
+			{
+				withHolder.RunTheWholeWorkflow();
+
+				Assert.NotNull(withHolder.ReportHolder);
+				Assert.Equal(
+					withHolder.WrittenArtifactNames().First(name => name.EndsWith(".md", StringComparison.Ordinal)),
+					withHolder.ReportHolder!.Current!.FileName);
+			}
+
+			Environment.SetEnvironmentVariable(PipelineHarness.REPORT_HOLDER_VARIABLE_NAME, PipelineHarness.REPORT_HOLDER_OFF);
+
+			using PipelineHarness withoutHolder = PipelineHarness.Create();
+			withoutHolder.RunTheWholeWorkflow();
+
+			Assert.Null(withoutHolder.ReportHolder);
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable(PipelineHarness.REPORT_HOLDER_VARIABLE_NAME, original);
 		}
 	}
 }

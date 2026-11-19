@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 
+using MigrateAuth.Cli.Tests.Agent;
+using MigrateAuth.Cli.Tests.Writing;
+
 namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 
 /// <summary>The duration and peak working set of one measured operation, and the working set it started from.</summary>
@@ -38,7 +41,10 @@ internal static class VolumeProofChildProcess
 		[SESSION_STATE_SAVE_OPERATION] = SessionStateVolumeProofTests.SaveTheLargestState,
 		[ORDERING_SORT_OPERATION] = FindingsCapVolumeProofTests.SortHalfAMillionPaths,
 		[ORDERING_ADMISSION_OPERATION] = FindingsCapVolumeProofTests.AdmitHalfAMillionFiles,
-		[REPORT_SUMMARY_RENDER_OPERATION] = ReportSummaryVolumeProofTests.RenderTheFullReport
+		[REPORT_SUMMARY_RENDER_OPERATION] = ReportSummaryVolumeProofTests.RenderTheFullReport,
+		[ReportAppendVolumeProofTests.APPEND_OPERATION] = ReportAppendVolumeProofTests.AppendToTheLargestReport,
+		[ReportAppendVolumeProofTests.PACK_STREAMING_OPERATION] = ReportAppendVolumeProofTests.WriteTheLargestPackBody,
+		[PromptPackVolumeProofTests.PACK_GENERATION_OPERATION] = PromptPackVolumeProofTests.GenerateThePackAtTheFindingsCap
 	};
 
 	/// <summary>Runs one operation in a child process and returns the figures it reported.</summary>
@@ -53,7 +59,10 @@ internal static class VolumeProofChildProcess
 	/// </summary>
 	internal static (OperationFigures Figures, IReadOnlyList<string> Details) RunAndReadDetails(string operation, params string[] operationArguments)
 	{
-		using Process child = Process.Start(BuildStartInfo(operation, operationArguments))
+		ProcessStartInfo startInfo = BuildStartInfo(operation, operationArguments);
+
+		using ChildPathReplacement pathReplacement = ChildPathReplacement.Apply(startInfo, agentFolderPath: null);
+		using Process child = Process.Start(startInfo)
 			?? throw new InvalidOperationException("The volume-proof process could not be started.");
 
 		Task<string> standardOutput = child.StandardOutput.ReadToEndAsync();

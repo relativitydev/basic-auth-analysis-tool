@@ -20,6 +20,10 @@ public static class RestrictiveFileCreation
 	/// <summary>Owner read and write, and nothing for anybody else.</summary>
 	public const UnixFileMode RESTRICTIVE_UNIX_FILE_MODE = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
+	/// <summary>Owner read, write and traverse, and nothing for anybody else.</summary>
+	public const UnixFileMode RESTRICTIVE_UNIX_DIRECTORY_MODE =
+		UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
 	private static readonly UTF8Encoding _utf8WithoutByteOrderMark = new(encoderShouldEmitUTF8Identifier: false);
 
 	/// <summary>
@@ -69,6 +73,35 @@ public static class RestrictiveFileCreation
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
 		return new FileStream(path, BuildWriteOptions(creationMode));
+	}
+
+	/// <summary>
+	/// A character writer over a stream the caller already opened, with the encoding every text artifact
+	/// here uses (UTF-8, no byte order mark) and the default newline, so the bytes are the ones
+	/// <see cref="CreateTextWriter"/> would produce. It exists so a hashing stream can sit between the
+	/// writer and the file. The caller owns the returned writer, which disposes the stream.
+	/// </summary>
+	public static StreamWriter CreateTextWriterOver(Stream stream)
+	{
+		ArgumentNullException.ThrowIfNull(stream);
+
+		return new StreamWriter(stream, _utf8WithoutByteOrderMark);
+	}
+
+	/// <summary>
+	/// Creates a folder, with owner-only access (<c>0700</c>) where the platform expresses it as a mode.
+	/// On Windows nothing is applied and the folder inherits its parent's access control list, the same
+	/// declared divergence as for files. An existing folder is left as it is.
+	/// </summary>
+	public static DirectoryInfo CreateDirectory(string path)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+		DirectoryInfo created = OperatingSystem.IsWindows()
+			? Directory.CreateDirectory(path)
+			: Directory.CreateDirectory(path, RESTRICTIVE_UNIX_DIRECTORY_MODE);
+
+		return created;
 	}
 
 	private static FileStreamOptions BuildWriteOptions(FileMode creationMode)

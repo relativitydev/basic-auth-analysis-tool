@@ -1,8 +1,6 @@
-using System.Globalization;
-
 namespace MigrateAuth.Cli.Session;
 
-/// <summary>How a stage ended. Each of the three has a different consequence.</summary>
+/// <summary>How a stage ended. Each of the four has a different consequence.</summary>
 public enum StageRunOutcome
 {
 	/// <summary>The stage finished. It commits here, and only here.</summary>
@@ -21,14 +19,13 @@ public enum StageRunOutcome
 	Failed = 2,
 
 	/// <summary>
-	/// The stage is not offered by this release (<c>ai-assist</c>). The shell leaves completion
-	/// state exactly as it found it: a stage commits only on <see cref="Completed"/>, so there is
-	/// nothing to mark and nothing downstream to invalidate. The shell also writes nothing further,
-	/// because the stage runner that returns this outcome has already said everything there is to
-	/// say in its own, client-facing words - a second, generic line here would either repeat that
-	/// text or contradict it.
+	/// The stage printed its own result: <c>ai-assist</c>, which owns its console, its decisions and its own
+	/// closing line. The shell leaves completion state exactly as it found it - a stage commits only on
+	/// <see cref="Completed"/>, so there is nothing to mark and nothing downstream to invalidate - and writes
+	/// nothing further, because a second, generic line would either repeat what the stage said or contradict it.
+	/// Every path of that stage returns this value, and the session state is read by it and never written.
 	/// </summary>
-	NotAvailable = 3
+	SelfReported = 3
 }
 
 /// <summary>
@@ -45,44 +42,4 @@ public interface IWorkflowStageRunner
 	/// <param name="state">The session state the stage reads from and, later, contributes to.</param>
 	/// <param name="cancellationToken">Signalled when the user interrupts the stage.</param>
 	StageRunOutcome Run(CommandId workflowCommand, SessionState state, CancellationToken cancellationToken);
-}
-
-/// <summary>
-/// THE STAGE RUNNER FOR THE ONE WORKFLOW COMMAND THIS RELEASE DOES NOT SHIP: <c>ai-assist</c>.
-///
-/// It is the class at the bottom of <c>Program</c>'s decorator chain. Running it names what the
-/// client already has, and the outcome is <see cref="StageRunOutcome.NotAvailable"/> rather than
-/// <see cref="StageRunOutcome.Completed"/>, so the session's own bookkeeping does not assert a
-/// review took place and <c>help</c> can still say the stage ships later.
-/// </summary>
-public sealed class AiAssistNotAvailableStageRunner : IWorkflowStageRunner
-{
-	/// <summary>
-	/// The command list names <c>ai-assist</c> as the optional fifth workflow command; this is what
-	/// running it says while its build belongs to a later release.
-	/// </summary>
-	public const string AI_ASSIST_NOT_AVAILABLE_MESSAGE_FORMAT =
-		"{0}: AI-assisted review is not available in this release. The report and the JSON findings file already hold the complete assessment.";
-
-	private readonly TextWriter _outputWriter;
-
-	public AiAssistNotAvailableStageRunner(TextWriter outputWriter)
-	{
-		ArgumentNullException.ThrowIfNull(outputWriter);
-
-		_outputWriter = outputWriter;
-	}
-
-	/// <inheritdoc />
-	public StageRunOutcome Run(CommandId workflowCommand, SessionState state, CancellationToken cancellationToken)
-	{
-		ArgumentNullException.ThrowIfNull(state);
-
-		string stageName = CommandRegistry.Describe(workflowCommand).Name;
-
-		_outputWriter.WriteLine(
-			string.Format(CultureInfo.InvariantCulture, AI_ASSIST_NOT_AVAILABLE_MESSAGE_FORMAT, stageName));
-
-		return StageRunOutcome.NotAvailable;
-	}
 }

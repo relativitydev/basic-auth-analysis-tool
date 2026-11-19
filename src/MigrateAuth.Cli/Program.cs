@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using MigrateAuth.Cli.Agent;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Configuration;
 using MigrateAuth.Cli.Emission;
@@ -280,9 +281,9 @@ internal static class Program
 	}
 
 	/// <summary>
-	/// THE STAGE RUNNER, WITH FOUR STAGES WIRED AND ONE EMPTY.
+	/// THE STAGE RUNNER: FOUR ASSESSMENT STAGES AND THE AI-ASSIST STAGE AT THE BOTTOM.
 	///
-	/// The chain is built inside out: the empty runner at the bottom, then <c>scan</c>, then
+	/// The chain is built inside out: the <c>ai-assist</c> runner at the bottom, then <c>scan</c>, then
 	/// <c>analyze</c>, <c>suggest</c> and <c>report</c>. Each decorator handles its own command and
 	/// delegates the rest, so <c>ai-assist</c>, <c>help</c>, <c>clear</c> and <c>exit</c> pass
 	/// through to the classes that handle them.
@@ -301,6 +302,8 @@ internal static class Program
 		EmissionPoint emissionPoint = new([skippedItems]);
 		TextWriter output = composition.Console.Output;
 		IGenericRecommendationProvider genericRecommendations = new GenericRecommendationProvider();
+		ReportWriteHolder reportHolder = new();
+		AtomicArtifactWriter artifactWriter = new(composition.Repository, composition.Destination, reportHolder);
 
 		ScanStage scanStage = new(new ScanStageContext
 		{
@@ -332,24 +335,64 @@ internal static class Program
 			Output = output
 		});
 
-		ReportStage reportStage = new(new ReportStageContext
-		{
-			Catalog = composition.Catalog,
-			Configuration = composition.Configuration,
-			RepositoryLabel = composition.Repository.Label,
-			ArtifactWriter = new AtomicArtifactWriter(composition.Repository, composition.Destination),
-			GenericRecommendations = genericRecommendations,
-			Output = output,
-			TimeProvider = TimeProvider.System
-		});
-
 		return new ReportWiredStageRunner(
-			reportStage,
+			BuildReportStage(composition, artifactWriter, genericRecommendations),
 			new SuggestWiredStageRunner(
 				suggestStage,
 				new AnalyzeWiredStageRunner(
 					analyzeStage,
-					new ScanWiredStageRunner(scanStage, new AiAssistNotAvailableStageRunner(output)))));
+					new ScanWiredStageRunner(scanStage, BuildAiAssistStage(composition, artifactWriter, reportHolder)))));
+	}
+
+	private static ReportStage BuildReportStage(
+		SessionComposition composition,
+		AtomicArtifactWriter artifactWriter,
+		IGenericRecommendationProvider genericRecommendations)
+	{
+		return new ReportStage(new ReportStageContext
+		{
+			Catalog = composition.Catalog,
+			Configuration = composition.Configuration,
+			RepositoryLabel = composition.Repository.Label,
+			ArtifactWriter = artifactWriter,
+			GenericRecommendations = genericRecommendations,
+			Output = composition.Console.Output,
+			TimeProvider = TimeProvider.System
+		});
+	}
+
+	/// <summary>
+	/// THE ONE PLACE THE AI-ASSIST STAGE AND ITS SEAMS ARE CONSTRUCTED: the launcher switch, the search-path
+	/// provider that reads <c>PATH</c>, the report holder, the append operation and the native console.
+	///
+	/// The shipped values are the real terminal predicate (input and output both unredirected), no test budget
+	/// for the launched agent, the <c>PATH</c> provider, and the Windows console on Windows with one that does
+	/// nothing elsewhere. Nothing here is chosen by an argument, an environment variable or a configuration key,
+	/// so a session cannot be told to launch anything but the agent its own search path resolves.
+	/// </summary>
+	private static AiAssistStageRunner BuildAiAssistStage(
+		SessionComposition composition,
+		AtomicArtifactWriter artifactWriter,
+		ReportWriteHolder reportHolder)
+	{
+		IAgentSearchPathProvider searchPathProvider = new PathEnvironmentSearchPathProvider();
+		INativeConsole nativeConsole = OperatingSystem.IsWindows() ? new WindowsNativeConsole() : new NoNativeConsole();
+
+		return new AiAssistStageRunner(
+			new AiAssistStageContext
+			{
+				Console = composition.Console,
+				Repository = composition.Repository,
+				Destination = composition.Destination,
+				Catalog = composition.Catalog,
+				MinimumConfidenceLevel = composition.Configuration.MinimumConfidenceLevel,
+				ArtifactWriter = artifactWriter,
+				ReportHolder = reportHolder,
+				LauncherFor = environment => AgentLauncherSwitch.Create(environment, searchPathProvider, composition.Repository, testBudget: null),
+				IsInteractiveTerminal = () => !Console.IsInputRedirected && !Console.IsOutputRedirected
+			},
+			artifactWriter,
+			nativeConsole);
 	}
 
 	/// <summary>

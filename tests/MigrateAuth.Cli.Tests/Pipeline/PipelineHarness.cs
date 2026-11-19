@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 
+using MigrateAuth.Cli.Agent;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Configuration;
 using MigrateAuth.Cli.Emission;
@@ -11,6 +12,7 @@ using MigrateAuth.Cli.Scanning;
 using MigrateAuth.Cli.Session;
 using MigrateAuth.Cli.Writing;
 
+using MigrateAuth.Cli.Tests.Agent;
 using MigrateAuth.Cli.Tests.Fixtures;
 using MigrateAuth.Cli.Tests.Progress;
 using MigrateAuth.Cli.Tests.Reading;
@@ -25,7 +27,7 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// these tests exercise IS the composition - the stages themselves are thin over components that were
 /// already tested in isolation - so a harness that wired them differently would be testing an
 /// arrangement that ships nowhere. The runner it exposes is the same decorator chain, in the same
-/// order, over the same <c>AiAssistNotAvailableStageRunner</c>.
+/// order, over the same <c>ai-assist</c> runner, which here has no input and no terminal and never reaches an agent.
 ///
 /// THE SESSION-SCOPED OBJECT IS SHARED HERE EXACTLY AS IT IS IN THE PRODUCT, and that is the
 /// property most of these tests turn on: one skipped-item ledger, built once, cleared by each of
@@ -35,6 +37,16 @@ namespace MigrateAuth.Cli.Tests.Pipeline;
 /// </summary>
 internal sealed class PipelineHarness : IDisposable
 {
+	/// <summary>
+	/// The TEST-ONLY variable that drops the report holder from the report writer, so that no hashing of the report
+	/// occurs: a same-window measurement with and without the holder needs exactly that and nothing else changed.
+	/// Only this harness reads it; the product reads no such variable.
+	/// </summary>
+	internal const string REPORT_HOLDER_VARIABLE_NAME = "MIGRATEAUTH_TEST_REPORT_HOLDER";
+
+	/// <summary>The value of <see cref="REPORT_HOLDER_VARIABLE_NAME"/> that builds the writer without the holder.</summary>
+	internal const string REPORT_HOLDER_OFF = "off";
+
 	private readonly RepositoryFixture _fixture;
 	private readonly TemporaryFolder _destination;
 
@@ -82,6 +94,9 @@ internal sealed class PipelineHarness : IDisposable
 	internal SessionState State { get; }
 
 	internal IWorkflowStageRunner Runner { get; }
+
+	/// <summary>The record of the report this harness wrote, or null when the harness was told to build the writer without one.</summary>
+	internal ReportWriteHolder? ReportHolder { get; private set; }
 
 	internal RepositoryFolderPath Repository => _fixture.Repository;
 
@@ -413,27 +428,14 @@ internal sealed class PipelineHarness : IDisposable
 	{
 		IGenericRecommendationProvider genericRecommendations = new GenericRecommendationProvider();
 
-		ScanStage scanStage = new(new ScanStageContext
-		{
-			Repository = Repository,
-			Catalog = Catalog,
-			Configuration = Configuration,
-			EmissionPoint = _fixture.EmissionPoint,
-			SkippedItems = SkippedItems,
-			Output = Output,
-			TimeProvider = Clock
-		});
+		ReportHolder = string.Equals(Environment.GetEnvironmentVariable(REPORT_HOLDER_VARIABLE_NAME), REPORT_HOLDER_OFF, StringComparison.Ordinal)
+			? null
+			: new ReportWriteHolder();
 
-		AnalyzeStage analyzeStage = new(new AnalyzeStageContext
-		{
-			Repository = Repository,
-			Catalog = Catalog,
-			Configuration = Configuration,
-			EmissionPoint = _fixture.EmissionPoint,
-			SkippedItems = SkippedItems,
-			Output = Output,
-			TimeProvider = Clock
-		});
+		AtomicArtifactWriter artifactWriter = new(Repository, Destination, ReportHolder);
+
+		ScanStage scanStage = BuildScanStage();
+		AnalyzeStage analyzeStage = BuildAnalyzeStage();
 
 		SuggestStage suggestStage = new(new SuggestStageContext
 		{
@@ -448,7 +450,7 @@ internal sealed class PipelineHarness : IDisposable
 			Catalog = Catalog,
 			Configuration = Configuration,
 			RepositoryLabel = Repository.Label,
-			ArtifactWriter = new AtomicArtifactWriter(Repository, Destination),
+			ArtifactWriter = artifactWriter,
 			GenericRecommendations = genericRecommendations,
 			Output = Output,
 			TimeProvider = Clock
@@ -460,6 +462,59 @@ internal sealed class PipelineHarness : IDisposable
 				suggestStage,
 				new AnalyzeWiredStageRunner(
 					analyzeStage,
-					new ScanWiredStageRunner(scanStage, new AiAssistNotAvailableStageRunner(Output)))));
+					new ScanWiredStageRunner(scanStage, BuildAiAssistRunner(artifactWriter)))));
+	}
+
+	private ScanStage BuildScanStage()
+	{
+		return new ScanStage(new ScanStageContext
+		{
+			Repository = Repository,
+			Catalog = Catalog,
+			Configuration = Configuration,
+			EmissionPoint = _fixture.EmissionPoint,
+			SkippedItems = SkippedItems,
+			Output = Output,
+			TimeProvider = Clock
+		});
+	}
+
+	private AnalyzeStage BuildAnalyzeStage()
+	{
+		return new AnalyzeStage(new AnalyzeStageContext
+		{
+			Repository = Repository,
+			Catalog = Catalog,
+			Configuration = Configuration,
+			EmissionPoint = _fixture.EmissionPoint,
+			SkippedItems = SkippedItems,
+			Output = Output,
+			TimeProvider = Clock
+		});
+	}
+
+	/// <summary>
+	/// The bottom of the chain: the real <c>ai-assist</c> runner with no input, no terminal and a launcher over an empty
+	/// search path, so it can prepare nothing and reach no agent, which is all the wiring tests ask of it.
+	/// </summary>
+	private AiAssistStageRunner BuildAiAssistRunner(AtomicArtifactWriter artifactWriter)
+	{
+		TestAgentSearchPathProvider emptySearchPath = new([]);
+
+		return new AiAssistStageRunner(
+			new AiAssistStageContext
+			{
+				Console = new SessionConsole(new StringReader(string.Empty), Output),
+				Repository = Repository,
+				Destination = Destination,
+				Catalog = Catalog,
+				MinimumConfidenceLevel = Configuration.MinimumConfidenceLevel,
+				ArtifactWriter = artifactWriter,
+				ReportHolder = ReportHolder ?? new ReportWriteHolder(),
+				LauncherFor = environment => AgentLauncherSwitch.Create(environment, emptySearchPath, Repository, testBudget: null),
+				IsInteractiveTerminal = () => false
+			},
+			artifactWriter,
+			new NoNativeConsole());
 	}
 }

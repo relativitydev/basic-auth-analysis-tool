@@ -1,6 +1,7 @@
 using MigrateAuth.Cli.Agent;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Emission;
+using MigrateAuth.Cli.Findings;
 using MigrateAuth.Cli.Reporting;
 using MigrateAuth.Cli.Session;
 
@@ -23,6 +24,7 @@ public sealed class PromptPackFindingEntryTests
 	private const string _PATTERN_CLASS_IDENTIFIER = "CS-001";
 	private const string _RELATIVE_PATH = "src/Client.cs";
 	private const int _ANCHOR_LINE = 42;
+	private const int _SEQUENTIAL_INDEX = 7;
 
 	[Fact]
 	public void AnEntryCarriesTheFourFindingRecordFieldsUnchanged()
@@ -74,7 +76,10 @@ public sealed class PromptPackFindingEntryTests
 			BuildRelativePath(),
 			_ANCHOR_LINE,
 			ConfidenceLevel.High,
-			RecommendationKind.FromTemplate));
+			RecommendationKind.FromTemplate,
+			_SEQUENTIAL_INDEX,
+			CredentialFlow.ClientCredentials,
+			false));
 	}
 
 	[Fact]
@@ -85,7 +90,10 @@ public sealed class PromptPackFindingEntryTests
 			default,
 			_ANCHOR_LINE,
 			ConfidenceLevel.High,
-			RecommendationKind.FromTemplate));
+			RecommendationKind.FromTemplate,
+			_SEQUENTIAL_INDEX,
+			CredentialFlow.ClientCredentials,
+			false));
 	}
 
 	[Theory]
@@ -98,7 +106,10 @@ public sealed class PromptPackFindingEntryTests
 			BuildRelativePath(),
 			line,
 			ConfidenceLevel.High,
-			RecommendationKind.FromTemplate));
+			RecommendationKind.FromTemplate,
+			_SEQUENTIAL_INDEX,
+			CredentialFlow.ClientCredentials,
+			false));
 	}
 
 	[Fact]
@@ -109,7 +120,10 @@ public sealed class PromptPackFindingEntryTests
 			BuildRelativePath(),
 			_ANCHOR_LINE,
 			ConfidenceLevel.High,
-			(RecommendationKind)int.MaxValue));
+			(RecommendationKind)int.MaxValue,
+			_SEQUENTIAL_INDEX,
+			CredentialFlow.ClientCredentials,
+			false));
 	}
 
 	private static PromptPackFindingEntry BuildEntry(RecommendationKind guidance)
@@ -119,7 +133,10 @@ public sealed class PromptPackFindingEntryTests
 			BuildRelativePath(),
 			_ANCHOR_LINE,
 			ConfidenceLevel.High,
-			guidance);
+			guidance,
+			_SEQUENTIAL_INDEX,
+			CredentialFlow.ClientCredentials,
+			false);
 	}
 
 	private static RuleIdentifier BuildPatternClass()

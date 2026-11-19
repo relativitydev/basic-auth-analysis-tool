@@ -18,7 +18,7 @@ namespace MigrateAuth.Cli.Tests.Agent;
 public sealed class AgentTerminationStatusTests
 {
 	private const int _DECLARED_OUTCOME_COUNT = 5;
-	private const int _DECLARED_AVAILABILITY_COUNT = 2;
+	private const int _DECLARED_AVAILABILITY_COUNT = 3;
 	private const int _SUCCESSFUL_EXIT_CODE = 0;
 	private const int _FAILING_EXIT_CODE = 3;
 	private const int _INTERRUPT_SIGNAL_NUMBER = 2;
@@ -140,7 +140,7 @@ public sealed class AgentTerminationStatusTests
 	}
 
 	[Fact]
-	public void AvailabilityIsTwoValuedAndNotFoundIsItsDefault()
+	public void AvailabilityHasThreeValuesAndNotFoundIsItsDefault()
 	{
 		Assert.Equal(_DECLARED_AVAILABILITY_COUNT, Enum.GetValues<AgentAvailability>().Length);
 		Assert.Equal(AgentAvailability.NotFound, default(AgentAvailability));

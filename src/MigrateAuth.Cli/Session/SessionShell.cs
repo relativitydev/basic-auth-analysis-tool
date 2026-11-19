@@ -215,7 +215,7 @@ public sealed class SessionShell
 				WriteFormatted(STAGE_CANCELLED_MESSAGE_FORMAT, command.Name);
 				break;
 
-			case StageRunOutcome.NotAvailable:
+			case StageRunOutcome.SelfReported:
 				// Completion state is left exactly as it was and nothing further is
 				// written - the stage runner has already said everything there is to say, in
 				// its own client-facing words.

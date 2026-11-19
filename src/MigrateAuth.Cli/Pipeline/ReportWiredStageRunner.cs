@@ -3,11 +3,13 @@ using MigrateAuth.Cli.Session;
 namespace MigrateAuth.Cli.Pipeline;
 
 /// <summary>
-/// THE OUTERMOST WRAP, WITH THE EMPTY RUNNER UNDERNEATH IT.
+/// THE OUTERMOST WRAP, WITH THE AI-ASSIST RUNNER AT THE BOTTOM OF THE CHAIN.
 ///
-/// Four of the five workflow stages do real work. <c>ai-assist</c> does not: it resolves
-/// through <c>AiAssistNotAvailableStageRunner</c> at the bottom of this chain, which is the one
-/// and only place <c>ai-assist</c> is handled.
+/// All five workflow stages do real work. The four that belong to the assessment are wrapped here and
+/// in the three runners beneath this one; <c>ai-assist</c> is handled by the runner at the bottom of
+/// the chain, which the session composition builds, and nothing in these four stages references it.
+/// This runner decides only whether the command is <c>report</c>, and delegates every other command
+/// to the runner it wraps.
 /// </summary>
 public sealed class ReportWiredStageRunner : IWorkflowStageRunner
 {
