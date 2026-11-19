@@ -22,6 +22,27 @@ public sealed class CSharpPartCDriftTests : PartCDriftTests
 	private const string _TOKEN_NEAR_MISS_PHRASE = "token-named";
 	private const int _CORRECTION_ENTRY_COUNT = 3;
 	private const string _PART_C_HEADING = "### CS-020 · SdkProxyFactoryWithUserAndPassword";
+	private const string _PROXY_REASON = "this call is matched only when the second argument is named like a password, or the first argument is named like a user, or both arguments are written as text, and it is never matched when the second argument is named like a token or a key. Other calls that send a user name and a password are not matched, so search for GetProxy and review each call by hand. A call of an unrelated method with the same name and similar arguments can be matched, and should be dismissed on review";
+	private const string _PROXY_REASON_IN_PART_A = "this call is matched only when the second argument is named like a password, or the first argument is named like a user, or both arguments are written as text, and it is never matched when the second argument is named like a token or a key. Other calls that send a user name and a password are not matched, so search for GetProxy and review each call by hand. A call of an unrelated method with the same name and similar arguments can match, and should be dismissed on review";
+	private const string _PAIR_REASON = "the pair is read only when both members are set next to each other in one of the two plain forms; a pair set any other way can still send a user name and a password and is not matched, so search for Rsapi and review each settings object by hand. A declaration written over two lines can be matched as if it set the pair";
+	private const string _PAIR_REASON_IN_PART_A = "the pair is read only when both members are set next to each other in one of the two plain forms; a pair set any other way can still send a user name and a password and is not matched, so search for Rsapi and review each settings object by hand. A declaration written over two lines can match as if it set the pair";
+	private const string _STORED_REASON = "the credential is followed only inside the window and the forms described in its entry. Outside them the credential is matched as an ordinary network credential at medium confidence, which is a false match when it goes to a mail, proxy or file-transfer server, so confirm the destination of every such match. A credential also handed to an HTTP client in the same file is given low confidence as the mail, proxy or file-transfer match, and the HTTP use gets no match of its own, so review the HTTP use by hand. A client or a hand-over written inside a comment or a text can be taken for real code";
+	private const string _STORED_REASON_IN_PART_A = "the credential is followed only inside the window and the forms described in its entry. Outside them the credential matches as an ordinary network credential at Medium, which is a false match when it goes to a mail, proxy or file-transfer server, so confirm the destination of every such match. A credential also handed to an HTTP client in the same file matches at Low as the mail, proxy or file-transfer credential, and the HTTP use gets no match of its own, so review the HTTP use by hand. A client or a hand-over written inside a comment or a text can be taken for real code";
+	private const string _RETIRED_CLIENT_REASON_TAIL = "ugh a factory with no visible credential in that same code is not detected, even though it is still worth reviewing by hand. A factory call that passes a user name and a password, \"GetProxy<T>(user, password)\", is a different case and is read in the forms described in the entry for calls to GetProxy";
+	private const string _RETIRED_CLIENT_REASON_TAIL_IN_PART_A = "ugh a factory with no visible credential in that same code is not matched, even though it is still worth reviewing by hand. A factory call that passes a user name and a password, \"GetProxy<T>(user, password)\", is a different case and is read in the forms described in the entry for calls to GetProxy";
+
+	/// <summary>
+	/// Where Part A words a declared reason differently from the analyzer, the exact wording Part A is pinned to, keyed by the declared reason itself: Part A says
+	/// "matched" where the declared reason says "reported" or "detected", and "Medium" where it says "medium confidence". A reason with no entry is compared verbatim,
+	/// and a declared reason that changes has no entry and fails, so a Part A sentence that merely says "matched" cannot satisfy another reason.
+	/// </summary>
+	private static readonly ImmutableDictionary<string, string> _PART_A_WORDING_OF_DECLARED_REASON = ImmutableDictionary.CreateRange(StringComparer.Ordinal,
+	[
+		KeyValuePair.Create(_PROXY_REASON, _PROXY_REASON_IN_PART_A),
+		KeyValuePair.Create(_PAIR_REASON, _PAIR_REASON_IN_PART_A),
+		KeyValuePair.Create(_STORED_REASON, _STORED_REASON_IN_PART_A),
+		KeyValuePair.Create(_RETIRED_CLIENT_REASON_TAIL, _RETIRED_CLIENT_REASON_TAIL_IN_PART_A)
+	]);
 
 	public CSharpPartCDriftTests()
 		: base(DocumentedLanguage.CSharp)
@@ -36,9 +57,15 @@ public sealed class CSharpPartCDriftTests : PartCDriftTests
 		ImmutableArray<DeclaredUnsupportedCoverage> declared = [.. DocumentedLanguage.CSharp.Analyzer().LanguageIdentification.DeclaredUnsupportedCoverage];
 		string[] keywords = [_PROXY_ENTRY_KEYWORD, _PAIR_ENTRY_KEYWORD, _STORED_ENTRY_KEYWORD];
 
-		Assert.All(keywords, keyword => Assert.Contains(Normalize(Assert.Single(declared, entry => entry.Construct.Contains(keyword, StringComparison.Ordinal)).Reason), partA, StringComparison.OrdinalIgnoreCase));
-		Assert.Contains(Normalize(declared.Single(entry => entry.Construct.StartsWith("a project's own custom authentication helper", StringComparison.Ordinal)).Reason[^_REASON_TAIL_LENGTH..]), partA, StringComparison.OrdinalIgnoreCase);
-		Assert.Contains(Normalize(declared.Single(entry => entry.Construct.StartsWith("the retired RSAPI client", StringComparison.Ordinal)).Reason[^_REASON_TAIL_LENGTH..]), partA, StringComparison.OrdinalIgnoreCase);
+		Assert.All(keywords, keyword => Assert.Contains(PartAWordingOf(Assert.Single(declared, entry => entry.Construct.Contains(keyword, StringComparison.Ordinal)).Reason), partA, StringComparison.OrdinalIgnoreCase));
+		Assert.Contains(PartAWordingOf(declared.Single(entry => entry.Construct.StartsWith("a project's own custom authentication helper", StringComparison.Ordinal)).Reason[^_REASON_TAIL_LENGTH..]), partA, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains(PartAWordingOf(declared.Single(entry => entry.Construct.StartsWith("the retired RSAPI client", StringComparison.Ordinal)).Reason[^_REASON_TAIL_LENGTH..]), partA, StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>The text Part A is held to for a declared reason: the pinned wording where Part A words it differently, and the declared reason itself, verbatim, where it does not.</summary>
+	private static string PartAWordingOf(string declaredReason)
+	{
+		return Normalize(_PART_A_WORDING_OF_DECLARED_REASON.GetValueOrDefault(declaredReason, declaredReason));
 	}
 
 	/// <summary>The three entries are written in plain words in Part A: no identifier of a pattern class, of a declared form, and no word of the catalog.</summary>

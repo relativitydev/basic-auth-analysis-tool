@@ -39,7 +39,7 @@ public sealed class JavaScriptPartAProseClaimTests
 		// JS-018: the forms it reads
 		new(_ENVIRONMENT_CLASS, "a template whose only hole is the read", _ENVIRONMENT_CLASS, true, ConfidenceLevel.Low, "await fetch(url, { headers: { Authorization: `${process.env.API_AUTH}` } });\n"),
 		new(_ENVIRONMENT_CLASS, "or an identifier that was assigned from one of these in the same file", _ENVIRONMENT_CLASS, true, ConfidenceLevel.Low, "const authValue = process.env.API_AUTH;\nawait fetch(url, { headers: { Authorization: authValue } });\n"),
-		new(_ENVIRONMENT_CLASS, "`Deno.env.get('NAME')` and `Bun.env.NAME`", _ENVIRONMENT_CLASS, true, ConfidenceLevel.Low, "const h = new Headers({ Authorization: Deno.env.get('API_AUTH') });\n"),
+		new(_ENVIRONMENT_CLASS, "`Deno.env.get('NAME')`, and `Bun.env.NAME`", _ENVIRONMENT_CLASS, true, ConfidenceLevel.Low, "const h = new Headers({ Authorization: Deno.env.get('API_AUTH') });\n"),
 		// JS-018: the forms it does not read
 		new(_ENVIRONMENT_CLASS, "A fallback literal that begins with `Basic` is not this class", _ENVIRONMENT_CLASS, false, ConfidenceLevel.Low, "await fetch(url, { headers: { Authorization: process.env.API_AUTH || 'Basic dXNlcjpwYXNz' } });\n"),
 		new(_ENVIRONMENT_CLASS, "A fallback that begins with `Bearer` is not read", _ENVIRONMENT_CLASS, false, ConfidenceLevel.Low, "await fetch(url, { headers: { Authorization: process.env.API_AUTH || 'Bearer exampleToken' } });\n"),
@@ -57,7 +57,7 @@ public sealed class JavaScriptPartAProseClaimTests
 		new(_HEADER_CLASS, "which is a Basic header written in the code itself", _HEADER_CLASS, true, ConfidenceLevel.High, "await fetch(url, { headers: { Authorization: process.env.API_AUTH || 'Basic dXNlcjpwYXNz' } });\n"),
 		// JS-013: the proxy refusal
 		new(_USERINFO_CLASS, "marks the address as a credential for a proxy and not for the service", _USERINFO_CLASS, false, ConfidenceLevel.Low, "const proxyUrl = 'http://exampleUser:exampleSecret@proxy.example:3128';\n"),
-		new(_USERINFO_CLASS, "an address held under a neutral name is still reported", _USERINFO_CLASS, true, ConfidenceLevel.Medium, "const egressUrl = 'http://exampleUser:exampleSecret@proxy.example:3128';\n")
+		new(_USERINFO_CLASS, "an address held under a neutral name still matches", _USERINFO_CLASS, true, ConfidenceLevel.Medium, "const egressUrl = 'http://exampleUser:exampleSecret@proxy.example:3128';\n")
 	];
 
 	public static TheoryData<int> ClaimIndexes()
@@ -101,7 +101,7 @@ public sealed class JavaScriptPartAProseClaimTests
 		RecognizedConstruct construct = Assert.Single(new JavaScriptRecognitionHarness().Recognize(source), candidate => candidate.PatternClassIdentifier == patternClass);
 
 		Assert.Contains("a concatenation of a literal with code is not literal", partA, StringComparison.Ordinal);
-		Assert.Contains("the match also raises the in-code secret warning", partA, StringComparison.Ordinal);
+		Assert.Contains("the match also holds an in-code secret", partA, StringComparison.Ordinal);
 		Assert.Equal(expectedWarning, construct.LiteralCredentialSignal);
 	}
 

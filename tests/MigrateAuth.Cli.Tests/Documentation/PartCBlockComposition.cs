@@ -26,25 +26,30 @@ internal sealed record PartCBlockKey(string? PatternClassIdentifier, CredentialF
 /// template for: the composer then routes to the language's own text for the flow and to the shared engine's text
 /// only where the language declares none, exactly as it does for a High or Medium finding of an
 /// unrecognized construct. The block is the composed artifact text of that recommendation, preceded by
-/// one generated line that says where to confirm the flow and carries the tool's own flow note for the
-/// flow, so the "how to confirm the flow and the default" element is produced from the tool's constants
-/// and never written by hand.
+/// one generated line that says which flow the entry is for and points to the "Which flow" paragraph of
+/// Part A, and with the OAuth2 Client block of the flow replaced by a link to the one section of Part C that
+/// holds it. Part C also carries two <c>oauth2-client {flow slug}</c> blocks, one per flow, each holding
+/// the engine-owned <see cref="OAuth2ClientConfigurationBlocks"/> text once.
 /// </summary>
 internal static class PartCBlockComposition
 {
 	public const string GENERIC_KEY_PREFIX = "generic";
 	public const string CLIENT_CREDENTIALS_SLUG = "client-credentials";
 	public const string AUTHORIZATION_CODE_SLUG = "authorization-code";
-	public const string CONFIRMING_THE_FLOW_MARKER = "**Confirming the flow.**";
-
-	public const string CONFIRMING_THE_FLOW_ANCHOR = "#confirming-the-flow";
+	public const string FLOW_LEAD_MARKER = "**Flow.**";
+	public const string OAUTH2_CLIENT_KEY_PREFIX = "oauth2-client";
+	public const string CLIENT_CREDENTIALS_SECTION_ANCHOR = "#oauth2-client-for-client-credentials";
+	public const string AUTHORIZATION_CODE_SECTION_ANCHOR = "#oauth2-client-for-authorization-code";
+	public const string CLIENT_CREDENTIALS_SECTION_TITLE = "OAuth2 Client for Client Credentials";
+	public const string AUTHORIZATION_CODE_SECTION_TITLE = "OAuth2 Client for Authorization Code";
 	public const string CLASS_ANCHOR_PREFIX = "#";
 
 	private const char _KEY_SEPARATOR = ' ';
-	private const string _CONFIRMATION_LINE_FORMAT = "{0} {1} See [Confirming the flow]({2}){3}.";
-	private const string _CLIENT_CREDENTIALS_FRAMING_FORMAT = "When no signal in a file decides the flow, the tool assigns Client Credentials, the default, with this note: \"{0}\" A fixed-credential signal assigns it with this note: \"{1}\"";
-	private const string _AUTHORIZATION_CODE_FRAMING_FORMAT = "An interactive-user signal in a file assigns Authorization Code, with this note: \"{0}\" Your user profile can also make Authorization Code the default; see Changing the default in [Confirming the flow]({1}).";
-	private const string _CLASS_CLAUSE_FORMAT = " and the \"Which flow\" paragraph of {0} in [Part A]({1}{2})";
+	private const string _FLOW_LEAD_FORMAT = "{0} This entry is for {1}.{2}";
+	private const string _CLASS_CLAUSE_FORMAT = " The \"Which flow\" paragraph of {0} in [Part A]({1}{2}) says when a match belongs to this flow.";
+	private const string _SECTION_LINK_FORMAT = "{0}: See [{1}]({2}).";
+	private const string _OAUTH2_CLIENT_PIECE_FORMAT = "{0}: {1}";
+	private const string _BLOCK_NOT_FOUND_MESSAGE = "The composed text of the block '{0}' does not contain the OAuth2 Client block of {1}, so it cannot be replaced by a link to its section.";
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 
 	/// <summary>The flows in the order Part C presents them: the default first.</summary>
@@ -124,16 +129,85 @@ internal static class PartCBlockComposition
 		return RecommendationComposer.Compose(CSharpRenderedTexts.Catalog(), language.Language, patternClassIdentifier, key.Flow);
 	}
 
-	/// <summary>The whole content of one generated block of <paramref name="language"/>.</summary>
-	public static string ContentFor(DocumentedLanguage language, string keyText)
+	/// <summary>The key of the Part C block that holds the OAuth2 Client block of a flow.</summary>
+	public static string OAuth2ClientKeyOf(CredentialFlow flow)
 	{
-		PartCBlockKey key = ParseKey(keyText);
-		string composedText = RecommendationComposer.ComposeArtifactText(Composed(language, key))!;
-
-		return string.Join(_PARAGRAPH_SEPARATOR, ConfirmationLine(language, key), composedText);
+		return string.Concat(OAUTH2_CLIENT_KEY_PREFIX, _KEY_SEPARATOR, SlugOf(flow));
 	}
 
-	private static string ConfirmationLine(DocumentedLanguage language, PartCBlockKey key)
+	/// <summary>Whether a block key names an OAuth2 Client section and not a class or generic entry.</summary>
+	public static bool IsOAuth2ClientKey(string keyText)
+	{
+		return keyText.StartsWith(string.Concat(OAUTH2_CLIENT_KEY_PREFIX, _KEY_SEPARATOR), StringComparison.Ordinal);
+	}
+
+	/// <summary>The keys of the two OAuth2 Client section blocks, one per flow.</summary>
+	public static ImmutableArray<string> OAuth2ClientKeys()
+	{
+		return [.. Flows.Select(OAuth2ClientKeyOf)];
+	}
+
+	/// <summary>The flow an OAuth2 Client section key is for.</summary>
+	public static CredentialFlow FlowOfOAuth2ClientKey(string keyText)
+	{
+		return keyText.EndsWith(CLIENT_CREDENTIALS_SLUG, StringComparison.Ordinal) ? CredentialFlow.ClientCredentials : CredentialFlow.AuthorizationCode;
+	}
+
+	/// <summary>The anchor of the section that holds the OAuth2 Client block of a flow.</summary>
+	public static string SectionAnchorOf(CredentialFlow flow)
+	{
+		return flow == CredentialFlow.ClientCredentials ? CLIENT_CREDENTIALS_SECTION_ANCHOR : AUTHORIZATION_CODE_SECTION_ANCHOR;
+	}
+
+	/// <summary>The title of the section that holds the OAuth2 Client block of a flow.</summary>
+	public static string SectionTitleOf(CredentialFlow flow)
+	{
+		return flow == CredentialFlow.ClientCredentials ? CLIENT_CREDENTIALS_SECTION_TITLE : AUTHORIZATION_CODE_SECTION_TITLE;
+	}
+
+	/// <summary>The line an entry carries instead of the OAuth2 Client block: the label and a link to the section of its flow.</summary>
+	public static string SectionLinkOf(CredentialFlow flow)
+	{
+		return string.Format(CultureInfo.InvariantCulture, _SECTION_LINK_FORMAT, RecommendationComposer.OAUTH2_CLIENT_LABEL, SectionTitleOf(flow), SectionAnchorOf(flow));
+	}
+
+	/// <summary>The piece the composer appends to every recommendation: the label and the block of the flow.</summary>
+	public static string OAuth2ClientPieceOf(CredentialFlow flow)
+	{
+		return string.Format(CultureInfo.InvariantCulture, _OAUTH2_CLIENT_PIECE_FORMAT, RecommendationComposer.OAUTH2_CLIENT_LABEL, OAuth2ClientConfigurationBlocks.For(flow));
+	}
+
+	/// <summary>The whole content of one generated block of <paramref name="language"/>: an entry, or the OAuth2 Client block of a flow.</summary>
+	public static string ContentFor(DocumentedLanguage language, string keyText)
+	{
+		string content;
+
+		if (IsOAuth2ClientKey(keyText))
+		{
+			content = OAuth2ClientConfigurationBlocks.For(FlowOfOAuth2ClientKey(keyText));
+		}
+		else
+		{
+			PartCBlockKey key = ParseKey(keyText);
+			string composedText = RecommendationComposer.ComposeArtifactText(Composed(language, key))!;
+
+			content = string.Join(_PARAGRAPH_SEPARATOR, FlowLead(language, key), WithSectionLink(keyText, composedText, key.Flow));
+		}
+
+		return content;
+	}
+
+	/// <summary>The composed text with the OAuth2 Client piece of the flow replaced by the link to its section; throws where the piece is absent.</summary>
+	public static string WithSectionLink(string keyText, string composedText, CredentialFlow flow)
+	{
+		string piece = OAuth2ClientPieceOf(flow);
+
+		return composedText.Contains(piece, StringComparison.Ordinal)
+			? composedText.Replace(piece, SectionLinkOf(flow), StringComparison.Ordinal)
+			: throw new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, _BLOCK_NOT_FOUND_MESSAGE, keyText, flow));
+	}
+
+	private static string FlowLead(DocumentedLanguage language, PartCBlockKey key)
 	{
 		string classClause = key.IsGeneric
 			? string.Empty
@@ -144,31 +218,11 @@ internal static class PartCBlockComposition
 				language.PartAFileName,
 				CLASS_ANCHOR_PREFIX + key.PatternClassIdentifier!.ToLowerInvariant());
 
-		return string.Format(
-			CultureInfo.InvariantCulture,
-			_CONFIRMATION_LINE_FORMAT,
-			CONFIRMING_THE_FLOW_MARKER,
-			FlowNoteOf(key.Flow),
-			CONFIRMING_THE_FLOW_ANCHOR,
-			classClause);
+		return string.Format(CultureInfo.InvariantCulture, _FLOW_LEAD_FORMAT, FLOW_LEAD_MARKER, FlowNameOf(key.Flow), classClause);
 	}
 
-	/// <summary>
-	/// What the tool says for the decisions that assign this flow, quoted from <see cref="FlowNotes"/> and
-	/// framed as the tool's behavior, since an entry in a document has no "this file" to point at.
-	/// </summary>
-	private static string FlowNoteOf(CredentialFlow flow)
+	private static string FlowNameOf(CredentialFlow flow)
 	{
-		return flow == CredentialFlow.ClientCredentials
-			? string.Format(
-				CultureInfo.InvariantCulture,
-				_CLIENT_CREDENTIALS_FRAMING_FORMAT,
-				FlowNotes.DEFAULT_CLIENT_CREDENTIALS_NOTE,
-				FlowNotes.FIXED_SIGNAL_CLIENT_CREDENTIALS_NOTE)
-			: string.Format(
-				CultureInfo.InvariantCulture,
-				_AUTHORIZATION_CODE_FRAMING_FORMAT,
-				FlowNotes.INTERACTIVE_SIGNAL_AUTHORIZATION_CODE_NOTE,
-				CONFIRMING_THE_FLOW_ANCHOR);
+		return flow == CredentialFlow.ClientCredentials ? PublicDocumentChecks.CLIENT_CREDENTIALS_NAME : PublicDocumentChecks.AUTHORIZATION_CODE_NAME;
 	}
 }

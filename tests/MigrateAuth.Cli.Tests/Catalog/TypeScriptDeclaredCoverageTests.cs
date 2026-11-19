@@ -22,9 +22,9 @@ public sealed class TypeScriptDeclaredCoverageTests
 {
 	private const string _LANGUAGE_NAME = "TypeScript";
 	private const int _TYPESCRIPT_ONLY_ENTRY_COUNT = 32;
-	private const int _ADAPTED_ENTRY_COUNT = 11;
+	private const int _ADAPTED_ENTRY_COUNT = 12;
 	private const int _ADAPTED_CATALOG_ENTRY_COUNT = 7;
-	private const int _JAVASCRIPT_ONLY_ENTRY_COUNT = 1;
+	private const int _JAVASCRIPT_ONLY_ENTRY_COUNT = 3;
 	private const int _OT_ENTRY_COUNT = 39;
 	private const int _OT_COST_ENTRY_COUNT = 19;
 	private const string _SETTINGS_PROPERTY_PATTERN_CLASS = "JS-019";
@@ -54,7 +54,7 @@ public sealed class TypeScriptDeclaredCoverageTests
 		("OT-19", "an identifier value in an Angular Authorization object"),
 		("OT-20", "inbound Basic Authentication"),
 		("OT-21", "Relativity-published TypeScript client"),
-		("OT-22", "a typed credential object whose type name the tool does not know"),
+		("OT-22", "a typed credential object whose type name is not known"),
 		("OT-23", "Angular and NestJS API names not read"),
 		("OT-24", "an injected client as the receiver of a callee-anchored class"),
 		("OT-25", "an environment read with a TypeScript tail"),
@@ -65,7 +65,7 @@ public sealed class TypeScriptDeclaredCoverageTests
 		("OT-30", "a typed declaration whose name denotes a proxy"),
 		("OT-31", "a credential literal followed by a TypeScript tail"),
 		("OT-32", "a generic call read in JavaScript text"),
-		("OT-33", "a header-object finding lost on JavaScript text"),
+		("OT-33", "a header-object match lost on JavaScript text"),
 		("OT-34", "an Angular HttpClient or another client injected under a name that contains http"),
 		("OT-35", "a property of a settings interface, type or class"),
 		("OT-36", "read by bracket access"),
@@ -108,7 +108,7 @@ public sealed class TypeScriptDeclaredCoverageTests
 		DeclaredUnsupportedCoverage[] javaScript = [.. JavaScriptDeclared];
 
 		Assert.Equal(_ADAPTED_ENTRY_COUNT, TypeScriptInternalHooks.AdaptedEntries.Length);
-		Assert.Single(TypeScriptInternalHooks.JavaScriptOnlyConstructStarts);
+		Assert.Equal(_JAVASCRIPT_ONLY_ENTRY_COUNT, TypeScriptInternalHooks.JavaScriptOnlyConstructStarts.Length);
 		Assert.All(
 			TypeScriptInternalHooks.AdaptedEntries,
 			adapted => Assert.Single(javaScript, entry => entry.Construct.StartsWith(adapted.JavaScriptConstructStart, StringComparison.Ordinal)));
@@ -119,11 +119,12 @@ public sealed class TypeScriptDeclaredCoverageTests
 	}
 
 	[Fact]
-	public void TheJavaScriptOnlyEntryIsTheHtmlLikeCommentAndIsNotCarriedByTypeScript()
+	public void TheJavaScriptOnlyEntriesAreTheHtmlLikeCommentAndTheTwoJavaScriptTextReadsAndAreNotCarriedByTypeScript()
 	{
-		string start = Assert.Single(TypeScriptInternalHooks.JavaScriptOnlyConstructStarts);
-
-		Assert.StartsWith("HTML-like comments", start, StringComparison.Ordinal);
+		Assert.Equal(_JAVASCRIPT_ONLY_ENTRY_COUNT, TypeScriptInternalHooks.JavaScriptOnlyConstructStarts.Length);
+		Assert.Single(TypeScriptInternalHooks.JavaScriptOnlyConstructStarts, start => start.StartsWith("HTML-like comments", StringComparison.Ordinal));
+		Assert.Single(TypeScriptInternalHooks.JavaScriptOnlyConstructStarts, start => start.StartsWith("a tight comparison chain or a Flow explicit type argument", StringComparison.Ordinal));
+		Assert.Single(TypeScriptInternalHooks.JavaScriptOnlyConstructStarts, start => start.StartsWith("a header-object match lost on a Basic literal that carries a refused tail", StringComparison.Ordinal));
 		Assert.DoesNotContain(Declared, entry => entry.Construct.StartsWith("HTML-like comments", StringComparison.Ordinal));
 	}
 
@@ -211,7 +212,7 @@ public sealed class TypeScriptDeclaredCoverageTests
 	public void TheEntryOfTheReceiverNamedHttpThatIsNotAnHttpServiceCarriesTheSignedConstructAndReasonAndIsListedOnce()
 	{
 		const string construct = "an Angular HttpClient or another client injected under a name that contains http, given an auth object with a username and a password, which is read as a call on the NestJS HttpService";
-		const string reason = "the receiver is recognised by its name, because no page documents a naming convention for the injected service; such a call is reported at the High level although the client may not send Basic Authentication, so review each one before acting";
+		const string reason = "the receiver is recognised by its name, because no page documents a naming convention for the injected service; such a call is given the High level although the client may not send Basic Authentication, so review each one before acting";
 
 		DeclaredUnsupportedCoverage entry = Assert.Single(Declared, candidate => candidate.Construct == construct);
 

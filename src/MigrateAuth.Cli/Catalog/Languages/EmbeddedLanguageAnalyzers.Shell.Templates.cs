@@ -26,21 +26,18 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// </summary>
 internal static class ShellRecommendationTemplates
 {
-	private const string _APPLIES_TO_ALL_SHELLS = "**Applies to:** `bash`, `sh`, `zsh` and `ksh`";
+	private const string _APPLIES_TO_ALL_SHELLS = "**Applies to:** `bash`, `zsh`, `ksh93` and `mksh` (and `sh`, read as `bash`)";
 
 	private const string _DESTINATION_QUESTION =
-		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — this finding is informational and the rest of this template does not apply.";
+		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — no migration to RelativityOne applies and the rest of this entry does not apply.";
 
 	private const string _TOKEN_LIFETIME = "**A token has a finite lifetime.**";
 
 	private const string _ROUTE_BY_DESTINATION =
-		"**Where the credentials come from.** The text establishes that a credential is sent as Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, this finding is informational for this tool, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and the user name and password are replaced by the OAuth2 Client's client ID and secret.";
+		"**Where the credentials come from.** The text establishes that a credential is sent as Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, no migration to RelativityOne applies, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and the user name and password are replaced by the OAuth2 Client's client ID and secret.";
 
 	private const string _BEARER_FROM_HEADER_FILE_CALL =
 		"curl --silent --show-error --fail -H @\"${HEADER_FILE}\" \"${HOST}/Relativity.REST/api/...\"";
-
-	private const string _BEARER_FROM_VARIABLE_CALL =
-		"curl --silent --show-error --fail -H \"Authorization: Bearer ${ACCESS_TOKEN}\" -H \"X-CSRF-Header: -\" \"${HOST}/Relativity.REST/api/...\"";
 
 	private const string _FENCE_SH_OPEN = "```sh\n";
 	private const string _FENCE_BASH_OPEN = "```bash\n";
@@ -48,11 +45,11 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>The Client Credentials generic fallback prose for a `Shell` finding, with the secret-handling sentence naming the Part B pointer.</summary>
 	public const string SHELL_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, Relativity's identity endpoint does not issue tokens for it: the migration is that service's own, and this finding is informational. If the destination is RelativityOne, Basic Authentication is no longer documented for its REST API. The documented destination in a shell script is a bearer `Authorization` header sent by an HTTP client such as `curl`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant. The client ID and secret that obtain that token belong in a file created under `umask 077` or in the operating system's keychain, per " + SecretManagementPointer.PART_B_NAME + ", and never in the script, in a tracked `.env` file or on a command line, which in a shell estate includes `.netrc` and `.wgetrc`. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, Relativity's identity endpoint does not issue tokens for it: the migration is that service's own, and no migration to RelativityOne applies. If the destination is RelativityOne, Basic Authentication is no longer documented for its REST API. The documented destination in a shell script is a bearer `Authorization` header sent by an HTTP client such as `curl`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant. The client ID and secret that obtain that token belong in a file created under `umask 077` or in the operating system's keychain, per " + SecretManagementPointer.PART_B_NAME + ", and never in the script, in a tracked `.env` file, in `.netrc` or `.wgetrc`, or on a command line. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>The Authorization Code generic fallback prose for a `Shell` finding.</summary>
 	public const string SHELL_CODE_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, Relativity's identity endpoint does not issue tokens for it: the migration is that service's own, and this finding is informational. If the destination is RelativityOne, Basic Authentication is no longer documented for its REST API, and this finding is assigned the Authorization Code flow, in which the script sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. A shell has no listener of its own, so the simplest way to receive the code is for the person to copy the address the browser ends on after signing in and paste it to the script. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in a file created under `umask 077` or in the keychain, per " + SecretManagementPointer.PART_B_NAME + ", and never in the script or on a command line; Code requires a client secret. After the change the script no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, Relativity's identity endpoint does not issue tokens for it: the migration is that service's own, and no migration to RelativityOne applies. If the destination is RelativityOne, Basic Authentication is no longer documented for its REST API, and this match is assigned the Authorization Code flow, in which the script sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. A shell has no listener of its own, so the simplest way to receive the code is for the person to copy the address the browser ends on after signing in and paste it to the script. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in a file created under `umask 077` or in the keychain, per " + SecretManagementPointer.PART_B_NAME + ", and never in the script or on a command line; Code requires a client secret. After the change the script no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>The block that acquires a Client Credentials token: a function and one call of it.</summary>
 	public const string CLIENT_CREDENTIALS_ACQUIRE_BLOCK =
@@ -81,10 +78,10 @@ internal static class ShellRecommendationTemplates
 		+ "**Use the token without putting it on the command line.**\n\n"
 		+ _FENCE_SH_OPEN + CLIENT_CREDENTIALS_USE_BLOCK + _FENCE_CLOSE + "\n\n"
 		+ "`curl -H @FILE` sends the header lines of a file (*checked by NSerio locally* on `curl` 8.17.0 and 7.81.0; documented from `curl` 7.55). A token in `-H \"Authorization: Bearer $TOKEN\"` is visible to every user of the machine in `ps` while the command runs, so the file form is the recommended one for a shared host.\n\n"
-		+ "**Cache the token, and re-acquire it on expiry — do not refresh.** Keep the token for its lifetime (part 3 recommends 60 minutes, Relativity's own wording) and request a new one with the client secret when it expires or a call is rejected for authentication. Client Credentials offers no refresh tokens: **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "** — the Allow Refresh Tokens control does not appear for this grant in the RelativityOne user interface. Relativity's own tables and text on refresh tokens conflict with each other, so re-acquisition with the secret is the advice that holds whichever way they are read. A script that runs for longer than the token's lifetime must acquire again, not hold the first token.\n\n"
+		+ "**Cache the token, and re-acquire it on expiry — do not refresh.** Keep the token for its lifetime (part 3 recommends 60 minutes, Relativity's own wording) and request a new one with the client secret shortly before it expires (a margin of 60 seconds is reasonable) and once when a call is rejected for authentication. Client Credentials offers no refresh tokens: **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "** — the Allow Refresh Tokens control does not appear for this grant in the RelativityOne user interface. Relativity's own tables and text on refresh tokens conflict with each other, so re-acquisition with the secret is the advice that holds whichever way they are read. A script that runs for longer than the token's lifetime must acquire again, not hold the first token.\n\n"
 		+ "**The client secret.** It is displayed once, at creation or reset. Store it as " + SecretManagementPointer.PART_B_NAME + " describes; in a shell estate that means **a file created under `umask 077`** or the operating system's keychain, **never in the script, never in a tracked `.env` file, and never exported to child processes**. A reset invalidates the previous secret immediately, so plan the cut-over before resetting it.\n\n"
 		+ "**Before deploying, confirm the calling identity.** Every call now runs as the OAuth2 Client's **Context User**, not as the user in the replaced credential. If that user has different workspace permissions or item-level security, the script returns fewer rows or `Unauthorized` in production with no change to its logic, and Relativity's audit attributes every call to that one account. Confirm the Context User's permissions match those of the previous identity.\n\n"
-		+ "**When the script acts for a signed-in user.** Client Credentials is one service identity by construction. A script that prompts a person for a password and sends it is the Authorization Code case, and moving to it means a new OAuth2 Client, because the flow is fixed when a client is created. The finding's flow note says when to make that choice.";
+		+ "**When the script acts for a signed-in user.** Client Credentials is one service identity by construction. A script that prompts a person for a password and sends it is the Authorization Code case, and moving to it means a new OAuth2 Client, because the flow is fixed when a client is created. Which of the two flows applies depends on who supplies the credential at run time.";
 
 	/// <summary>The block that makes the code verifier, its challenge and the state value.</summary>
 	public const string AUTHORIZATION_CODE_PKCE_BLOCK =
@@ -135,14 +132,16 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>The block that exchanges the code for an access token.</summary>
 	public const string AUTHORIZATION_CODE_EXCHANGE_BLOCK =
-		"token_response=$(curl --silent --show-error --fail \\\n"
-		+ "\t--data \"grant_type=authorization_code\" \\\n"
-		+ "\t--data \"code=${returned_code}\" \\\n"
-		+ "\t--data-urlencode \"redirect_uri=${REDIRECT_URI}\" \\\n"
-		+ "\t--data-urlencode \"client_id=${CLIENT_ID}\" \\\n"
-		+ "\t--data-urlencode \"code_verifier=${code_verifier}\" \\\n"
-		+ "\t--data-urlencode \"client_secret@${CLIENT_SECRET_FILE}\" \\\n"
-		+ "\t\"${HOST}/Relativity/Identity/connect/token\")\n"
+			"# The code and the verifier travel on standard input, never on a command line; printf is a built-in and does not appear in ps.\n"
+			+ "token_response=$(printf '%s\\n' \\\n"
+			+ "\t\t\"data = \\\"grant_type=authorization_code\\\"\" \\\n"
+			+ "\t\t\"data = \\\"code=${returned_code}\\\"\" \\\n"
+			+ "\t\t\"data-urlencode = \\\"redirect_uri=${REDIRECT_URI}\\\"\" \\\n"
+			+ "\t\t\"data-urlencode = \\\"client_id=${CLIENT_ID}\\\"\" \\\n"
+			+ "\t\t\"data-urlencode = \\\"code_verifier=${code_verifier}\\\"\" \\\n"
+			+ "\t\t\"data-urlencode = \\\"client_secret@${CLIENT_SECRET_FILE}\\\"\" \\\n"
+			+ "\t| curl --silent --show-error --fail -K - \\\n"
+			+ "\t\t\"${HOST}/Relativity/Identity/connect/token\")\n"
 		+ "ACCESS_TOKEN=$(printf '%s' \"${token_response}\" | jq -r '.access_token')";
 
 	/// <summary>Part 2 for Authorization Code: the common part and both variants. Appended to every class's credential-provenance share for an Authorization Code finding.</summary>
@@ -155,17 +154,17 @@ internal static class ShellRecommendationTemplates
 		+ "**Receive the code, by the manual copy (primary).** The browser returns to the Redirect URL registered on the OAuth2 Client with the authorization code and the `state` value. **The script prints the authorize address and the person opens it in any browser; when nothing listens at the registered loopback address the browser shows a connection error and leaves the full address, with `code` and `state`, in its address bar; the person copies that address and pastes it to the script.** This works headless, over SSH, on Linux and macOS, and needs no listener (NSerio recommendation; the browser's behaviour on an unreachable loopback address is *inferred* and has not been checked). The Redirect URL must still be exactly the one registered.\n\n"
 		+ _FENCE_SH_OPEN + AUTHORIZATION_CODE_AUTHORIZE_BLOCK + _FENCE_CLOSE + "\n\n"
 		+ _FENCE_SH_OPEN + AUTHORIZATION_CODE_PARSE_BLOCK + _FENCE_CLOSE + "\n\n"
-		+ "The percent-encoding function and the address parsing give the same output in `bash`, `dash`, `zsh`, `ksh93` and `mksh` (*checked by NSerio locally*). **Check the `state` before using the code.** The code is already percent-encoded in the pasted address, so it is sent with `--data` below and not encoded again.\n\n"
+		+ "The percent-encoding function and the address parsing give the same output in `bash`, `dash`, `zsh`, `ksh93` and `mksh` (*checked by NSerio locally*). **Check the `state` before using the code.** The code is already percent-encoded in the pasted address, so it is sent with `data` (not `data-urlencode`) below and not encoded again. The block passes the code and the verifier to `curl` as a configuration on standard input (`-K -`), so neither appears on the command line of `curl`; `printf` is a shell built-in and its arguments do not appear in `ps` either.\n\n"
 		+ "**Exchange the code.** Send a form-encoded `POST` to `<host>/Relativity/Identity/connect/token` with `grant_type=authorization_code`, the `code`, the same `redirect_uri`, the `client_id` and the `client_secret`, plus the `code_verifier` when PKCE is used. The code is exchanged at that endpoint, which Relativity documents for the Client Credentials grant only; the exchange is **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**.\n\n"
 		+ _FENCE_SH_OPEN + AUTHORIZATION_CODE_EXCHANGE_BLOCK + _FENCE_CLOSE + "\n\n"
 		+ "**Use the token.** Send `Authorization: Bearer <access token>` — the change at the use site above — with `X-CSRF-Header: -` on REST and Kepler calls, from a header file as for Client Credentials: `( umask 077; printf 'Authorization: Bearer %s\\nX-CSRF-Header: -\\n' \"${ACCESS_TOKEN}\" > \"${HEADER_FILE}\" )`, then `curl -H @\"${HEADER_FILE}\"`.\n\n"
-		+ "**On expiry.** With Allow Refresh Tokens enabled on the OAuth2 Client and PKCE used, the script holds a refresh token and, when the access token expires, sends a `grant_type=refresh_token` request with it and the client credentials in place of the code exchange — *inferred* from the standard OAuth shape, not tested. Without a refresh token the person signs in again. Relativity does not document a refresh token's lifetime, whether it rotates, how it is revoked, or whether a revocation endpoint exists. **A refresh token is a secret:** keep it in a file created under `umask 077` or in the keychain, never on a command line.\n\n"
+		+ "**On expiry.** With Allow Refresh Tokens enabled on the OAuth2 Client and PKCE used, the script holds a refresh token and, when the access token expires, sends a `grant_type=refresh_token` request with it and the client credentials in place of the code exchange — *inferred* from the standard OAuth shape, not tested. Without a refresh token the person signs in again. Relativity does not document a refresh token's lifetime, whether it rotates, how it is revoked, whether a revocation endpoint exists, or what revoking it does to access tokens already issued. **A refresh token is a secret:** keep it in a file created under `umask 077` or in the keychain, never on a command line.\n\n"
 		+ "**Scope.** No scope set is prescribed for Code. The scope `openid RelativityRequestOrigin UserInfo UserInfoAccess AuthenticationID RelativityWeb` works, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, verified as working and not as minimal. `state` is sent as standard OAuth practice and `nonce` is not used; Relativity does not document whether it enforces either.\n\n"
 		+ "**The script stops collecting the password.** After this change the script never receives, stores or forwards the user's user name and password: the user signs in on RelativityOne's own page, and the script holds only tokens. Remove the `read` that prompts for the password, the `stty -echo` around it and any storage of the password the replaced code needed.\n\n"
 		+ "**Single sign-on.** Sign-in happens on RelativityOne's own login page, so the instance's single sign-on and two-factor rules apply unchanged — *inferred* from where the sign-in happens, and not documented for clients that customers create.\n\n"
 		+ "**The client secret is required.** Code does not work without a client secret: tested and rejected, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, which confirms Relativity's own statement that the grant requires one. **A script is plain text, so a secret shipped inside a distributed script can be read by anyone who holds the script**; it protects nothing against the person running it. Store it as " + SecretManagementPointer.PART_B_NAME + " describes, in a file with the person's own permissions (`umask 077`) or in the keychain, and apply the compensating guidance below.\n\n"
 		+ "**Loopback listener variant (optional, per system).** A shell has no HTTP listener of its own. Where a script runs on a machine with a browser and a registered fixed-port loopback Redirect URL `http://127.0.0.1:<port>/<path>` — a plain-HTTP loopback URL is accepted, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "** — it can start `nc` or `socat` bound to `127.0.0.1` only, for one request, to read the request line `GET /<path>?code=…&state=… HTTP/1.1` and answer with a short page: on Linux the OpenBSD `nc` does it with `nc -l 127.0.0.1 PORT` (*checked by NSerio locally*); the options differ between OpenBSD, BSD and macOS, GNU and traditional `nc` and `ncat`, and `socat`, and those have not been checked. Bind to loopback only, check the `state` (another local process can connect to the port), and fall back to the manual copy when the tool is missing or the machine is headless.\n\n"
-		+ "**Compensating guidance** (NSerio recommendation, subject to your own security policy): set Trusted IPs where the users' outbound addresses are known and stable — they restrict where a token can be *requested* — use the recommended short Access Token Lifetime of 60 minutes, enable refresh tokens only when needed, and create one OAuth2 Client per distribution, so a leaked secret can be disabled without affecting the others. **A known issue.** Relativity documents no recommendation for a distributed script or desktop application; this design is what NSerio verified works.";
+		+ "**Compensating guidance** (NSerio recommendation, subject to your own security policy): set Trusted IPs where the users' outbound addresses are known and stable — they restrict where a token can be *requested* — use the recommended short Access Token Lifetime of 60 minutes, enable refresh tokens only when needed, and create one OAuth2 Client per distribution, so a leaked secret can be disabled without affecting the others. **A documentation gap.** Relativity documents no recommendation for a distributed script or desktop application; this design is what NSerio verified works.";
 
 	/// <summary>SH-001 generic source form.</summary>
 	public const string SH_001_SOURCE_FORM =
@@ -178,16 +177,16 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-001 class share of the credential provenance.</summary>
 	public const string SH_001_CREDENTIAL_PROVENANCE =
-		"**Where the credentials come from.** The command line establishes that a client sends Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, this finding is informational for this tool, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and `API_USER` and `API_PASSWORD` are replaced by the OAuth2 Client's client ID and secret.";
+		"**Where the credentials come from.** The command line establishes that a client sends Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, no migration to RelativityOne applies, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and `API_USER` and `API_PASSWORD` are replaced by the OAuth2 Client's client ID and secret.";
 
 	/// <summary>SH-001 verification note.</summary>
 	public const string SH_001_VERIFICATION_NOTE =
-		"**Verification note — three things, and the first can break working code.** " + _TOKEN_LIFETIME + " A script that obtains the token once and keeps it fails authentication after it expires; acquire again within the lifetime. **The identity changes**: calls run as the OAuth2 Client's Context User. **A value that is `-u \"$CREDS\"` or built from several variables** may hold a user name and a password, or a user name only (`curl` then prompts): after the change the prompt, if any, is gone. **Other uses may not appear as findings**: a `curl` called through a wrapper function with arguments, or through a name reached by indirection, is not read; one called through a same-file alias or command variable is.";
+		"**Verification note — three things, and the first can break working code.** " + _TOKEN_LIFETIME + " A script that obtains the token once and keeps it fails authentication after it expires; acquire again within the lifetime. **The identity changes**: calls run as the OAuth2 Client's Context User. **A value that is `-u \"$CREDS\"` or built from several variables** may hold a user name and a password, or a user name only (`curl` then prompts): after the change the prompt, if any, is gone. **Other uses may not appear as matches**: a `curl` inside a wrapper function is read only at a call that passes a literal credential, and a call that passes variables yields no match; a `curl` called through a name reached by indirection is not read; one called through a same-file alias or command variable is.";
 
 	/// <summary>SH-002 generic source form.</summary>
 	public const string SH_002_SOURCE_FORM =
 		_APPLIES_TO_ALL_SHELLS + "; `curl`.\n\n"
-		+ _FENCE_SH_OPEN + "curl --silent --show-error -u \"${API_USER}\" \"${HOST}/Relativity.REST/api/...\"" + _FENCE_CLOSE;
+		+ _FENCE_SH_OPEN + "curl --silent --show-error -u user \"${HOST}/Relativity.REST/api/...\"" + _FENCE_CLOSE;
 
 	/// <summary>SH-002 target form under token authentication.</summary>
 	public const string SH_002_TARGET_FORM =
@@ -195,7 +194,7 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-002 class share of the credential provenance.</summary>
 	public const string SH_002_CREDENTIAL_PROVENANCE =
-		_ROUTE_BY_DESTINATION + " **Because a person types the password, this construct is also interactive flow evidence**: the finding is assigned the Authorization Code flow, in which the person signs in on RelativityOne's page.";
+		_ROUTE_BY_DESTINATION + " **Because a person types the password, this construct is also interactive flow evidence**: the match is assigned the Authorization Code flow, in which the person signs in on RelativityOne's page.";
 
 	/// <summary>SH-002 verification note.</summary>
 	public const string SH_002_VERIFICATION_NOTE =
@@ -208,7 +207,7 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-003 target form under token authentication.</summary>
 	public const string SH_003_TARGET_FORM =
-		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + _BEARER_FROM_VARIABLE_CALL + _FENCE_CLOSE + "\n\nFor `wget`: `--header=\"Authorization: Bearer ${ACCESS_TOKEN}\" --header=\"X-CSRF-Header: -\"`. Remove the code that encoded the user name and password.";
+		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + CLIENT_CREDENTIALS_USE_BLOCK + _FENCE_CLOSE + "\n\nwhere `HEADER_FILE` is created under `umask 077` and holds `Authorization: Bearer <access token>` and `X-CSRF-Header: -`, so the token is not on the command line (see the token acquisition below). `wget` has no `-H @FILE` form: `--header=\"Authorization: Bearer ${ACCESS_TOKEN}\"` puts the token on the command line, so use `curl` for this call. Remove the code that encoded the user name and password.";
 
 	/// <summary>SH-003 class share of the credential provenance.</summary>
 	public const string SH_003_CREDENTIAL_PROVENANCE =
@@ -216,7 +215,7 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-003 verification note.</summary>
 	public const string SH_003_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **The scheme word changes from `Basic` to `Bearer`**: a `Bearer` header is not read by this tool again. On a shared host prefer `-H @FILE` to a token on the command line, because a token on the command line is visible in `ps` while the command runs.";
+		"**Verification note.** " + _TOKEN_LIFETIME + " **The scheme word changes from `Basic` to `Bearer`**: a `Bearer` header is not matched again. The header file keeps the token off the command line, where it would be visible in `ps` while the command runs.";
 
 	/// <summary>SH-004 generic source form.</summary>
 	public const string SH_004_SOURCE_FORM =
@@ -261,11 +260,11 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-006 class share of the credential provenance.</summary>
 	public const string SH_006_CREDENTIAL_PROVENANCE =
-		"**Where the credentials come from.** The `.netrc` entry holds the Basic credential this finding cannot see. If the destination is RelativityOne, replace it by the token of the token-acquisition part that follows, and delete the entry.";
+		"**Where the credentials come from.** The `.netrc` entry holds the Basic credential this match cannot see. If the destination is RelativityOne, replace it by the token of the token-acquisition part that follows, and delete the entry.";
 
 	/// <summary>SH-006 verification note.</summary>
 	public const string SH_006_VERIFICATION_NOTE =
-		"**Verification note.** **The tool did not read the `.netrc` file**, so whether it holds a credential for RelativityOne is for the reader to check; `--netrc-optional` may find none. " + _TOKEN_LIFETIME;
+		"**Verification note.** **The `.netrc` file is not read**, so whether it holds a credential for RelativityOne is for the reader to check; `--netrc-optional` may find none. " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-007 generic source form.</summary>
 	public const string SH_007_SOURCE_FORM =
@@ -274,14 +273,14 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-007 target form under token authentication.</summary>
 	public const string SH_007_TARGET_FORM =
-		_DESTINATION_QUESTION + " **If the encoded pair is not a credential** (an identifier and a version, for example; a host and a port is not read), this finding is a false positive and nothing changes.\n\nRemove the encoding and send the token: `-H \"Authorization: Bearer ${ACCESS_TOKEN}\"`, as for a header that names the scheme.";
+		_DESTINATION_QUESTION + " **If the encoded pair is not a credential** (an identifier and a version, for example; a host and a port is not read), this match is a false positive and nothing changes.\n\nRemove the encoding and send the token from a header file: `-H @\"${HEADER_FILE}\"`, as in the target form for a header that names the scheme. The here-string form (`<<<`) that some scripts use to feed the pair to the encoder is supported by `bash`, `zsh`, `ksh93` and `mksh` (and by `sh`, read as `bash`) and not by POSIX `sh`; a script that must run under POSIX `sh` pipes the text instead. A token written as `-H \"Authorization: Bearer ...\"` is visible in `ps` while the command runs.";
 
 	/// <summary>SH-007 class share of the credential provenance.</summary>
 	public const string SH_007_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-007 verification note.</summary>
 	public const string SH_007_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw an encoded colon pair that a client command uses, not the header's scheme**: follow `ENCODED` to where it is sent and change that use too; a header that names the scheme is reported separately as a Basic header. " + _TOKEN_LIFETIME;
+		"**Verification note.** **What is matched is an encoded colon pair that a client command uses, not the header's scheme**: follow `ENCODED` to where it is sent and change that use too; a header that names the scheme is a different case, and is matched as a Basic header of its own. " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-008 generic source form.</summary>
 	public const string SH_008_SOURCE_FORM =
@@ -297,23 +296,23 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-008 verification note.</summary>
 	public const string SH_008_VERIFICATION_NOTE =
-		"**Verification note.** **Other uses of the variable beyond thirty lines, or in another file, are not tracked**: change every place that sends it. " + _TOKEN_LIFETIME;
+		"**Verification note.** **Other uses of the variable beyond thirty lines, or in another file, are not tracked**: change every place that sends it. A token in `-H \"Authorization: Bearer ...\"` is visible in `ps` while the command runs, so on a shared host send it with `-H @FILE` (see the token acquisition below). " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-009 generic source form.</summary>
 	public const string SH_009_SOURCE_FORM =
-		"**Applies to:** **`bash`, `zsh` and `ksh` only** (POSIX `sh` has no arrays); `curl`, `wget`.\n\n"
+		"**Applies to:** **`bash`, `zsh`, `ksh93` and `mksh` only** (POSIX `sh` has no arrays); `curl`, `wget`.\n\n"
 		+ _FENCE_BASH_OPEN + "options=(-sS -u \"${API_USER}:${API_PASSWORD}\")\ncurl \"${options[@]}\" \"${HOST}/Relativity.REST/api/...\"" + _FENCE_CLOSE;
 
 	/// <summary>SH-009 target form under token authentication.</summary>
 	public const string SH_009_TARGET_FORM =
-		_DESTINATION_QUESTION + "\n\n" + _FENCE_BASH_OPEN + "options=(-sS --fail -H \"Authorization: Bearer ${ACCESS_TOKEN}\" -H \"X-CSRF-Header: -\")\ncurl \"${options[@]}\" \"${HOST}/Relativity.REST/api/...\"" + _FENCE_CLOSE;
+		_DESTINATION_QUESTION + "\n\n" + _FENCE_BASH_OPEN + "( umask 077; printf 'Authorization: Bearer %s\\nX-CSRF-Header: -\\n' \"${ACCESS_TOKEN}\" > \"${HEADER_FILE}\" )\noptions=(-sS --fail -H @\"${HEADER_FILE}\")\ncurl \"${options[@]}\" \"${HOST}/Relativity.REST/api/...\"" + _FENCE_CLOSE + "\n\nwhere `HEADER_FILE` holds `Authorization: Bearer <access token>` and `X-CSRF-Header: -` (see the token acquisition below). Remove the credential option from the array.";
 
 	/// <summary>SH-009 class share of the credential provenance.</summary>
 	public const string SH_009_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-009 verification note.</summary>
 	public const string SH_009_VERIFICATION_NOTE =
-		"**Verification note.** **The tool read the array (appends and associative arrays included) and a later use within thirty lines**; an array built in another file, reached by a name reference or used beyond thirty lines is not read, so look for the other places the same options are used. " + _TOKEN_LIFETIME;
+		"**Verification note.** **The array (appends and associative arrays included) and a later use within thirty lines are read**; an array built in another file, reached by a name reference or used beyond thirty lines is not read, so look for the other places the same options are used. A token in `-H \"Authorization: Bearer ...\"` is visible in `ps` while the command runs, so on a shared host send it with `-H @FILE` (see the token acquisition below). " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-010 generic source form.</summary>
 	public const string SH_010_SOURCE_FORM =
@@ -322,14 +321,14 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-010 target form under token authentication.</summary>
 	public const string SH_010_TARGET_FORM =
-		_DESTINATION_QUESTION + " **If the URL is another service's, this finding is a false positive** (a git remote used by `git` is not read).\n\n" + _FENCE_SH_OPEN + "API_URL=\"https://host.example/Relativity.REST/api\"" + _FENCE_CLOSE + "\n\nand send the token as for a header that names the scheme.";
+		_DESTINATION_QUESTION + " **If the URL is another service's, this match is a false positive** (a git remote used by `git` is not read).\n\n" + _FENCE_SH_OPEN + "API_URL=\"https://host.example/Relativity.REST/api\"" + _FENCE_CLOSE + "\n\nand send the token with `-H @\"${HEADER_FILE}\"`, as in the target form for a header that names the scheme.";
 
 	/// <summary>SH-010 class share of the credential provenance.</summary>
 	public const string SH_010_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-010 verification note.</summary>
 	public const string SH_010_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw a covered client use the variable within thirty lines**; change that call and any other that uses the URL. **A URL with userinfo may already be in logs**: rotate the credential. " + _TOKEN_LIFETIME;
+		"**Verification note.** **A covered client use of the variable within thirty lines is read**; change that call and any other that uses the URL. **A URL with userinfo may already be in logs**: rotate the credential. " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-013 generic source form.</summary>
 	public const string SH_013_SOURCE_FORM =
@@ -338,14 +337,14 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-013 target form under token authentication.</summary>
 	public const string SH_013_TARGET_FORM =
-		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + "http --check-status GET \"${HOST}/Relativity.REST/api/...\" \"Authorization:Bearer ${ACCESS_TOKEN}\" \"X-CSRF-Header:-\"" + _FENCE_CLOSE + "\n\nRemove `-a`, `--auth`, `-A` and any userinfo in the URL.";
+		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + "http --check-status GET \"${HOST}/Relativity.REST/api/...\" \"Authorization:Bearer ${ACCESS_TOKEN}\" \"X-CSRF-Header:-\"" + _FENCE_CLOSE + "\n\nRemove `-a`, `--auth`, `-A` and any userinfo in the URL. This form puts the token on the command line, where it is visible in `ps` while the command runs; on a shared host use `curl` with `-H @FILE` for this call.";
 
 	/// <summary>SH-013 class share of the credential provenance.</summary>
 	public const string SH_013_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-013 verification note.</summary>
 	public const string SH_013_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " HTTPie has no `-H @FILE` form, so a token on the command line is visible in `ps` while the command runs: on a shared host use `curl` with `-H @FILE` for this call. **A prompt** (`--auth USER` with no password) is interactive flow evidence, and the finding is then assigned the Authorization Code flow, in which the person signs in on RelativityOne's page. **The target form was syntax-checked and not run: HTTPie has not been installed where this text was checked.**";
+		"**Verification note.** " + _TOKEN_LIFETIME + " The HTTPie form given sends the token as an argument, and an argument is visible in `ps` while the command runs; this text does not give an HTTPie form that reads the header from a file, and does not claim that none exists. **A prompt** (`--auth USER` with no password) is interactive flow evidence, and the match is then assigned the Authorization Code flow, in which the person signs in on RelativityOne's page. **The target form was syntax-checked and not run: HTTPie has not been installed where this text was checked.**";
 
 	/// <summary>SH-014 generic source form.</summary>
 	public const string SH_014_SOURCE_FORM =
@@ -381,19 +380,19 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-018 generic source form.</summary>
 	public const string SH_018_SOURCE_FORM =
-		"**Applies to:** `bash` (the `/dev/tcp` form), `sh`, `zsh` and `ksh` (the `nc`, `socat` and `openssl s_client` forms).\n\n"
+		"**Applies to:** `bash` and `ksh93` (the `/dev/tcp` form); `bash`, `zsh`, `ksh93` and `mksh`, and `sh` read as `bash` (the `nc`, `socat` and `openssl s_client` forms).\n\n"
 		+ _FENCE_BASH_OPEN + "exec 3<>/dev/tcp/host.example/80\nprintf 'GET /api/ HTTP/1.1\\r\\nHost: host.example\\r\\nAuthorization: Basic %s\\r\\n\\r\\n' \"${ENCODED}\" >&3" + _FENCE_CLOSE;
 
 	/// <summary>SH-018 target form under token authentication.</summary>
 	public const string SH_018_TARGET_FORM =
-		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + _BEARER_FROM_HEADER_FILE_CALL + _FENCE_CLOSE + "\n\nReplace the hand-built request with a client that speaks HTTPS and send the token as for a header that names the scheme.";
+		_DESTINATION_QUESTION + "\n\n" + _FENCE_SH_OPEN + _BEARER_FROM_HEADER_FILE_CALL + _FENCE_CLOSE + "\n\nReplace the hand-built request with a client that speaks HTTPS and send the token with `-H @\"${HEADER_FILE}\"`, as in the target form for a header that names the scheme.";
 
 	/// <summary>SH-018 class share of the credential provenance.</summary>
 	public const string SH_018_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-018 verification note.</summary>
 	public const string SH_018_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **A request written to a plain TCP socket carries no TLS**: the credential crossed the network in clear text, so treat it as exposed and rotate it. **The tool read a literal Basic header written to a socket, not where the socket leads.**";
+		"**Verification note.** " + _TOKEN_LIFETIME + " **A request written to a plain TCP socket carries no TLS**: the credential crossed the network in clear text, so treat it as exposed and rotate it. **What is read is a literal Basic header written to a socket, not where the socket leads.**";
 
 	/// <summary>SH-019 generic source form.</summary>
 	public const string SH_019_SOURCE_FORM =
@@ -409,7 +408,7 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-019 verification note.</summary>
 	public const string SH_019_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **The tool read the configuration the script writes and the call that reads it, joined by the text of the path**: another script that reads the same file, or a copy of the file in a backup or a log, still holds the credential, which must be rotated and not only removed. `curl` reads the `header` line from the file as it reads `-H` (documented in the `curl` manual; the `user` line was *checked by NSerio locally*).";
+		"**Verification note.** " + _TOKEN_LIFETIME + " **The configuration the script writes and the call that reads it are read, joined by the text of the path**: another script that reads the same file, or a copy of the file in a backup or a log, still holds the credential, which must be rotated and not only removed. `curl` reads the `header` line from the file as it reads `-H` (documented in the `curl` manual; the `user` line was *checked by NSerio locally*).";
 
 	/// <summary>SH-021 generic source form.</summary>
 	public const string SH_021_SOURCE_FORM =
@@ -425,23 +424,23 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-021 verification note.</summary>
 	public const string SH_021_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **The tool followed a definition of the command within thirty lines**: other calls through the same name that sit farther away, or in other files, are not read, so change every place that uses it.";
+		"**Verification note.** " + _TOKEN_LIFETIME + " **A definition of the command within thirty lines is followed**: other calls through the same name that sit farther away, or in other files, are not read, so change every place that uses it.";
 
 	/// <summary>SH-024 generic source form.</summary>
 	public const string SH_024_SOURCE_FORM =
-		_APPLIES_TO_ALL_SHELLS + " (the here-string form: `bash`, `zsh` and `ksh`); `base64` and `openssl`.\n\n"
+		_APPLIES_TO_ALL_SHELLS + "; `base64` and `openssl`.\n\n"
 		+ _FENCE_SH_OPEN + "pair=\"${API_USER}:${API_PASSWORD}\"\nENCODED=$(printf '%s' \"${pair}\" | base64 | tr -d '\\n')" + _FENCE_CLOSE;
 
 	/// <summary>SH-024 target form under token authentication.</summary>
 	public const string SH_024_TARGET_FORM =
-		_DESTINATION_QUESTION + " **If the encoded pair is not a credential**, this finding is a false positive and nothing changes.\n\nRemove the pair, the encoding and the variable, and send the token: `-H \"Authorization: Bearer ${ACCESS_TOKEN}\"`, as for a header that names the scheme.";
+		_DESTINATION_QUESTION + " **If the encoded pair is not a credential**, this match is a false positive and nothing changes.\n\nRemove the pair, the encoding and the variable, and send the token from a header file: `-H @\"${HEADER_FILE}\"`, as in the target form for a header that names the scheme; a token written as `-H \"Authorization: Bearer ...\"` is visible in `ps` while the command runs.";
 
 	/// <summary>SH-024 class share of the credential provenance.</summary>
 	public const string SH_024_CREDENTIAL_PROVENANCE = _ROUTE_BY_DESTINATION;
 
 	/// <summary>SH-024 verification note.</summary>
 	public const string SH_024_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw a colon pair held in a variable, encoded, and the encoded value used by a client command within thirty lines**: follow `ENCODED` to every place it is sent and change those uses too. " + _TOKEN_LIFETIME;
+		"**Verification note.** **What is read is a colon pair held in a variable, encoded, with the encoded value used by a client command within thirty lines**: follow `ENCODED` to every place it is sent and change those uses too. " + _TOKEN_LIFETIME;
 
 	/// <summary>SH-025 generic source form.</summary>
 	public const string SH_025_SOURCE_FORM =
@@ -457,7 +456,7 @@ internal static class ShellRecommendationTemplates
 
 	/// <summary>SH-025 verification note.</summary>
 	public const string SH_025_VERIFICATION_NOTE =
-		"**Verification note.** **The tool read the string and an unquoted use within thirty lines**; an option string used elsewhere is not read, so look for the other places it is used. A string that holds a credential is split into words by the shell, so it also appears in `ps` while the command runs. " + _TOKEN_LIFETIME;
+		"**Verification note.** **The string and an unquoted use within thirty lines are read**; an option string used elsewhere is not read, so look for the other places it is used. A string that holds a credential is split into words by the shell, so it also appears in `ps` while the command runs. " + _TOKEN_LIFETIME;
 }
 
 /// <summary>

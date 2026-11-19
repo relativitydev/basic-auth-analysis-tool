@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Globalization;
 
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Recognition;
@@ -79,8 +78,8 @@ public sealed class GoPartAProseClaimTests
 		new(_HELD_URL_CLASS, "any scheme other than `http` or `https`", _HELD_URL_CLASS, false, ConfidenceLevel.Medium, "const serviceURL = \"ftp://user:secret@host.example/path\"\n"),
 		new(_HELD_URL_CLASS, "the literal may follow on the next line", _HELD_URL_CLASS, true, ConfidenceLevel.Medium, "const serviceURL =\n\t\"https://user:secret@host.example/path\"\n"),
 		// GO-009: the held header value
-		new(_HELD_HEADER_CLASS, "A value that begins with another word (`Bearer`, `Token`) is the migrated form and is not reported", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "header := \"Bearer \" + accessToken\nrequest.Header.Set(\"Authorization\", header)\n"),
-		new(_HELD_HEADER_CLASS, "A declaration that no header uses gives no finding", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "header := \"Basic \" + encoded\n"),
+		new(_HELD_HEADER_CLASS, "A value that begins with another word (`Bearer`, `Token`) is the migrated form and does not match", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "header := \"Bearer \" + accessToken\nrequest.Header.Set(\"Authorization\", header)\n"),
+		new(_HELD_HEADER_CLASS, "A declaration that no header uses does not match", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "header := \"Basic \" + encoded\n"),
 		new(_HELD_HEADER_CLASS, "a name the file cannot resolve (a parameter, an import, a call, a declaration in another file)", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "func send(request *http.Request, header string) {\n\trequest.Header.Set(\"Authorization\", header)\n}\n"),
 		new(_HELD_HEADER_CLASS, "a name that resolves to an environment read is [GO-012](#go-012), and this class stays silent for it", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "value, found := os.LookupEnv(\"SERVICE_AUTH_HEADER\")\nrequest.Header.Set(\"Authorization\", value)\n"),
 		new(_HELD_HEADER_CLASS, "a name that is declared more than once", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "header := \"Basic \" + encoded\nheader = \"Basic \" + other\nrequest.Header.Set(\"Authorization\", header)\n"),
@@ -153,7 +152,7 @@ public sealed class GoPartAProseClaimTests
 		RecognizedConstruct construct = Assert.Single(new GoRecognitionHarness().Recognize(source), candidate => candidate.PatternClassIdentifier == patternClass);
 
 		Assert.Contains("a concatenation of a literal with code is not literal", partA, StringComparison.Ordinal);
-		Assert.Contains("the tool also raises an in-code secret warning", partA, StringComparison.Ordinal);
+		Assert.Contains("the match also holds an in-code secret", partA, StringComparison.Ordinal);
 		Assert.Equal(expectedWarning, construct.LiteralCredentialSignal);
 	}
 
@@ -184,8 +183,8 @@ public sealed class GoPartAProseClaimTests
 		ImmutableArray<RecognizedConstruct> abandoned = harness.Recognize($"/* a note that nothing closes\n{_PAIR_REQUEST}");
 		ImmutableArray<RecognizedConstruct> control = harness.Recognize(_PAIR_REQUEST);
 
-		Assert.Contains("An unterminated block comment is different: the tool gives up on the file from the opening of the comment.", partA, StringComparison.Ordinal);
-		Assert.Contains("a literal credential there carries no in-code secret warning", partA, StringComparison.Ordinal);
+		Assert.Contains("An unterminated block comment is different: the reading of the file stops at the opening of the comment.", partA, StringComparison.Ordinal);
+		Assert.Contains("a literal credential there is not counted as an in-code secret", partA, StringComparison.Ordinal);
 		Assert.DoesNotContain(abandoned, construct => construct.Level != ConfidenceLevel.Low);
 		Assert.All(abandoned, construct => Assert.False(construct.LiteralCredentialSignal));
 		Assert.Contains(control, construct => construct.PatternClassIdentifier == _REQUEST_CLASS && construct.Level == ConfidenceLevel.High && construct.LiteralCredentialSignal);
@@ -208,20 +207,17 @@ public sealed class GoPartAProseClaimTests
 		Assert.False(ordinary.TestCode);
 	}
 
-	/// <summary>The drop order of the findings cap, as Part A states it: by path and not by confidence, with the two figures the cap's own constants give.</summary>
+	/// <summary>The limits Part A states about reading describe what the rules read and not what a run of the tool keeps or drops, so they state no findings cap and no drop order.</summary>
 	[Fact]
-	public void TheFindingsCapDropOrderStatedInPartAIsByPathAndTheFiguresAreTheCapsOwn()
+	public void PartAStatesNoFindingsCapAndNoDropOrder()
 	{
 		string partA = File.ReadAllText(DocumentedLanguage.Go.PartAPath());
-		string perFile = FindingsCapPolicy.PROVISIONAL_PER_FILE_FINDINGS_CAP.ToString("N0", CultureInfo.InvariantCulture);
-		string global = FindingsCapPolicy.PROVISIONAL_GLOBAL_FINDINGS_CAP.ToString("N0", CultureInfo.InvariantCulture);
+		string limits = PublicDocumentChecks.SectionOf(partA, "## Limits of the reading") ?? string.Empty;
 
-		Assert.Contains("the drop order is by path prefix and not by confidence", partA, StringComparison.Ordinal);
-		Assert.Contains($"more than {global} findings", partA, StringComparison.Ordinal);
-		Assert.Contains($"keeps at most {perFile} findings from any one file", partA, StringComparison.Ordinal);
-		Assert.Contains("drops the rest, by path and not by confidence", partA, StringComparison.Ordinal);
-		Assert.Contains("A Low finding that sorts early is therefore kept ahead of a High finding that sorts late.", partA, StringComparison.Ordinal);
-		Assert.Contains("(for example `testdata/`, `third_party/` or `vendor/`)", partA, StringComparison.Ordinal);
+		Assert.NotEmpty(limits);
+		Assert.DoesNotContain("findings cap", limits, StringComparison.Ordinal);
+		Assert.DoesNotContain("drop order", limits, StringComparison.Ordinal);
+		Assert.DoesNotContain("findings are kept from any one file", limits, StringComparison.Ordinal);
 	}
 
 	[Fact]

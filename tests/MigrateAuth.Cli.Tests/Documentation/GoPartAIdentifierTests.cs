@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
+using System.Globalization;
 
 using MigrateAuth.Cli.Catalog;
+using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
 
@@ -17,6 +19,25 @@ public sealed class GoPartAIdentifierTests
 {
 	private const string _GO_FENCE = "```go";
 	private const string _REMOVED_TEXT = "removed";
+	private const string _HEADER_CALL_CLASS = "GO-002";
+	private const string _HEADER_LITERAL_CLASS = "GO-003";
+	private const string _MAP_LITERAL_CLASS = "GO-004";
+	private const string _HELD_HEADER_CLASS = "GO-009";
+	private const string _HEADER_NAME_LITERAL = "\"Authorization\"";
+	private const string _BASIC_PAIR_VALUE = "\"Basic \" + encoded";
+	private const string _HELD_VALUE_NAME = "header";
+	private const string _ENVIRONMENT_VALUE_NAME = "value";
+	private const string _HELPER_CALL_VALUE = "basicHeader(userName, secret)";
+	private const string _ENVIRONMENT_LOOKUP_DECLARATION = "value, found := os.LookupEnv(\"SERVICE_AUTH_HEADER\")\n";
+	private const string _HELD_HEADER_DECLARATION_TEMPLATE = "header := {0}\n";
+	private const string _CALL_WRITE_TEMPLATE = "request.Header.Set({0}, {1})\n";
+	private const string _INDEX_WRITE_TEMPLATE = "request.Header[{0}] = []string{{{1}}}\n";
+	private const string _HEADER_LITERAL_WRITE_TEMPLATE = "headers := http.Header{{{0}: {{{1}}}}}\n";
+	private const string _MAP_LITERAL_WRITE_TEMPLATE = "flat := map[string][]string{{{0}: {{{1}}}}}\n";
+	private const string _CALL_CARRIER = "call";
+	private const string _INDEX_CARRIER = "index";
+	private const string _HEADER_LITERAL_CARRIER = "header literal";
+	private const string _MAP_LITERAL_CARRIER = "map literal";
 
 	private static readonly DocumentedLanguage _language = DocumentedLanguage.Go;
 
@@ -114,7 +135,7 @@ public sealed class GoPartAIdentifierTests
 
 		Assert.Equal(GoPartATestConstants.INTERACTIVE_SIGNAL_COUNT, signals.Count(signal => signal.Kind == FlowSignalKind.InteractiveUser));
 		Assert.Equal(GoPartATestConstants.FIXED_SIGNAL_COUNT, signals.Count(signal => signal.Kind == FlowSignalKind.FixedCredential));
-		Assert.Contains("**Eleven signals are registered for Go, six interactive-user and five fixed-credential.**", PartA(), StringComparison.Ordinal);
+		Assert.Contains("**Go has eleven flow signals, six interactive-user and five fixed-credential.**", PartA(), StringComparison.Ordinal);
 	}
 
 	/// <summary>The classes that are Low by definition are the ones whose "Which flow" paragraph says there is no flow.</summary>
@@ -126,13 +147,81 @@ public sealed class GoPartAIdentifierTests
 		Assert.Equal([GoPartATestConstants.TRANSPORT_CLASS, GoPartATestConstants.HELPER_CLASS, GoPartATestConstants.ENVIRONMENT_CLASS], lowClasses);
 	}
 
-	/// <summary>Thirteen classes are registered, and Part A says that ten can produce a recommendation.</summary>
+	/// <summary>Thirteen classes are registered, and Part A says that ten of them can be High or Medium: the three that cannot are the classes whose base level is Low.</summary>
 	[Fact]
 	public void TheClassCountsPartAStatesAreTheAnalyzersOwn()
 	{
 		Assert.Equal(GoPartATestConstants.REGISTERED_CLASS_COUNT, Rules().Count);
-		Assert.Contains("Thirteen classes are registered for Go. Ten of them can produce a recommendation.", PartA(), StringComparison.Ordinal);
+		Assert.Equal(GoPartATestConstants.HIGH_OR_MEDIUM_CLASS_COUNT, Rules().Values.Count(rule => rule.BaseLevel != ConfidenceLevel.Low));
+		Assert.Contains("Go has thirteen pattern classes. Ten of them can be High or Medium.", PartA(), StringComparison.Ordinal);
 		Assert.Contains(GoPartATestConstants.HELPER_CALL_CLASS, Rules().Keys);
+	}
+
+	/// <summary>
+	/// Part A says six classes are built on the four carriers that write the Authorization header: GO-002 on the first two (the call and the index assignment), GO-003 on the third
+	/// (the http.Header literal), GO-004 on the fourth (the unnamed map literal), and GO-009, GO-012 and GO-013 each on the first two. Each class reads the carriers it is named for
+	/// and no other, which is checked against the analyzer on one invented input per carrier, and the sentence itself is pinned in Part A.
+	/// </summary>
+	[Fact]
+	public void TheSixClassesBuiltOnTheFourCarriersReadExactlyTheCarriersPartAGivesThem()
+	{
+		string[] carriers = [_CALL_CARRIER, _INDEX_CARRIER, _HEADER_LITERAL_CARRIER, _MAP_LITERAL_CARRIER];
+		Dictionary<string, string[]> carriersReadByClass = new()
+		{
+			[_HEADER_CALL_CLASS] = [_CALL_CARRIER, _INDEX_CARRIER],
+			[_HEADER_LITERAL_CLASS] = [_HEADER_LITERAL_CARRIER],
+			[_MAP_LITERAL_CLASS] = [_MAP_LITERAL_CARRIER],
+			[_HELD_HEADER_CLASS] = [_CALL_CARRIER, _INDEX_CARRIER],
+			[GoPartATestConstants.ENVIRONMENT_CLASS] = [_CALL_CARRIER, _INDEX_CARRIER],
+			[GoPartATestConstants.HELPER_CALL_CLASS] = [_CALL_CARRIER, _INDEX_CARRIER]
+		};
+		List<string> problems = [];
+		GoRecognitionHarness harness = new();
+
+		foreach ((string patternClass, string[] expected) in carriersReadByClass)
+		{
+			foreach (string carrier in carriers)
+			{
+				bool isRead = harness.Recognize(CarrierSource(patternClass, carrier)).Any(construct => construct.PatternClassIdentifier == patternClass);
+
+				if (isRead != expected.Contains(carrier))
+				{
+					problems.Add($"{patternClass} on the {carrier} carrier: read = {isRead}, Part A says {expected.Contains(carrier)}");
+				}
+			}
+		}
+
+		Assert.Contains("`GO-002` to `GO-004` (`GO-002` on the first two carriers, `GO-003` on the third, `GO-004` on the fourth), and `GO-009`, `GO-012` and `GO-013` (each on the first two)", PartA(), StringComparison.Ordinal);
+		Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
+	}
+
+	/// <summary>An invented input that writes the header through one carrier, with the value each of the six classes reads.</summary>
+	private static string CarrierSource(string patternClass, string carrier)
+	{
+		string value = patternClass switch
+		{
+			_HELD_HEADER_CLASS => _HELD_VALUE_NAME,
+			GoPartATestConstants.ENVIRONMENT_CLASS => _ENVIRONMENT_VALUE_NAME,
+			GoPartATestConstants.HELPER_CALL_CLASS => _HELPER_CALL_VALUE,
+			_ => _BASIC_PAIR_VALUE
+		};
+		string declaration = patternClass switch
+		{
+			_HELD_HEADER_CLASS => string.Format(CultureInfo.InvariantCulture, _HELD_HEADER_DECLARATION_TEMPLATE, _BASIC_PAIR_VALUE),
+			GoPartATestConstants.ENVIRONMENT_CLASS => _ENVIRONMENT_LOOKUP_DECLARATION,
+			GoPartATestConstants.HELPER_CALL_CLASS => GoPartATestConstants.BASIC_HELPER_DECLARATION,
+			_ => string.Empty
+		};
+		string writeTemplate = carrier switch
+		{
+			_CALL_CARRIER => _CALL_WRITE_TEMPLATE,
+			_INDEX_CARRIER => _INDEX_WRITE_TEMPLATE,
+			_HEADER_LITERAL_CARRIER => _HEADER_LITERAL_WRITE_TEMPLATE,
+			_ => _MAP_LITERAL_WRITE_TEMPLATE
+		};
+		string write = string.Format(CultureInfo.InvariantCulture, writeTemplate, _HEADER_NAME_LITERAL, value);
+
+		return $"{declaration}{write}";
 	}
 
 	private static string PartA()

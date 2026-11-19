@@ -31,7 +31,7 @@ public sealed class CSharpRealRepositoryDeclaredCoverageTests
 	private const int _LAST_NUMBER = 61;
 	private const int _UNSUPPORTED_COUNT = 12;
 	private const int _COST_COUNT = 10;
-	private const int _DECLARED_ENTRY_COUNT_OF_THE_ANALYZER = 30;
+	private const int _DECLARED_ENTRY_COUNT_OF_THE_ANALYZER = 32;
 	private const int _WINDOW_LINE_BREAKS = 30;
 	private const int _WINDOW_LINE_LENGTH = 400;
 	private const int _INITIALIZER_MAXIMUM_DISTANCE = 600;

@@ -4,6 +4,7 @@ using System.Reflection;
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Findings;
 using MigrateAuth.Cli.Tests.Catalog;
+using MigrateAuth.Cli.Tests.Recognition;
 
 using Xunit;
 
@@ -262,9 +263,23 @@ public sealed class PowerShellPartASearchTests : PartASearchTests
 /// </summary>
 public sealed class VBNetPartASearchTests : PartASearchTests
 {
+	private const string _HEADER_WRITE_CLASS = "VB-007";
+
+	/// <summary>The index write whose key is a named constant declared in another file, which the third search of VB-007 is there to find.</summary>
+	private const string _CONSTANT_KEY_INDEX_WRITE = "Sub Send(request As HttpWebRequest, encodedCredentials As String)\n\trequest.Headers(AuthorizationHeaderName) = String.Format(\"Basic {0}\", encodedCredentials)\nEnd Sub\n";
+
 	public VBNetPartASearchTests()
 		: base(DocumentedLanguage.VBNet)
 	{
+	}
+
+	/// <summary>The index write with a constant key is a form the analyzer reads as VB-007, so a search that finds it is held to a covered form.</summary>
+	[Fact]
+	public void TheIndexWriteWithAConstantKeyIsReadByTheAnalyzerAsTheHeaderWrite()
+	{
+		VBNetRecognitionHarness harness = new();
+
+		Assert.Contains(harness.Recognize(_CONSTANT_KEY_INDEX_WRITE), construct => construct.PatternClassIdentifier == _HEADER_WRITE_CLASS);
 	}
 
 	internal override ImmutableArray<SearchableForm> CoveredForms()
@@ -285,6 +300,8 @@ public sealed class VBNetPartASearchTests : PartASearchTests
 
 			forms.Add(new SearchableForm(patternClass, $"{patternClass} covered form {row}", (string)values[2]));
 		}
+
+		forms.Add(new SearchableForm(_HEADER_WRITE_CLASS, $"{_HEADER_WRITE_CLASS} index write with a constant key", _CONSTANT_KEY_INDEX_WRITE));
 
 		return forms.ToImmutable();
 	}

@@ -55,7 +55,7 @@ public static class LowReasonVocabulary
 	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
 	private const string _UNREACHED_HEADER_MAPPING_SENTENCE =
-		PATTERN_CLASS_SENTENCE_LEAD + "this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text the tool can see; it is routed to manual review and no scheme migration is proposed";
+		PATTERN_CLASS_SENTENCE_LEAD + "this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text that is read; it is routed to manual review and no scheme migration is proposed";
 	private const string _ROUND_TRIPPER_DEFINITION_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "this method implements an HTTP transport that writes Basic Authentication into requests it forwards; the credential itself is reported at its own location, and this definition is routed to manual review with no scheme migration proposed";
 	private const string _AUTHENTICATION_HELPER_SENTENCE =

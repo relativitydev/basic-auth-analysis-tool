@@ -20,7 +20,7 @@ internal sealed record TemplateSubstitution(string Name, string Find, string Rep
 ///
 /// WHAT `TypeScript` SETTLES IS WORDING AND TYPING ONLY: the three application types and their preconditions are those of `JavaScript`, the code is written in erasable `TypeScript` (types that Node.js strips without
 /// transforming), an interface describes each token response, and an assertion on a parsed response validates nothing at run time. The browser never holds a client secret or a RelativityOne token: the browser
-/// blocks hold only a navigation to the page's own origin and calls to it. The Angular and NestJS shells are thin callers of the erasable functions above them; every framework name in a shell is unchecked.
+/// blocks hold only a navigation to the page's own origin and calls to it. The NestJS shell is a thin caller of the erasable server functions above it and the Angular shell reads the route of the browser block; every framework name in a shell is unchecked.
 ///
 /// A SEPARATE FILE BECAUSE <c>TypeScriptAnalyzer</c> IS <c>file</c>-SCOPED: the text lives in this <c>internal</c> holder and the analyzer's provider reads it by the same identifiers.
 /// </summary>
@@ -33,7 +33,7 @@ internal static class TypeScriptRecommendationTemplates
 
 	/// <summary>The question every template opens its target form with: the engine cannot see which host the code calls. The same sentence as the `JavaScript` templates open with.</summary>
 	internal const string DESTINATION_QUESTION =
-		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — this finding is informational and the rest of this template does not apply.";
+		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — no migration to RelativityOne applies and the rest of this entry does not apply.";
 
 	/// <summary>The first line of every verification note.</summary>
 	internal const string TOKEN_LIFETIME =
@@ -45,7 +45,7 @@ internal static class TypeScriptRecommendationTemplates
 
 	/// <summary>The rotation statement for a credential that browser code carries. The same text as the `JavaScript` templates carry.</summary>
 	internal const string BROWSER_ROTATION =
-		"**If this code runs in a browser, the credential has been public for as long as the code has shipped.** The exposure and the rotation are stated here and the tool does not escalate it:\n\n"
+		"**If this code runs in a browser, the credential has been public for as long as the code has shipped.** The exposure and the rotation are stated here, and this text does not escalate it:\n\n"
 		+ ROTATION_STATEMENT;
 
 	/// <summary>The sentence the `TypeScript` token acquisition adds after a block that parses a token response.</summary>
@@ -102,9 +102,9 @@ internal static class TypeScriptRecommendationTemplates
 	/// <summary>The browser variant of Authorization Code: a navigation to a route on the page's own origin and a typed call to it. It holds no secret and no token.</summary>
 	internal const string AUTHORIZATION_CODE_BROWSER_BLOCK =
 		"const LOGIN_ROUTE = \"/auth/login\";\n"
-		+ "const API_ROUTE = \"/api/documents\";\n"
+		+ "export const API_ROUTE = \"/api/documents\";\n"
 		+ "\n"
-		+ "interface DocumentSummary {\n"
+		+ "export interface DocumentSummary {\n"
 		+ "\tid: number;\n"
 		+ "\ttitle: string;\n"
 		+ "}\n"
@@ -118,11 +118,12 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\treturn (await response.json()) as DocumentSummary[];\n"
 		+ "}";
 
-	/// <summary>The thin Angular caller of the browser block: decorators and a parameter property, which type stripping does not run, around a call that holds no credential.</summary>
+	/// <summary>The Angular service that reaches the route of the browser block: decorators and a parameter property, which type stripping does not run, around a call that holds no credential.</summary>
 	internal const string ANGULAR_SHELL_BLOCK =
 		"import { HttpClient } from \"@angular/common/http\";\n"
 		+ "import { Injectable } from \"@angular/core\";\n"
 		+ "import { Observable } from \"rxjs\";\n"
+		+ "import { API_ROUTE, DocumentSummary } from \"./documents\";\n"
 		+ "\n"
 		+ "@Injectable({ providedIn: \"root\" })\n"
 		+ "export class DocumentService {\n"
@@ -143,7 +144,7 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\n"
 		+ "interface PendingLogin {\n"
 		+ "\tstate: string;\n"
-		+ "\tverifier: string;\n"
+		+ "\tverifier?: string;\n"
 		+ "}\n"
 		+ "\n"
 		+ "interface TokenResponse {\n"
@@ -170,7 +171,7 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\tconst state = base64Url(crypto.randomBytes(RANDOM_BYTES));\n"
 		+ "\tconst verifier = base64Url(crypto.randomBytes(RANDOM_BYTES));\n"
 		+ "\tconst challenge = base64Url(crypto.createHash(\"sha256\").update(verifier).digest());\n"
-		+ "\tpendingBySession.set(sessionId, { state, verifier });\n"
+		+ "\tconst pending: PendingLogin = { state };\n"
 		+ "\tconst query = new URLSearchParams({\n"
 		+ "\t\tresponse_type: \"code\",\n"
 		+ "\t\tclient_id: requireEnvironmentValue(\"RELATIVITY_CLIENT_ID\"),\n"
@@ -180,7 +181,9 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\tif (wantRefreshToken) {\n"
 		+ "\t\tquery.set(\"code_challenge\", challenge);\n"
 		+ "\t\tquery.set(\"code_challenge_method\", \"S256\");\n"
+		+ "\t\tpending.verifier = verifier;\n"
 		+ "\t}\n"
+		+ "\tpendingBySession.set(sessionId, pending);\n"
 		+ "\treturn `${IDENTITY_BASE}/authorize?${query}`;\n"
 		+ "}\n"
 		+ "\n"
@@ -197,31 +200,34 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\t\t&& crypto.timingSafeEqual(Buffer.from(returnedState), Buffer.from(pending.state));\n"
 		+ "\tlet tokens: TokenResponse | null = null;\n"
 		+ "\tif (pending !== undefined && stateMatches) {\n"
+		+ "\t\tconst body = new URLSearchParams({\n"
+		+ "\t\t\tgrant_type: \"authorization_code\",\n"
+		+ "\t\t\tcode: returnedCode,\n"
+		+ "\t\t\tredirect_uri: REDIRECT_URI,\n"
+		+ "\t\t\tclient_id: requireEnvironmentValue(\"RELATIVITY_CLIENT_ID\"),\n"
+		+ "\t\t\tclient_secret: requireEnvironmentValue(\"RELATIVITY_CLIENT_SECRET\"),\n"
+		+ "\t\t});\n"
+		+ "\t\tif (pending.verifier !== undefined) {\n"
+		+ "\t\t\tbody.set(\"code_verifier\", pending.verifier);\n"
+		+ "\t\t}\n"
 		+ "\t\tconst response = await fetch(`${IDENTITY_BASE}/token`, {\n"
 		+ "\t\t\tmethod: \"POST\",\n"
 		+ "\t\t\theaders: { \"Content-Type\": \"application/x-www-form-urlencoded\" },\n"
-		+ "\t\t\tbody: new URLSearchParams({\n"
-		+ "\t\t\t\tgrant_type: \"authorization_code\",\n"
-		+ "\t\t\t\tcode: returnedCode,\n"
-		+ "\t\t\t\tredirect_uri: REDIRECT_URI,\n"
-		+ "\t\t\t\tclient_id: requireEnvironmentValue(\"RELATIVITY_CLIENT_ID\"),\n"
-		+ "\t\t\t\tclient_secret: requireEnvironmentValue(\"RELATIVITY_CLIENT_SECRET\"),\n"
-		+ "\t\t\t\tcode_verifier: pending.verifier,\n"
-		+ "\t\t\t}),\n"
+		+ "\t\t\tbody,\n"
 		+ "\t\t});\n"
 		+ "\t\ttokens = response.ok ? (await response.json()) as TokenResponse : null;\n"
 		+ "\t}\n"
 		+ "\treturn tokens;\n"
 		+ "}";
 
-	/// <summary>The thin NestJS caller of the two server functions: decorators around calls that hold no credential. <c>SessionRequest</c> is an application-defined type, not a framework type.</summary>
+	/// <summary>The thin NestJS caller of the two server functions: decorators around calls that hold no credential. <c>LoginRequest</c> is an application-defined type, not a framework type.</summary>
 	internal const string NEST_SHELL_BLOCK =
-		"import { Controller, Get, Query, Redirect, Req } from \"@nestjs/common\";\n"
+		"import { Controller, Get, Query, Redirect, Req, UnauthorizedException } from \"@nestjs/common\";\n"
 		+ "import { beginLogin, completeLogin } from \"./server-component\";\n"
 		+ "\n"
 		+ "const WANT_REFRESH_TOKEN = false;\n"
 		+ "\n"
-		+ "interface SessionRequest {\n"
+		+ "interface LoginRequest {\n"
 		+ "\tsessionId: string;\n"
 		+ "}\n"
 		+ "\n"
@@ -229,21 +235,25 @@ internal static class TypeScriptRecommendationTemplates
 		+ "export class AuthController {\n"
 		+ "\t@Get(\"login\")\n"
 		+ "\t@Redirect()\n"
-		+ "\tlogin(@Req() request: SessionRequest): { url: string } {\n"
+		+ "\tlogin(@Req() request: LoginRequest): { url: string } {\n"
 		+ "\t\treturn { url: beginLogin(request.sessionId, WANT_REFRESH_TOKEN) };\n"
 		+ "\t}\n"
 		+ "\n"
 		+ "\t@Get(\"callback\")\n"
 		+ "\tasync callback(\n"
-		+ "\t\t@Req() request: SessionRequest,\n"
+		+ "\t\t@Req() request: LoginRequest,\n"
 		+ "\t\t@Query(\"code\") code: string,\n"
 		+ "\t\t@Query(\"state\") state?: string,\n"
 		+ "\t): Promise<void> {\n"
-		+ "\t\tawait completeLogin(request.sessionId, code, state);\n"
+		+ "\t\tconst tokens = await completeLogin(request.sessionId, code, state);\n"
+		+ "\t\tif (tokens === null) {\n"
+		+ "\t\t\tthrow new UnauthorizedException();\n"
+		+ "\t\t}\n"
+		+ "\t\t// The application keeps the tokens against the session here; the sketch does not show how.\n"
 		+ "\t}\n"
 		+ "}";
 
-	/// <summary>The Node.js command-line variant of Authorization Code: a loopback listener on the registered fixed port that accepts one request.</summary>
+	/// <summary>The Node.js command-line variant of Authorization Code: a loopback listener on the registered fixed port that accepts the first request to the callback path.</summary>
 	internal const string AUTHORIZATION_CODE_NODE_CLI_BLOCK =
 		"import http from \"node:http\";\n"
 		+ "\n"
@@ -286,11 +296,11 @@ internal static class TypeScriptRecommendationTemplates
 
 	/// <summary>The paragraph that introduces the Angular shell.</summary>
 	internal const string ANGULAR_SHELL_INTRODUCTION =
-		"**The Angular shell.** An Angular service whose method calls the page's own origin is a thin caller of the functions above. Its decorator, its injection and its parameter property are framework forms that Node.js type stripping does not run, so the shell is syntax-reviewed only, and every Angular name in it is unchecked. The credential-bearing statements are in the erasable functions above, and the shell only calls them:";
+		"**The Angular shell.** An Angular service whose method calls the data route of the browser block above, `API_ROUTE`, imports that route constant and the `DocumentSummary` type from the file that holds the browser block (`./documents` in the sketch); the sign-in route is reached by the browser block's own navigation, not by this service. Its decorator, its injection and its parameter property are framework forms that Node.js type stripping does not run, so the shell is syntax-reviewed only, and every Angular name in it is unchecked. The shell holds no credential and no token:";
 
 	/// <summary>The paragraph that introduces the NestJS shell.</summary>
 	internal const string NEST_SHELL_INTRODUCTION =
-		"**A NestJS controller that calls the two functions is a shell.** Its decorators are framework forms that Node.js type stripping does not run, so it is syntax-reviewed only, and every NestJS name in it is unchecked; `SessionRequest` is an application-defined type, not a framework type:";
+		"**A NestJS controller that calls `beginLogin` and `completeLogin`, the two exported functions of the Node.js server block above, is a shell.** It imports them from the file that holds that block (`./server-component` in the sketch). Its decorators are framework forms that Node.js type stripping does not run, so it is syntax-reviewed only, and every NestJS name in it is unchecked; `LoginRequest` is an application-defined type, not a framework type:";
 
 	/// <summary>The sentence of the `JavaScript` browser variant that the Angular shell is inserted before, with the sentence that opens the next paragraph.</summary>
 	private const string _ANGULAR_SHELL_ANCHOR =
@@ -384,11 +394,12 @@ internal static class TypeScriptRecommendationTemplates
 		+ "\tbaseURL: host,\n"
 		+ "\theaders: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE },\n"
 		+ "};"
-		+ _FENCE_CLOSE + "\n\n*Browser:* the call moves behind the server-side component and the browser calls its own origin with no `Authorization` header, as above. Remove the `auth` member from the typed object, also from a configuration passed to `axios.create`.";
+		+ _FENCE_CLOSE + "\n\n*Browser:* the call moves behind the server-side component and the browser calls its own origin with no `Authorization` header:\n\n"
+		+ _TYPESCRIPT_FENCE_OPEN + "await fetch(API_ROUTE, { credentials: \"same-origin\" });" + _FENCE_CLOSE + "\n\nRemove the `auth` member from the typed object, also from a configuration passed to `axios.create`.";
 
 	/// <summary>The class that holds a typed credential object: the verification note.</summary>
 	internal const string TS_001_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw an object literal typed as a client configuration holding an `auth` pair; it did not see where the object is used**: it may be held and handed to a client elsewhere, and **a type name is a token the tool does not resolve**. With `axios`, `auth` overwrites a custom `Authorization` header when both are present (the documentation of the package version read for this text; other versions unchecked), so it must go entirely. The type name in the target form (`AxiosRequestConfig`) is one that the package's published declarations name, its members `baseURL` and `headers` are the option names the package documents for the version read, and the block was not type-checked. "
+		"**Verification note.** **The rule matched an object literal typed as a client configuration holding an `auth` pair; it does not follow where the object is used**: it may be held and handed to a client elsewhere, and **a type name is a token that is not resolved**. With `axios`, `auth` overwrites a custom `Authorization` header when both are present (the documentation of the package version read for this text; other versions unchecked), so it must go entirely. The type name in the target form (`AxiosRequestConfig`) is one that the package's published declarations name, its members `baseURL` and `headers` are the option names the package documents for the version read, and the block was not type-checked. "
 		+ TOKEN_LIFETIME + " **The calling identity changes.**\n\n"
 		+ BROWSER_ROTATION;
 
@@ -409,7 +420,7 @@ internal static class TypeScriptRecommendationTemplates
 
 	/// <summary>The class that calls an injected `HttpService` with an `auth` object: the verification note.</summary>
 	internal const string TS_003_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw an `auth` pair in the options of a call on a receiver whose name contains `http`; it did not resolve the receiver's type.** "
+		"**Verification note.** **The rule matched an `auth` pair in the options of a call on a receiver whose name contains `http`; the receiver's type is not resolved.** "
 		+ TOKEN_LIFETIME + " **The calling identity changes.**";
 
 	/// <summary>The Angular form that the header class adds: the header built in an <c>HttpHeaders</c> object, a <c>setHeaders</c> option or an interceptor.</summary>
@@ -426,15 +437,15 @@ internal static class TypeScriptRecommendationTemplates
 
 	/// <summary>What the verification note of the header class says about the Angular forms, appended to the `JavaScript` note.</summary>
 	internal const string ANGULAR_HEADER_VERIFICATION_NOTE =
-		"**Angular.** The tool also reads an `Authorization` key with a literal `Basic` start in an `HttpHeaders` object, in a `setHeaders` option and in a `.set(` or `.append(` call. **A header value held in an identifier is not read for an object key.**";
+		"**Angular.** An `Authorization` key with a literal `Basic` start is also read in an `HttpHeaders` object, in a `setHeaders` option and in a `.set(` or `.append(` call. **A header value held in an identifier is not read for an object key.**";
 
 	/// <summary>The Client Credentials generic fallback prose for a `TypeScript` finding, with the secret-handling sentence naming the Part B pointer.</summary>
 	internal const string TYPESCRIPT_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and this finding is informational (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified). The documented destination in TypeScript is a bearer `Authorization` header sent by an HTTP client such as `fetch`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant, from a server-side component or a Node.js process. The client ID and secret that obtain that token belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", and never in source, in a bundle or in browser code: a secret shipped to a browser is public. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location, but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and no migration to RelativityOne applies (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified). The documented destination in TypeScript is a bearer `Authorization` header sent by an HTTP client such as `fetch`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant, from a server-side component or a Node.js process. The client ID and secret that obtain that token belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", and never in source, in a bundle or in browser code: a secret shipped to a browser is public. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>The Authorization Code generic fallback prose for a `TypeScript` finding.</summary>
 	internal const string TYPESCRIPT_CODE_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and this finding is informational (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified), and this finding is assigned the Authorization Code flow, in which the code sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. Code requires a client secret, so the exchange runs on a server-side component or a Node.js process and never in browser code: for TypeScript that runs in a browser the browser navigates to a route on the application's own origin and the server-side component performs the sign-in and keeps the tokens; for a Node.js server the callback route performs it; for a command-line tool or a desktop process a loopback listener on the registered fixed port receives the code. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", never in source or in a bundle. After the change the code no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location, but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and no migration to RelativityOne applies (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified), and this match is assigned the Authorization Code flow, in which the code sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. Code requires a client secret, so the exchange runs on a server-side component or a Node.js process and never in browser code: for TypeScript that runs in a browser the browser navigates to a route on the application's own origin and the server-side component performs the sign-in and keeps the tokens; for a Node.js server the callback route performs it; for a command-line tool or a desktop process a loopback listener on the registered fixed port receives the code. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", never in source or in a bundle. After the change the code no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>An edit that replaces a `JavaScript` block, with the fence that opens and closes it, by the typed block and what follows it.</summary>
 	private static TemplateSubstitution BlockSubstitution(string name, string javaScriptBlock, string typeScriptBlock, string afterTheBlock)
@@ -468,8 +479,8 @@ internal static class TypeScriptRecommendationTemplates
 
 /// <summary>
 /// The `TypeScript` analyzer's template provider and fallback texts. A class whose use site differs answers its own entry (the header class, with the Angular form added, and the two classes of `TypeScript`);
-/// every other class answers the `JavaScript` entry read through <see cref="JavaScriptTemplateDeclarations.Provide"/> and rendered with the `typescript` fence and the token acquisition of `TypeScript`. The six
-/// classes that are Low by definition, and any identifier the analyzer does not declare, answer null, which routes a Low finding to manual review and sends a High or Medium finding of an undeclared class to the
+/// every other class answers the `JavaScript` entry read through <see cref="JavaScriptTemplateDeclarations.Provide"/> and rendered with the `typescript` fence and the token acquisition of `TypeScript`. The seven
+/// classes that are Low by definition (JS-007, JS-009, JS-011, JS-014, JS-016, JS-018 and JS-019), and any identifier the analyzer does not declare, answer null, which routes a Low finding to manual review and sends a High or Medium finding of an undeclared class to the
 /// language's fallback text.
 /// </summary>
 internal static class TypeScriptTemplateDeclarations

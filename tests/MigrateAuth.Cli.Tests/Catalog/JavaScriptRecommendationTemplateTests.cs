@@ -621,7 +621,7 @@ public sealed class JavaScriptRecommendationTemplateTests
 			string fallback = JavaScriptRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow];
 
 			Assert.DoesNotContain(_FENCE, fallback, StringComparison.Ordinal);
-			Assert.Contains("did not recognize the construct", fallback, StringComparison.Ordinal);
+			Assert.Contains("the construct is not one that this text describes", fallback, StringComparison.Ordinal);
 			Assert.Contains("a pointer and not an instruction", fallback, StringComparison.Ordinal);
 			Assert.Contains("a secret shipped to a browser is public", JavaScriptRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![CredentialFlow.ClientCredentials], StringComparison.Ordinal);
 		}

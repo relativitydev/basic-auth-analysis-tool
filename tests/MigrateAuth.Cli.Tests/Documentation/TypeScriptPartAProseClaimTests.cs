@@ -32,7 +32,7 @@ public sealed class TypeScriptPartAProseClaimTests
 		new(_TYPED_OBJECT_CLASS, "`{ username, password }` is read, and either member may be written either way (`{ username: accountName, password }`)", _TYPED_OBJECT_CLASS, true, ConfidenceLevel.Medium, "const config: AxiosRequestConfig = { baseURL: host, auth: { username, password } };\n"),
 		new(_TYPED_OBJECT_CLASS, "`{ username, password }` is read, and either member may be written either way (`{ username: accountName, password }`)", _TYPED_OBJECT_CLASS, true, ConfidenceLevel.Medium, "const options = { auth: { username: accountName, password } } satisfies AxiosRequestConfig;\n"),
 		// TS-001: what it does not read
-		new(_TYPED_OBJECT_CLASS, "an uncited type, the same object under a type name the tool does not know", _TYPED_OBJECT_CLASS, false, ConfidenceLevel.Medium, "const config: ProjectConfig = { auth: { username: userName, password: secret } };\n"),
+		new(_TYPED_OBJECT_CLASS, "an uncited type, the same object under a type name the rules do not know", _TYPED_OBJECT_CLASS, false, ConfidenceLevel.Medium, "const config: ProjectConfig = { auth: { username: userName, password: secret } };\n"),
 		new(_TYPED_OBJECT_CLASS, "an `auth` object with only one of the two members", _TYPED_OBJECT_CLASS, false, ConfidenceLevel.Medium, "const config: AxiosRequestConfig = { auth: { username: userName } };\n"),
 		new(_TYPED_OBJECT_CLASS, "a name that is the value of another key (`{ label: username, password }`)", _TYPED_OBJECT_CLASS, false, ConfidenceLevel.Medium, "const config: AxiosRequestConfig = { auth: { label: username, password } };\n"),
 		new(_TYPED_OBJECT_CLASS, "a member named `user` or `pass` (the class reads `username` and `password` only)", _TYPED_OBJECT_CLASS, false, ConfidenceLevel.Medium, "const config: AxiosRequestConfig = { auth: { user: userName, pass: secret } };\n"),
@@ -41,9 +41,9 @@ public sealed class TypeScriptPartAProseClaimTests
 		// TS-003: a bare name is a member, the member names, the request body, the name heuristic
 		new(_SERVICE_CLASS, "A member written as a bare name with no value counts as a member (`{ username, password }`, or `{ username: accountName, password }`)", _SERVICE_CLASS, true, ConfidenceLevel.High, "this.httpService.get<Reply>(url, { auth: { username, password } });\n"),
 		new(_SERVICE_CLASS, "A member written as a bare name with no value counts as a member (`{ username, password }`, or `{ username: accountName, password }`)", _SERVICE_CLASS, true, ConfidenceLevel.High, "this.httpService.post(url, body, { auth: { username: accountName, password } });\n"),
-		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object is reported at Low by `JS-011` for manual review", _SERVICE_CLASS, false, ConfidenceLevel.High, "this.httpClient.post(url, body, { auth: { user: userName, pass: secret } });\n"),
-		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object is reported at Low by `JS-011` for manual review", _GENERIC_AUTH_OBJECT_CLASS, true, ConfidenceLevel.Low, "this.httpClient.post(url, body, { auth: { user: userName, pass: secret } });\n"),
-		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object is reported at Low by `JS-011` for manual review", _GENERIC_AUTH_OBJECT_CLASS, true, ConfidenceLevel.Low, "http.put(url, body, { auth: { user: userName, pass: secret } });\n"),
+		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object matches `JS-011`, at Low, for manual review", _SERVICE_CLASS, false, ConfidenceLevel.High, "this.httpClient.post(url, body, { auth: { user: userName, pass: secret } });\n"),
+		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object matches `JS-011`, at Low, for manual review", _GENERIC_AUTH_OBJECT_CLASS, true, ConfidenceLevel.Low, "this.httpClient.post(url, body, { auth: { user: userName, pass: secret } });\n"),
+		new(_SERVICE_CLASS, "a member named `user` or `pass` is not read by this class, and the same object matches `JS-011`, at Low, for manual review", _GENERIC_AUTH_OBJECT_CLASS, true, ConfidenceLevel.Low, "http.put(url, body, { auth: { user: userName, pass: secret } });\n"),
 		new(_SERVICE_CLASS, "The pair as the request body with no `auth` key (`this.httpService.post(url, { username, password })`)", _SERVICE_CLASS, false, ConfidenceLevel.High, "this.httpService.post(url, { username, password });\n"),
 		new(_SERVICE_CLASS, "and an `auth` object with only one of the two members are not read", _SERVICE_CLASS, false, ConfidenceLevel.High, "this.httpService.get(url, { auth: { username } });\n"),
 		new(_SERVICE_CLASS, "which is a false positive and a declared limit; confirm the type of the receiver by hand and review each such finding before acting", _SERVICE_CLASS, true, ConfidenceLevel.High, "this.http.get(url, { auth: { username: userName, password: secret } });\n"),
@@ -102,7 +102,7 @@ public sealed class TypeScriptPartAProseClaimTests
 		string partA = File.ReadAllText(DocumentedLanguage.TypeScript.PartAPath());
 		RecognizedConstruct construct = Assert.Single(new TypeScriptRecognitionHarness().Recognize(source), candidate => candidate.PatternClassIdentifier == _TYPED_OBJECT_CLASS);
 
-		Assert.Contains("The in-code secret warning is raised only when the password member is a whole string literal", partA, StringComparison.Ordinal);
+		Assert.Contains("The match holds an in-code secret only when the password member is a whole string literal", partA, StringComparison.Ordinal);
 		Assert.Equal(expectedWarning, construct.LiteralCredentialSignal);
 	}
 

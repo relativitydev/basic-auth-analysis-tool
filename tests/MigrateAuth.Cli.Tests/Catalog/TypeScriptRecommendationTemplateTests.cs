@@ -244,7 +244,7 @@ public sealed partial class TypeScriptRecommendationTemplateTests
 	private const string _BROWSER_ROTATION_LEAD = "If this code runs in a browser, the credential has been public for as long as the code has shipped.";
 	private const string _PARAGRAPH_SEPARATOR = "\n\n";
 	private const string _ANGULAR_SHELL_MARKER = "The Angular shell.";
-	private const string _NEST_SHELL_MARKER = "A NestJS controller that calls the two functions is a shell.";
+	private const string _NEST_SHELL_MARKER = "A NestJS controller that calls `beginLogin` and `completeLogin`, the two exported functions of the Node.js server block above, is a shell.";
 
 	private const int _TEMPLATED_CLASS_COUNT = 14;
 	private const int _LOW_CLASS_COUNT = 7;
@@ -929,7 +929,7 @@ public sealed partial class TypeScriptRecommendationTemplateTests
 			string fallback = TypeScriptRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow];
 
 			Assert.DoesNotContain(_FENCE, fallback, StringComparison.Ordinal);
-			Assert.Contains("did not recognize the construct", fallback, StringComparison.Ordinal);
+			Assert.Contains("the construct is not one that this text describes", fallback, StringComparison.Ordinal);
 			Assert.Contains("a pointer and not an instruction", fallback, StringComparison.Ordinal);
 			Assert.Contains("TypeScript", fallback, StringComparison.Ordinal);
 			Assert.DoesNotContain("JavaScript", fallback, StringComparison.Ordinal);

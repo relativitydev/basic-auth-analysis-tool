@@ -23,7 +23,7 @@ public sealed class LowReasonVocabularyTests
 	private const string _ENVIRONMENT_HELD_SCHEME_SENTENCE =
 		"this pattern class is Low by definition: the Authorization header takes its whole value, scheme included, from an environment value, so the code does not show whether the scheme is Basic or a bearer token; a bearer token is the migrated form and a Basic value is not, so confirm what the deployed value holds and migrate it if it is Basic";
 	private const string _UNREACHED_HEADER_MAPPING_SENTENCE =
-		"this pattern class is Low by definition: this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text the tool can see; it is routed to manual review and no scheme migration is proposed";
+		"this pattern class is Low by definition: this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text that is read; it is routed to manual review and no scheme migration is proposed";
 	private const string _ROUND_TRIPPER_DEFINITION_SENTENCE =
 		"this pattern class is Low by definition: this method implements an HTTP transport that writes Basic Authentication into requests it forwards; the credential itself is reported at its own location, and this definition is routed to manual review with no scheme migration proposed";
 	private const string _AUTHENTICATION_HELPER_SENTENCE =

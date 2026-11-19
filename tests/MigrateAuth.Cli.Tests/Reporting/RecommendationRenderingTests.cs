@@ -23,7 +23,7 @@ public sealed class RecommendationRenderingTests
 	private const string _LOW_CONFIDENCE_SECTION_TITLE = "Judging a Low-confidence match";
 	private const string _LOW_CONFIDENCE_SECTION_HEADING = "## " + _LOW_CONFIDENCE_SECTION_TITLE;
 	private const string _MANUAL_REVIEW_LEAD =
-		"Routed to manual review. This construct was recognized at low confidence, so the tool gives no migration suggestion for it and the change has not been characterized. Whoever owns this code should confirm whether it performs Basic Authentication before acting on it, and should not read the level as evidence that it does not. How to judge a match of this kind is described in ";
+		"Routed to manual review. This construct was recognized at low confidence, so no migration suggestion is given for it and the change has not been characterized. Whoever owns this code should confirm whether it performs Basic Authentication before acting on it, and should not read the level as evidence that it does not. How to judge a match of this kind is described in ";
 	private const string _CSHARP_GENERAL_POINTER =
 		"\"Judging a Low-confidence match\" in Part C for C# of the Migration Documentation.";
 

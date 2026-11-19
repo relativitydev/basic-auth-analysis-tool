@@ -1154,18 +1154,18 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 		[
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a call to the Relativity helper method named GetProxy that passes a user name and a password in a form the tool does not read: two arguments with no sign of a user or a password in their names (a text second argument counts only when the first is also text or named like a user), a second argument that names both a token and a password, a different number of arguments, a call written without a type argument, a type argument that is not a single type name (one level of nested type arguments is read), an argument written as an expression more complex than a name, a member access, a single call or an index, or named arguments written in reverse order",
-				Reason = "the tool reports this call only when the second argument is named like a password, or the first argument is named like a user, or both arguments are written as text, and it never reports it when the second argument is named like a token or a key. Other calls that send a user name and a password are not reported, so search for GetProxy and review each call by hand. A call of an unrelated method with the same name and similar arguments can be reported, and should be dismissed on review"
+				Construct = "a call to the Relativity helper method named GetProxy that passes a user name and a password in a form that is not read: two arguments with no sign of a user or a password in their names (a text second argument counts only when the first is also text or named like a user), a second argument that names both a token and a password, a different number of arguments, a call written without a type argument, a type argument that is not a single type name (one level of nested type arguments is read), an argument written as an expression more complex than a name, a member access, a single call or an index, or named arguments written in reverse order",
+				Reason = "this call is matched only when the second argument is named like a password, or the first argument is named like a user, or both arguments are written as text, and it is never matched when the second argument is named like a token or a key. Other calls that send a user name and a password are not matched, so search for GetProxy and review each call by hand. A call of an unrelated method with the same name and similar arguments can be matched, and should be dismissed on review"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a settings object that sets the Relativity API user name and password pair, two members whose names start with Rsapi, in a form the tool does not read: the two members more than five lines apart or in different files, one member in an initializer and the other assigned separately, the password set before the user name, a nested brace or more than 600 characters between the two members of one initializer, different middle parts in the two names, the same extra prefix before Rsapi in both, or a value that is a calculation rather than a name, a call or text",
-				Reason = "the tool reads the pair only when both members are set next to each other in one of the two plain forms; a pair set any other way can still send a user name and a password and is not reported, so search for Rsapi and review each settings object by hand. A declaration written over two lines can be reported as if it set the pair"
+				Construct = "a settings object that sets the Relativity API user name and password pair, two members whose names start with Rsapi, in a form that is not read: the two members more than five lines apart or in different files, one member in an initializer and the other assigned separately, the password set before the user name, a nested brace or more than 600 characters between the two members of one initializer, different middle parts in the two names, the same extra prefix before Rsapi in both, or a value that is a calculation rather than a name, a call or text",
+				Reason = "the pair is read only when both members are set next to each other in one of the two plain forms; a pair set any other way can still send a user name and a password and is not matched, so search for Rsapi and review each settings object by hand. A declaration written over two lines can be matched as if it set the pair"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a credential stored in a member of a settings object and later handed to a mail, proxy or file-transfer client, in a form the tool does not follow: the client created before the credential is stored, more than 30 lines apart or across a line longer than 400 characters, a client held in a field or a parameter, the member written differently or copied through a variable first, a credential created inside an initializer or held in a single variable, any line between the two that contains the word NetworkCredential, such as another credential, a declaration or a comment, or the same member also handed to an HTTP client elsewhere in the file",
-				Reason = "the tool follows the credential only inside the window and the forms described in its entry. Outside them the credential is reported as an ordinary network credential at medium confidence, which is a false finding when it goes to a mail, proxy or file-transfer server, so confirm the destination of every such finding. A credential also handed to an HTTP client in the same file may not be reported at that place, so review the HTTP use by hand. A client or a hand-over written inside a comment or a text can be taken for real code"
+				Construct = "a credential stored in a member of a settings object and later handed to a mail, proxy or file-transfer client, in a form that is not followed: the client created before the credential is stored, more than 30 lines apart or across a line longer than 400 characters, a client held in a field or a parameter, the member written differently or copied through a variable first, a credential created inside an initializer or held in a single variable, or any line between the two that contains the word NetworkCredential, such as another credential, a declaration or a comment",
+				Reason = "the credential is followed only inside the window and the forms described in its entry. Outside them the credential is matched as an ordinary network credential at medium confidence, which is a false match when it goes to a mail, proxy or file-transfer server, so confirm the destination of every such match. A credential also handed to an HTTP client in the same file is given low confidence as the mail, proxy or file-transfer match, and the HTTP use gets no match of its own, so review the HTTP use by hand. A client or a hand-over written inside a comment or a text can be taken for real code"
 			}
 		];
 
@@ -1180,17 +1180,17 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "confirming whether a piece of Basic Authentication code is actually calling RelativityOne or a different server",
-				Reason = "the tool cannot determine, from the code in a single file, what server a request is actually sent to; such findings are still reported, with a note that the finding may not apply if the destination is not RelativityOne - review each one to confirm the destination before acting on it"
+				Reason = "what server a request is actually sent to cannot be determined from the code in a single file; such matches are still kept, with a note that the match may not apply if the destination is not RelativityOne - review each one to confirm the destination before acting on it"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a service that checks incoming Basic Authentication from its own callers, rather than sending it out to another server",
-				Reason = "the tool cannot always tell which direction a credential is flowing in from the code in one file; a service that only accepts Basic Authentication from its callers has nothing to migrate to Relativity's token-based authentication. The tool excludes the most common inbound form, but a service that decodes the header itself may still be reported as if it were sending credentials out, so confirm the direction before acting on a finding like this"
+				Reason = "which direction a credential is flowing in cannot always be told from the code in one file; a service that only accepts Basic Authentication from its callers has nothing to migrate to Relativity's token-based authentication. The most common inbound form is excluded, but a service that decodes the header itself may still be matched as if it were sending credentials out, so confirm the direction before acting on a match like this"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a project's own custom authentication helper or wrapper written in a form the tool does not recognize",
-				Reason = "the tool matches known code patterns and cannot see inside every custom wrapper. It does detect the common case where a helper method or class visibly builds or holds a credential, but not every form a custom wrapper can take. A settings object that sets the Relativity API user name and password pair, \"Rsapi...UserName\" and \"Rsapi...Password\", is also read in the forms described in the entry for settings objects with the Rsapi pair. Review any authentication helper code by hand"
+				Construct = "a project's own custom authentication helper or wrapper written in a form that is not recognized",
+				Reason = "known code patterns are matched, and not every custom wrapper can be seen inside. A helper method whose name carries Credential, Authorization or Authenticator is detected, but not every form a custom wrapper can take. A settings object that sets the Relativity API user name and password pair, \"Rsapi...UserName\" and \"Rsapi...Password\", is also read in the forms described in the entry for settings objects with the Rsapi pair. Review any authentication helper code by hand"
 			}
 		];
 
@@ -1205,47 +1205,47 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "credentials supplied through dependency injection, configuration binding, or another mechanism that connects code across multiple files",
-				Reason = "the tool examines each file on its own and cannot trace how a credential registered in one file reaches the code that consumes it in another file"
+				Reason = "each file is examined on its own, so how a credential registered in one file reaches the code that consumes it in another file cannot be traced"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "credential objects created through reflection or another dynamically computed expression",
-				Reason = "the type or method name is never written out as plain text in the source in this case, so the tool has nothing to match against"
+				Reason = "the type or method name is never written out as plain text in the source in this case, so there is nothing to match against"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "credentials stored in configuration files rather than in source code",
-				Reason = "configuration files are not source code in any language the tool scans; they are a different format and are not part of what it reads - review configuration files separately"
+				Reason = "configuration files are not source code in any language that is read; they are a different format and are not part of what is read - review configuration files separately"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a user name and password written directly into a URL, such as \"https://user:password@host\"",
-				Reason = "the tool does not detect this form at all. This is a real exposure independent of the OAuth2 migration and should be searched for and removed regardless of which authentication scheme is in use"
+				Reason = "this form is not detected at all. This is a real exposure independent of the OAuth2 migration and should be searched for and removed regardless of which authentication scheme is in use"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "confirmation that a matched Relativity SDK credential type actually comes from the Relativity SDK, rather than a different library that happens to use the same type name",
-				Reason = "the tool matches on the type name as written in the code, not on which package or library it was installed from; a different library using an identically named type would be matched the same way - confirm the source of the type where this matters"
+				Reason = "the match is on the type name as written in the code, not on which package or library it was installed from; a different library using an identically named type would be matched the same way - confirm the source of the type where this matters"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "the retired RSAPI client obtained through a generic factory method that does not show a credential",
-				Reason = "the tool only recognizes this retired client when a credential is visibly built together with it, so as not to incorrectly flag code that is not a problem. A client obtained through a factory with no visible credential in that same code is not detected, even though it is still worth reviewing by hand. A factory call that passes a user name and a password, \"GetProxy<T>(user, password)\", is a different case and is read in the forms described in the entry for calls to GetProxy"
+				Reason = "this retired client is recognized only when a credential is visibly built together with it, so as not to incorrectly flag code that is not a problem. A client obtained through a factory with no visible credential in that same code is not detected, even though it is still worth reviewing by hand. A factory call that passes a user name and a password, \"GetProxy<T>(user, password)\", is a different case and is read in the forms described in the entry for calls to GetProxy"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a credential, scheme name, or header value written using an unusual quoting style - such as a verbatim or raw string literal - rather than an ordinary quoted string",
-				Reason = "the tool's matching only recognizes the ordinary quoted-string style. Text written with a different quoting style is not matched, even though the rest of the file around it is still read correctly, apart from the forms listed under preprocessor blocks"
+				Reason = "the matching recognizes only the ordinary quoted-string style. Text written with a different quoting style is not matched, even though the rest of the file around it is still read correctly, apart from the forms listed under preprocessor blocks"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "an interpolated string that writes a literal brace as a doubled opening brace",
-				Reason = "the tool reads the doubled opening brace as the start of an interpolated expression followed by an inner brace, not as a literal brace. Text between a balanced pair is read as code, so a construct written there can be reported as if it were live code, and an unpaired doubled brace can make the tool read a later stretch of the file as the inside of that expression until it finds the end. The loss is a false finding or a demoted one in the lines near such a literal"
+				Reason = "the doubled opening brace is read as the start of an interpolated expression followed by an inner brace, not as a literal brace. Text between a balanced pair is read as code, so a construct written there can be matched as if it were live code, and an unpaired doubled brace can make a later stretch of the file be read as the inside of that expression until the end is found. The loss is a false match or a demoted one in the lines near such a literal"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a user name and password joined by a colon and converted to Base64 by the project's own helper method, rather than by the standard library's Base64 conversion, or by that conversion called without its type name through a \"using static\" directive",
-				Reason = "the tool recognizes the standard library's conversion only, written with its type name, so a colon-joined pair converted by a differently named helper, or by the conversion reached without its type name, is not matched on its own. A header value that names the scheme, written next to that conversion, is still reported - review any code that builds an Authorization header through its own encoding helper"
+				Reason = "only the standard library's conversion is recognized, written with its type name, so a colon-joined pair converted by a differently named helper, or by the conversion reached without its type name, is not matched on its own. A header value that names the scheme, written next to that conversion, is still matched - review any code that builds an Authorization header through its own encoding helper"
 			}
 		];
 
@@ -1253,10 +1253,10 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 	}
 
 	/// <summary>
-	/// The spellings of a created type and of a scheme the tool does not read - five gaps: a renamed type, the
+	/// The spellings of a created type and of a scheme the tool does not read - seven gaps: a renamed type, the
 	/// target-typed creation away from its type name, a cache entry or a credential built by an initializer, a
-	/// scheme named by a qualified or directly concatenated constant, and a password control reached through an
-	/// operand the signal does not read.
+	/// scheme named by a qualified or directly concatenated constant, a password control reached through an
+	/// operand the signal does not read, a colon pair with one literal half, and another fluent method or entry point.
 	/// </summary>
 	private static ImmutableArray<DeclaredUnsupportedCoverage> UnsupportedCoverageForCreationAndSchemeForms()
 	{
@@ -1265,27 +1265,37 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a credential type, client, authenticator, header type or SDK entry point that the file renames with a \"using\" alias, or an enumeration member or conversion reached through \"using static\" without its type",
-				Reason = "the type name appears only on the \"using\" line, and following a rename means resolving what a name refers to, which the tool does not do. A use written under the alias, or a member written without its type, is not recognized, so a file that does nothing else is missed - search for such aliases and review those files by hand"
+				Reason = "the type name appears only on the \"using\" line, and following a rename means resolving what a name refers to, which is not done. A use written under the alias, or a member written without its type, is not recognized, so a file that does nothing else is missed - search for such aliases and review those files by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a credential or client created with the shorthand \"new(...)\" where the type name does not stand in front of the variable (an assignment to an existing variable, a return, an argument, a property initializer, a credential written as the last argument of a credential-cache entry)",
-				Reason = "without the type name nothing in the text marks the call as one of the recognized kinds. The form with the declared type directly in front of the variable, \"Type x = new(...)\", is recognized. The shorthand assignment to the header property, \"Authorization = new(\"Basic\", credential)\", is left out for the same reason: reading it would match on a property name that other types also carry"
+				Reason = "without the type name nothing in the text marks the call as one of the recognized kinds. The form with the declared type directly in front of the variable, \"Type x = new(...)\", is recognized, with one exception: a credential built with an object initializer that sets only the user name, \"NetworkCredential c = new() { UserName = ... }\" followed by a later password assignment, is read by no class. The shorthand assignment to the header property, \"Authorization = new(\"Basic\", credential)\", is left out for the same reason: reading it would match on a property name that other types also carry"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a credential cache entry added by a collection initializer, and a credential created by an object initializer that carries both the user name and the password in the one initializer",
-				Reason = "the first has no \"Add\" call for the tool to match on, so only the credential inside it is reported, as a plain credential construction. The second is read by no rule: the rule for a credential completed in a later statement needs the password there, and the construction rule needs constructor arguments. Review such code by hand"
+				Reason = "the first has no \"Add\" call to match on, so only the credential inside it is matched, as a plain credential construction. The second is read by no rule: the rule for a credential completed in a later statement needs the password there, and the construction rule needs constructor arguments. Review such code by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a scheme named by a constant written with a type or namespace qualifier, as the scheme argument of a credential-cache entry, of an authentication header value or of a header written by name, or in the interpolated spelling of a header written by name; a header-enumeration value built from a constant that carries the scheme and the space and is concatenated directly, or formatted with the standard library's format call; a qualified constant that names another scheme in any segment of its spelling, in the header-enumeration value",
-				Reason = "a qualified constant is read only where the header is written through the header enumeration, concatenated or in an interpolation hole, and the other classes are widened when the shape is shown to them. A constant that carries the scheme and the space is not read when it is concatenated directly, because that shape would otherwise match every two-operand concatenation written into an Authorization header. A qualified constant is never resolved, so one that names another scheme without Bearer, Negotiate, Digest, Ntlm or Kerberos anywhere in its spelling is reported at Medium as if it were Basic, and one that has such a word in its spelling but names Basic is not reported. Review such code by hand"
+				Reason = "a qualified constant is read only where the header is written through the header enumeration, concatenated or in an interpolation hole, and the other classes are widened when the shape is shown to them. A constant that carries the scheme and the space is not read when it is concatenated directly, because that shape would otherwise match every two-operand concatenation written into an Authorization header. A qualified constant is never resolved, so one that names another scheme without Bearer, Negotiate, Digest, Ntlm or Kerberos anywhere in its spelling is given Medium confidence as if it were Basic, and one that has such a word in its spelling but names Basic is not matched. Review such code by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a Windows Presentation Foundation password control reached through a call with a nested call in its argument, a constructed operand or a parenthesized operand in the stored \"as\" form (\"Find(Get(\"x\")) as PasswordBox\", \"new Factory() as PasswordBox\", \"(expression) as PasswordBox\")",
-				Reason = "the operand of the cast or \"as\" is bounded, so the signal that a person typed a password into the control does not fire on these three operands and the finding is decided as if the signal were absent. That can only move the result toward the default flow; it never assigns a flow the file does not show"
+				Reason = "the operand of the cast or \"as\" is bounded, so the signal that a person typed a password into the control does not fire on these three operands and the match is decided as if the signal were absent. That can only move the result toward the default flow (Client Credentials unless another default is configured), which is used when nothing shows that a person signs in; it never assigns a flow the file does not show"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "a colon pair with one half written as a non-empty quoted literal, such as a fixed user name joined to a password variable",
+				Reason = "a quoted literal is not read as a half of the pair, so that the class for a pair of two values and the class for an encoded pair with an empty half stay apart; the result is that no class matches a pair with one literal half. A fixed user name joined to a password variable is a real Basic shape, so search for such pairs and review them by hand"
+			},
+			new DeclaredUnsupportedCoverage
+			{
+				Construct = "another fluent method whose name declares Basic, and another SDK entry point built from a user name and a password",
+				Reason = "the fluent-method class reads one fixed method name, WithBasicAuth, and the entry-point class reads one fixed type, the Import API entry point, so a different name or a different entry point is not read. Search for such methods and entry points and review them by hand"
 			}
 		];
 
@@ -1300,27 +1310,27 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a file whose analysis takes too long and is stopped by a time limit",
-				Reason = "when this happens, every finding for that file is discarded, not just the part that was slow. The file is counted in the report's \"Skipped items\" section, so the loss is visible as a number, but which specific issues were lost in that file is not shown - such files should be reviewed by hand"
+				Reason = "when this happens, every match for that file is discarded, not just the part that was slow. The file is counted in the \"Skipped items\" section, so the loss is visible as a number, but which specific issues were lost in that file is not shown - such files should be reviewed by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "which specific findings were left out when the tool reached its limit on the number of findings it reports, for a single file or for the whole scan",
-				Reason = "the tool does limit how many findings it reports per file and overall, and the report states how many were left out - only aggregate counts are reported; the omitted findings themselves are not named or located individually"
+				Construct = "which specific matches were left out when the limit on the number of matches kept was reached, for a single file or for the whole run",
+				Reason = "the number of matches kept is limited per file and overall, and the number left out is stated - only aggregate counts are stated; the omitted matches themselves are not named or located individually"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a single hand-built Authorization header that the tool reports as two or three separate findings at nearby locations",
-				Reason = "the tool does not merge findings that come from more than one piece of code working together, such as a credential built on one line and used on another. Each part is reported separately even though they are one migration, and all of the reported locations need to be fixed together"
+				Construct = "a single hand-built Authorization header that matches at two or three separate, nearby locations",
+				Reason = "matches that come from more than one piece of code working together are not merged, such as a credential built on one line and used on another. Each part is matched separately even though they are one migration, and all of the matched locations need to be fixed together"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "conditional-compilation blocks in a file that also holds an interpolated raw string, or a raw string opened with more than one \"$\"",
-				Reason = "the tool cannot tell where such a literal ends, so it does not read the file's conditional-compilation directives at all, and a construct in a switched-off block is reported at the level of its class; review code in conditional blocks of such files by hand"
+				Reason = "where such a literal ends cannot be told, so the file's conditional-compilation directives are not read at all, and a construct in a switched-off block is given the level of its class; review code in conditional blocks of such files by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
-				Construct = "a declaration or a flow signal inside a conditional-compilation block whose condition the tool cannot decide, counted for code outside it",
-				Reason = "the tool cannot tell which branch of such a conditional is built, so a name declared in each branch is counted twice and may lower or hide a finding, and evidence in one branch may decide the flow of code outside it; review such files by hand"
+				Construct = "a declaration or a flow signal inside a conditional-compilation block whose condition cannot be decided, counted for code outside it",
+				Reason = "which branch of such a conditional is built cannot be told, so a name declared in each branch is counted twice and may lower or hide a match, and evidence in one branch may decide the flow of code outside it; review such files by hand"
 			}
 		];
 
@@ -1335,27 +1345,27 @@ file sealed class CSharpAnalyzer : ILanguageAnalyzer
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a C# source file saved in a single-byte text encoding other than Windows-1252 (for example a Cyrillic or Central European code page), rather than in UTF-8, UTF-16 or Windows-1252",
-				Reason = "a file that is not UTF-8 or UTF-16 is read as Windows-1252, which covers Latin-1 and the other Western European files. A file in another single-byte code page that holds a byte Windows-1252 leaves undefined cannot be read that way: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. One that holds only bytes Windows-1252 defines is read, but its accented or other non-ASCII characters come out as different characters; a credential written in plain ASCII is still found, and one whose value holds such a character is read with the wrong character. Convert those files to UTF-8 and scan again, or review them by hand"
+				Reason = "a file that is not UTF-8 or UTF-16 is read as Windows-1252, which covers Latin-1 and the other Western European files. A file in another single-byte code page that holds a byte Windows-1252 leaves undefined cannot be read that way: it is counted among the files that could not be read as text, and nothing inside it is examined for Basic Authentication. One that holds only bytes Windows-1252 defines is read, but its accented or other non-ASCII characters come out as different characters; a credential written in plain ASCII is still found, and one whose value holds such a character is read with the wrong character. Convert those files to UTF-8 and analyze them again, or review them by hand"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "authentication performed inside a compiled library or binary dependency, rather than in the client's own source code",
-				Reason = "the tool reads source code as text; a compiled binary has no source text for it to examine"
+				Reason = "source code is read as text; a compiled binary has no source text to examine"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "C# code embedded inside another file type, such as a Razor view, or code written in a related .NET language such as VB.NET",
-				Reason = "this analyzer only scans plain C# source files; other file types and other languages are not covered by it"
+				Reason = "only plain C# source files are read; other file types and other languages are not covered"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "certain unusual string literal forms (an interpolated raw string, or a raw string opened with more than one \"$\")",
-				Reason = "these are known gaps in how the tool reads C# text into code versus comments and strings, rather than a limitation of any one detection rule"
+				Reason = "these are known gaps in how C# text is read into code versus comments and strings, rather than a limitation of any one detection rule"
 			},
 			new DeclaredUnsupportedCoverage
 			{
 				Construct = "a Base64-encoded value made of two parts separated by a colon that is not actually a credential",
-				Reason = "the tool cannot always tell such values apart from an encoded user name and password pair. It reads the value at Low, for manual review, when neither part is named like a user name or a password, and keeps it at Medium when a part is named so. A part whose user or password word is followed by an identifier word (an id, a GUID, a number, an index or a code) is not counted as named so. A non-credential value may therefore still be reported at Medium, and should be dismissed on review, when a part is named so without an identifier word after it, or when the identifier word is not written as a separate part of the name"
+				Reason = "such values cannot always be told apart from an encoded user name and password pair. The value is read at Low, for manual review, when neither part is named like a user name or a password, and kept at Medium when a part is named so. A part whose user or password word is followed by an identifier word (an id, a GUID, a number, an index or a code) is not counted as named so. A non-credential value may therefore still be given Medium confidence, and should be dismissed on review, when a part is named so without an identifier word after it, or when the identifier word is not written as a separate part of the name"
 			}
 		];
 

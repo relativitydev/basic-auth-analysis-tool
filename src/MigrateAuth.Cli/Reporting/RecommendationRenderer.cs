@@ -110,7 +110,7 @@ public sealed class RecommendationRenderer
 	/// finding's own language and, for a class that is Low itself, the class's subsection.
 	/// </summary>
 	public const string MANUAL_REVIEW_LEAD_TEXT =
-		"Routed to manual review. This construct was recognized at low confidence, so the tool gives no migration suggestion for it and the change has not been characterized. Whoever owns this code should confirm whether it performs Basic Authentication before acting on it, and should not read the level as evidence that it does not. How to judge a match of this kind is described in ";
+		"Routed to manual review. This construct was recognized at low confidence, so no migration suggestion is given for it and the change has not been characterized. Whoever owns this code should confirm whether it performs Basic Authentication before acting on it, and should not read the level as evidence that it does not. How to judge a match of this kind is described in ";
 
 	/// <summary>
 	/// The title of the section of Part C that explains how to judge a Low-confidence match, as the
