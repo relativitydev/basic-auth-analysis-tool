@@ -23,6 +23,9 @@ public sealed record DocumentedLanguage(
 	string ExampleFenceLabel,
 	string SourceFileGlob)
 {
+	private const string _PYTHON_SERVER_SIDE_VARIANT_MARKER = "**Variant 1 — a server-side web application";
+	private const string _PYTHON_COMMAND_LINE_VARIANT_MARKER = "**Variant 2 — a command-line or desktop tool**";
+
 	/// <summary>The two variants of how an Authorization Code entry says the code is received, as the labels each language's templates write them.</summary>
 	public ImmutableArray<(string Element, string Marker)> AuthorizationCodeVariantMarkers { get; init; } =
 	[
@@ -124,8 +127,27 @@ public sealed record DocumentedLanguage(
 		]
 	};
 
+	/// <summary>The seventh language: Part A and Part C of Python.</summary>
+	public static readonly DocumentedLanguage Python = new(
+		"Python",
+		"Python",
+		AssessedLanguage.Python,
+		"part-a-python.md",
+		"part-c-python.md",
+		PythonRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"python",
+		"*.py")
+	{
+		CacheAndReacquireMarker = PublicDocumentChecks.CACHE_AND_RE_ACQUIRE_WITHOUT_COMMA_MARKER,
+		AuthorizationCodeVariantMarkers =
+		[
+			("the server-side web variant", _PYTHON_SERVER_SIDE_VARIANT_MARKER),
+			("the command-line or desktop variant", _PYTHON_COMMAND_LINE_VARIANT_MARKER)
+		]
+	};
+
 	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
-	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript, TypeScript];
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript, TypeScript, Python];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()

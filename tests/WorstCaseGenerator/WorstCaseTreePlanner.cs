@@ -18,6 +18,9 @@ public readonly record struct WorstCaseFilePlan(long Index, string RelativePath,
 /// 10% of a type no analyzer claims, the rest ordinary C#. The first file after the heavy ones always
 /// holds a High construct, so a tree larger than the heavy files always has one past the global cap.
 ///
+/// Python and Go, and the tree shapes, only when asked: <see cref="WorstCaseTreeOptions.PythonSourceBasisPoints"/> and <see cref="WorstCaseTreeOptions.GoSourceBasisPoints"/> turn their shares of the ordinary files into Python and Go files on streams drawn after
+/// every other share, and <see cref="WorstCaseTreeOptions.TreeShape"/> moves those files into a virtual-environment or a vendored layout; with all three at their defaults the tree is the one every earlier scenario recorded.
+///
 /// PowerShell, only when asked: <see cref="WorstCaseTreeOptions.PowerShellScriptBasisPoints"/> turns that share of the ordinary files into PowerShell
 /// scripts, on streams of their own, so no other file's kind changes and a tree asked for no PowerShell is the same tree it always was.
 /// </summary>
@@ -67,6 +70,28 @@ public static class WorstCaseTreePlanner
 	private const string _TYPESCRIPT_MODULE_DECLARATION_EXTENSION = ".d.mts";
 	private const string _TYPESCRIPT_COMMONJS_DECLARATION_EXTENSION = ".d.cts";
 	private const string _NO_EXTENSION = "";
+	private const int _STREAM_PYTHON_SHARE = 15;
+	private const int _STREAM_PYTHON_FORM = 16;
+	private const int _STREAM_GO_SHARE = 17;
+	private const int _PYTHON_FORM_DENOMINATOR = 10;
+	private const int _PYTHON_SHEBANG_FORM_LIMIT = 1;
+	private const int _PYTHON_STUB_FORM_LIMIT = 3;
+	private const string _PYTHON_SOURCE_EXTENSION = ".py";
+	private const string _PYTHON_STUB_EXTENSION = ".pyi";
+	private const string _GO_SOURCE_EXTENSION = ".go";
+	private const string _VIRTUAL_ENVIRONMENT_FOLDER = ".venv";
+	private const string _VIRTUAL_ENVIRONMENT_SCRIPTS_FOLDER = "bin";
+	private const string _VIRTUAL_ENVIRONMENT_LIBRARY_FOLDER = "lib";
+	private const string _VIRTUAL_ENVIRONMENT_INTERPRETER_FOLDER = "python3.12";
+	private const string _VIRTUAL_ENVIRONMENT_PACKAGES_FOLDER = "site-packages";
+	private const string _THIRD_PARTY_FOLDER = "third_party";
+	private const string _THIRD_PARTY_PYTHON_FOLDER = "python";
+	private const string _VENDOR_FOLDER = "vendor";
+	private const string _VENDORED_GO_MODULE_HOST_FOLDER = "modules.example";
+	private const string _PACKAGE_FOLDER_FORMAT = "pkg{0:D3}";
+	private const string _MODULE_FOLDER_FORMAT = "mod{0:D2}";
+	private const string _GO_MODULE_FOLDER_FORMAT = "lib{0:D3}";
+	private const string _GO_PACKAGE_FOLDER_FORMAT = "pkg{0:D2}";
 
 	private static readonly WorstCaseFileKind[] _TypeScriptKinds =
 	[
@@ -87,7 +112,7 @@ public static class WorstCaseTreePlanner
 		WorstCaseFileKind kind = KindOf(options, index);
 		string extension = ExtensionOf(options, index, kind);
 
-		return new WorstCaseFilePlan(index, RelativePathOf(index, extension), kind);
+		return new WorstCaseFilePlan(index, RelativePathOf(options.TreeShape, index, kind, extension), kind);
 	}
 
 	private static string ExtensionOf(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
@@ -110,6 +135,10 @@ public static class WorstCaseTreePlanner
 			WorstCaseFileKind.TypeScriptDeclarationFile => _TYPESCRIPT_DECLARATION_EXTENSION,
 			WorstCaseFileKind.TypeScriptModuleDeclarationFile => _TYPESCRIPT_MODULE_DECLARATION_EXTENSION,
 			WorstCaseFileKind.TypeScriptCommonJsDeclarationFile => _TYPESCRIPT_COMMONJS_DECLARATION_EXTENSION,
+			WorstCaseFileKind.PythonSource => _PYTHON_SOURCE_EXTENSION,
+			WorstCaseFileKind.PythonStubFile => _PYTHON_STUB_EXTENSION,
+			WorstCaseFileKind.PythonShebangScript => _NO_EXTENSION,
+			WorstCaseFileKind.GoSource => _GO_SOURCE_EXTENSION,
 			_ => _CANDIDATE_EXTENSION
 		};
 	}
@@ -137,7 +166,35 @@ public static class WorstCaseTreePlanner
 			kind = KindByBasisPoints(DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, STREAM_KIND));
 		}
 
-		return kind == WorstCaseFileKind.Filler ? TypeScriptInsteadOfFiller(options, index, JavaScriptInsteadOfFiller(options, index, ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index))))) : kind;
+		return kind == WorstCaseFileKind.Filler ? GoInsteadOfFiller(options, index, PythonInsteadOfFiller(options, index, TypeScriptInsteadOfFiller(options, index, JavaScriptInsteadOfFiller(options, index, ShellInsteadOfFiller(options, index, VBNetInsteadOfFiller(options, index, PowerShellInsteadOfFiller(options, index))))))) : kind;
+	}
+
+	/// <summary>A file still ordinary after the Python share is a Go source for the share the options ask for, drawn on a stream of its own after the Python share.</summary>
+	private static WorstCaseFileKind GoInsteadOfFiller(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		bool isGo = kind == WorstCaseFileKind.Filler
+			&& DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_GO_SHARE) < options.GoSourceBasisPoints;
+
+		return isGo ? WorstCaseFileKind.GoSource : kind;
+	}
+
+	/// <summary>A file still ordinary after the TypeScript share is a Python file for the share the options ask for, and its form (a source, a type stub or an extensionless script) is decided on a stream of its own.</summary>
+	private static WorstCaseFileKind PythonInsteadOfFiller(WorstCaseTreeOptions options, long index, WorstCaseFileKind kind)
+	{
+		WorstCaseFileKind result = kind;
+
+		if (kind == WorstCaseFileKind.Filler
+			&& DeterministicRandom.Below(BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_PYTHON_SHARE) < options.PythonSourceBasisPoints)
+		{
+			result = DeterministicRandom.Below(_PYTHON_FORM_DENOMINATOR, options.Seed, index, _STREAM_PYTHON_FORM) switch
+			{
+				< _PYTHON_SHEBANG_FORM_LIMIT => WorstCaseFileKind.PythonShebangScript,
+				< _PYTHON_STUB_FORM_LIMIT => WorstCaseFileKind.PythonStubFile,
+				_ => WorstCaseFileKind.PythonSource
+			};
+		}
+
+		return result;
 	}
 
 	/// <summary>A file still ordinary after the JavaScript share is a TypeScript file for the share the options ask for, and its form (one of seven extensions) is decided on a stream of its own.</summary>
@@ -242,17 +299,70 @@ public static class WorstCaseTreePlanner
 		return isSlot;
 	}
 
-	private static string RelativePathOf(long index, string extension)
+	private static string RelativePathOf(WorstCaseTreeShape shape, long index, WorstCaseFileKind kind, string extension)
 	{
 		long leaf = index / FILES_PER_LEAF_FOLDER;
 		long middle = leaf / LEAF_FOLDERS_PER_MIDDLE_FOLDER;
+		string fileName = string.Format(CultureInfo.InvariantCulture, _FILE_FORMAT, index, extension);
+
+		return string.Join(_PATH_SEPARATOR, [.. FoldersOf(shape, kind, leaf, middle), fileName]);
+	}
+
+	/// <summary>The folders a file stands in: the plain three levels, or, for the files of a language a shape moves, the layout of that shape.</summary>
+	private static string[] FoldersOf(WorstCaseTreeShape shape, WorstCaseFileKind kind, long leaf, long middle)
+	{
+		bool isPython = kind is WorstCaseFileKind.PythonSource or WorstCaseFileKind.PythonStubFile or WorstCaseFileKind.PythonShebangScript;
+		string[] folders = PlainFoldersOf(leaf, middle);
+
+		if (shape == WorstCaseTreeShape.VirtualEnvironment && isPython)
+		{
+			folders = VirtualEnvironmentFoldersOf(kind, leaf, middle);
+		}
+		else if (shape == WorstCaseTreeShape.Vendored && isPython)
+		{
+			folders = [_THIRD_PARTY_FOLDER, _THIRD_PARTY_PYTHON_FOLDER, PackageFolderOf(middle), ModuleFolderOf(leaf)];
+		}
+		else if (shape == WorstCaseTreeShape.Vendored && kind == WorstCaseFileKind.GoSource)
+		{
+			folders =
+			[
+				_VENDOR_FOLDER,
+				_VENDORED_GO_MODULE_HOST_FOLDER,
+				string.Format(CultureInfo.InvariantCulture, _GO_MODULE_FOLDER_FORMAT, middle),
+				string.Format(CultureInfo.InvariantCulture, _GO_PACKAGE_FOLDER_FORMAT, leaf % LEAF_FOLDERS_PER_MIDDLE_FOLDER)
+			];
+		}
+
+		return folders;
+	}
+
+	/// <summary>The scripts of a virtual environment stand in its flat <c>bin</c> folder; its sources and stubs in a package of <c>site-packages</c>.</summary>
+	private static string[] VirtualEnvironmentFoldersOf(WorstCaseFileKind kind, long leaf, long middle)
+	{
+		return kind == WorstCaseFileKind.PythonShebangScript
+			? [_VIRTUAL_ENVIRONMENT_FOLDER, _VIRTUAL_ENVIRONMENT_SCRIPTS_FOLDER]
+			: [_VIRTUAL_ENVIRONMENT_FOLDER, _VIRTUAL_ENVIRONMENT_LIBRARY_FOLDER, _VIRTUAL_ENVIRONMENT_INTERPRETER_FOLDER, _VIRTUAL_ENVIRONMENT_PACKAGES_FOLDER, PackageFolderOf(middle), ModuleFolderOf(leaf)];
+	}
+
+	private static string PackageFolderOf(long middle)
+	{
+		return string.Format(CultureInfo.InvariantCulture, _PACKAGE_FOLDER_FORMAT, middle);
+	}
+
+	private static string ModuleFolderOf(long leaf)
+	{
+		return string.Format(CultureInfo.InvariantCulture, _MODULE_FOLDER_FORMAT, leaf % LEAF_FOLDERS_PER_MIDDLE_FOLDER);
+	}
+
+	private static string[] PlainFoldersOf(long leaf, long middle)
+	{
 		long top = middle / LEAF_FOLDERS_PER_MIDDLE_FOLDER;
 
-		return string.Join(
-			_PATH_SEPARATOR,
+		return
+		[
 			string.Format(CultureInfo.InvariantCulture, _TOP_FOLDER_FORMAT, top),
 			string.Format(CultureInfo.InvariantCulture, _MIDDLE_FOLDER_FORMAT, middle % LEAF_FOLDERS_PER_MIDDLE_FOLDER),
-			string.Format(CultureInfo.InvariantCulture, _LEAF_FOLDER_FORMAT, leaf % LEAF_FOLDERS_PER_MIDDLE_FOLDER),
-			string.Format(CultureInfo.InvariantCulture, _FILE_FORMAT, index, extension));
+			string.Format(CultureInfo.InvariantCulture, _LEAF_FOLDER_FORMAT, leaf % LEAF_FOLDERS_PER_MIDDLE_FOLDER)
+		];
 	}
 }

@@ -22,6 +22,14 @@ public sealed class LowReasonVocabularyTests
 		"this pattern class is Low by definition: the client sends the credential as Basic only after the server challenges with Basic, or the join between the credential and the call is by text; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points and whether a preemptive option or a hand-built header is also used";
 	private const string _ENVIRONMENT_HELD_SCHEME_SENTENCE =
 		"this pattern class is Low by definition: the Authorization header takes its whole value, scheme included, from an environment value, so the code does not show whether the scheme is Basic or a bearer token; a bearer token is the migrated form and a Basic value is not, so confirm what the deployed value holds and migrate it if it is Basic";
+	private const string _UNREACHED_HEADER_MAPPING_SENTENCE =
+		"this pattern class is Low by definition: this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text the tool can see; it is routed to manual review and no scheme migration is proposed";
+	private const string _ROUND_TRIPPER_DEFINITION_SENTENCE =
+		"this pattern class is Low by definition: this method implements an HTTP transport that writes Basic Authentication into requests it forwards; the credential itself is reported at its own location, and this definition is routed to manual review with no scheme migration proposed";
+	private const string _AUTHENTICATION_HELPER_SENTENCE =
+		"this pattern class is Low by definition: this function builds a Basic Authentication header or encoded pair from its own parameters; calls to it are not followed, so every caller needs review, and no scheme migration is proposed here";
+	private const string _ENVIRONMENT_AUTHORIZATION_HEADER_SENTENCE =
+		"this pattern class is Low by definition: this Authorization header takes its whole value from the environment, so the scheme is not visible; it is routed to manual review and no scheme migration is proposed";
 	private const string _GENERIC_SENTENCE =
 		"this pattern class is Low by definition: as written it does not establish Basic Authentication towards RelativityOne";
 	private const string _COMMENT_SENTENCE =
@@ -78,6 +86,10 @@ public sealed class LowReasonVocabularyTests
 	[InlineData("JS-014", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("JS-016", _CHALLENGE_DEPENDENT_SENTENCE)]
 	[InlineData("JS-018", _ENVIRONMENT_HELD_SCHEME_SENTENCE)]
+	[InlineData("PY-014", _UNREACHED_HEADER_MAPPING_SENTENCE)]
+	[InlineData("GO-010", _ROUND_TRIPPER_DEFINITION_SENTENCE)]
+	[InlineData("GO-011", _AUTHENTICATION_HELPER_SENTENCE)]
+	[InlineData("GO-012", _ENVIRONMENT_AUTHORIZATION_HEADER_SENTENCE)]
 	[InlineData("TST-001", _GENERIC_SENTENCE)]
 	public void AClassThatIsLowByDefinitionStatesItsOwnReason(string identifier, string expectedSentence)
 	{

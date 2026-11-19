@@ -37,6 +37,7 @@ public sealed class VBNetAnalyzerTests
 	private const string _VB_013 = "VB-013";
 	private const string _VB_014 = "VB-014";
 	private const string _VB_015 = "VB-015";
+	private const int _DECLARED_TRIPLE_COUNT = 7;
 	private const string _VB_016 = "VB-016";
 	private const string _VB_017 = "VB-017";
 	private const string _VB_018 = "VB-018";
@@ -140,17 +141,18 @@ public sealed class VBNetAnalyzerTests
 	}
 
 	[Fact]
-	public void SixSubsumptionTriplesAreDeclaredAsTheCatalogStatesThem()
+	public void SevenSubsumptionTriplesAreDeclaredAsTheCatalogStatesThem()
 	{
 		FrozenSet<SubsumptionRule> relation = ReadAnalyzer().SubsumptionRelation;
 
-		Assert.Equal(6, relation.Count);
+		Assert.Equal(_DECLARED_TRIPLE_COUNT, relation.Count);
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_002, SubsumedPatternClassIdentifier: _VB_001, When: SubsumptionCondition.AnchorPositionsAreIdentical });
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_003, SubsumedPatternClassIdentifier: _VB_013, When: SubsumptionCondition.MatchSpansOverlap });
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_012, SubsumedPatternClassIdentifier: _VB_013, When: SubsumptionCondition.MatchSpansOverlap });
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_016, SubsumedPatternClassIdentifier: _VB_013, When: SubsumptionCondition.MatchSpansOverlap });
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_018, SubsumedPatternClassIdentifier: _VB_013, When: SubsumptionCondition.MatchSpansOverlap });
 		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_015, SubsumedPatternClassIdentifier: _VB_014, When: SubsumptionCondition.AnchorPositionsAreIdentical });
+		Assert.Contains(relation, rule => rule is { SubsumingPatternClassIdentifier: _VB_006, SubsumedPatternClassIdentifier: _VB_014, When: SubsumptionCondition.MatchSpansOverlap });
 	}
 
 	[Fact]

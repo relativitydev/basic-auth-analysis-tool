@@ -72,11 +72,26 @@ public sealed class OAuth2ClientCopyTests
 		}
 	}
 
-	/// <summary>Every generated block of Part C carries the same field list as row 5 for its flow.</summary>
+	/// <summary>Every generated block of the Part C of the C# documentation carries the same field list as row 5 for its flow.</summary>
 	[Fact]
 	public void EveryPartCBlockCarriesTheSameFieldListAsRowFive()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
+		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(PublicDocuments.PartCPath());
+	}
+
+	/// <summary>Every generated block of the Part C of Python carries the same field list as row 5 for its flow, so the guide, Part C of Python and the report cannot say different things about a field.</summary>
+	[Fact]
+	public void EveryPartCBlockOfPythonCarriesTheSameFieldListAsRowFive()
+	{
+		string partCPath = DocumentedLanguage.Python.PartCPath();
+
+		Assert.NotEmpty(GeneratedBlockMarkers.Blocks(File.ReadAllText(partCPath)));
+		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(partCPath);
+	}
+
+	private static void AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(string partCPath)
+	{
+		string partC = File.ReadAllText(partCPath);
 
 		foreach (GeneratedBlock block in GeneratedBlockMarkers.Blocks(partC))
 		{

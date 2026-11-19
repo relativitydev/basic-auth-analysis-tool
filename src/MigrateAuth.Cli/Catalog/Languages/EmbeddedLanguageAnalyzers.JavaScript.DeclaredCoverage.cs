@@ -9,7 +9,7 @@ namespace MigrateAuth.Cli.Catalog.Languages;
 /// what the tool does not detect or cannot tell, and each reason says why and, where useful, what to do about it. No internal design term, class identifier
 /// or section reference belongs in either field. The classes supported at Low only are a different statement (they ARE recognized) and do not appear here.
 ///
-/// The forty-two entries of the declared unsupported coverage and its four known limits, in the catalog's order, which carries no meaning in the report. Only what is
+/// The forty-three entries of the declared unsupported coverage and its four known limits, in the catalog's order, which carries no meaning in the report. Only what is
 /// impossible by design, open by nature, a declared cost or an internal limit is declared. Grouped in helpers, each under the method-length limit.
 /// </summary>
 internal static class JavaScriptDeclaredCoverage
@@ -25,6 +25,7 @@ internal static class JavaScriptDeclaredCoverage
 			.Concat(ForUrlsAndTheSymbolTable())
 			.Concat(ForBareNamesAndHelperFunctions())
 			.Concat(ForSettingsPropertiesAndProjectEncoders())
+			.Concat(ForAnEncoderSeparatedFromTheBasicLiteral())
 			.Concat(ForLimitsOfTheTool());
 
 		return entries.ToFrozenSet();
@@ -235,8 +236,8 @@ internal static class JavaScriptDeclaredCoverage
 		ImmutableArray<DeclaredUnsupportedCoverage> entries =
 		[
 			Entry(
-				"a settings property used as the value of an Authorization header whose name does not end with authorization (for example auth or authHeader), although it is filled from an environment value",
-				"the tool joins the property to the environment value by a name that ends with authorization, which is the form it was shown to occur in; a property under another name is not read, so such a header is not reported; review headers whose value comes from a settings object by hand"),
+				"a settings property used as the value of an Authorization header whose name does not contain authorization (for example auth or authHeader), although it is filled from an environment value",
+				"the tool joins the property to the environment value by a name that contains authorization, which is the form it was shown to occur in; a property under another name is not read, so such a header is not reported; review headers whose value comes from a settings object by hand"),
 			Entry(
 				"a settings property read by bracket access, by destructuring, by optional chaining or as object shorthand, a call written as the receiver, several members written on one line, a class field assigned from an environment value, a property filled from a call, from an alias of the environment object or from another file, a property filled from an environment value with a scheme word as the fallback, and a property filled from an environment variable whose name has none of the words auth, token, secret, credential, key, pass or basic",
 				"the tool reads one member per line, written with a plain key or a dot (a this receiver included), and filled directly from one of the five environment forms by a variable whose name suggests a credential; it does not read a class field, an object shorthand, a call as the receiver, a call, an alias, another file or an environment variable named for something else, and a fallback that names a scheme is not reported by any rule; review such settings by hand"),
@@ -246,6 +247,19 @@ internal static class JavaScriptDeclaredCoverage
 			Entry(
 				"a credential object, an options object or a header object chosen by a selector (an enumeration, a switch or a map) and returned from a function, with no client visible in the same statement",
 				"the tool reads one expression at a time and does not follow a value from where it is chosen to where it is used, so such an object is not reported even when it carries a credential; review functions that return credentials or client options by hand")
+		];
+
+		return entries;
+	}
+
+	/// <summary>A header value whose encoder call is not next to the Basic literal.</summary>
+	private static ImmutableArray<DeclaredUnsupportedCoverage> ForAnEncoderSeparatedFromTheBasicLiteral()
+	{
+		ImmutableArray<DeclaredUnsupportedCoverage> entries =
+		[
+			Entry(
+				"an encoder call separated from the Basic literal of a header value by another operand on the same line, such as a separator or a second literal between the scheme and the encoder",
+				"the tool merges the encoder into the header finding only where the encoder call directly follows the Basic literal; with another operand between them the header and the encoder are reported as two findings for one construct, so it is counted twice; read the two as one")
 		];
 
 		return entries;

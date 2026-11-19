@@ -80,7 +80,7 @@ public sealed class CSharpNeutralPairStressDifferentialTimingTests
 	{
 		MatchBoundStressShape shape = MatchBoundStressSet.Build().Single(candidate => candidate.Name == shapeName);
 
-		MatchBoundShapeTiming timing = MatchBoundTimingHarness.Measure(new CSharpRecognitionHarness(), shape, timingTableRequested: false);
+		MatchBoundShapeTiming timing = MatchBoundTimingHarness.Measure(new CSharpRecognitionHarness(), shape, timingTableRequested: false, warmUpIterations: MatchBoundTimingHarness.COLD_FIRST_PASS_WARM_UP_ITERATIONS);
 
 		_output.WriteLine($"{shapeName}: worst per-file expression time {timing.WorstFileMilliseconds} ms, {timing.RecognizedConstructs} constructs, bound {RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS} ms.");
 		Assert.False(timing.AnExpressionTimedOut, shapeName);

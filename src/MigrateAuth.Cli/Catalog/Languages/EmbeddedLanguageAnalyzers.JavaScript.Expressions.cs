@@ -227,8 +227,17 @@ internal static partial class JavaScriptPatternExpressions
 	private const string _K6_TAIL_REFUSAL =
 		$@"(?![\x27\x22`](?i:basic)(?!\w)[^\x27\x22`\n]{_K6_REFUSED_LITERAL_QUANTIFIER}[\x27\x22`]{_BLANKS}(?:;|\|(?!\|)))(?!`(?i:basic){_BLANKS}\$\{{{_BLANKS}(?:string|number){_BLANKS}\}})";
 
+	/// <summary>
+	/// The encoder call that directly follows the Basic literal on the same line: after the word <c>Basic</c> and the closing quote of the literal, a plus sign, or the hole of a template, and then <c>btoa</c> and its
+	/// opening parenthesis, with at most two receiver names before it (<c>window.btoa</c>). The match of the header class extends over it, so the encoder lies within the matched header value and the triple of the
+	/// header class over the encoder class merges the two into one finding. The extension is read only where the scheme word is not followed by a literal token, so a literal credential is captured as before. An encoder that follows another operand of the value is not covered.
+	/// Every run is bounded and the pieces are told apart by the quote, the plus sign or the hole, so none can give a blank back to another.
+	/// </summary>
+	private const string _ENCODER_CALL_RIGHT_AFTER_THE_BASIC_LITERAL =
+		$@"(?:{_BLANKS}(?:\$\{{|[\x27\x22`][ \t]{{0,40}}\+)[ \t]{{0,40}}(?:[A-Za-z_$][\w$]{{0,63}}\.){{0,2}}btoa(?![\w$])[ \t]{{0,40}}\()";
+
 	private const string _EX_JS_004 =
-		$@"(?:{_CARRIERS}|{_CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT}{_K6_TAIL_REFUSAL})(?:{_BASIC_VALUE}|{_ENVIRONMENT_READ_WITH_A_BASIC_FALLBACK})";
+		$@"(?:{_CARRIERS}|{_CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT}{_K6_TAIL_REFUSAL})(?:{_BASIC_VALUE}{_ENCODER_CALL_RIGHT_AFTER_THE_BASIC_LITERAL}?|{_ENVIRONMENT_READ_WITH_A_BASIC_FALLBACK})";
 
 	private const string _EX_JS_017 =
 		_CARRIERS + _IDENTIFIER_VALUE;

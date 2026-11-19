@@ -11,6 +11,8 @@ public static class WorstCaseTreeGenerator
 {
 	private const string _PROGRESS_FORMAT = "Wrote {0:N0} of {1:N0} files";
 	private const int _MINIMUM_OVERSIZE_SLOT_SPACING = 2;
+	private const string _PYTHON_LANGUAGE_NAME = "Python";
+	private const string _GO_LANGUAGE_NAME = "Go";
 
 	/// <summary>Writes the tree and returns what was written.</summary>
 	/// <exception cref="ArgumentException">The target lies inside a repository, or the options cannot describe a tree.</exception>
@@ -70,6 +72,9 @@ public static class WorstCaseTreeGenerator
 			throw new ArgumentException("The TypeScript share must be between 0 and 10,000 basis points.", nameof(options));
 		}
 
+		ValidateShare(options.PythonSourceBasisPoints, _PYTHON_LANGUAGE_NAME);
+		ValidateShare(options.GoSourceBasisPoints, _GO_LANGUAGE_NAME);
+
 		if (options.FileCount <= options.HeavyFileCount)
 		{
 			throw new ArgumentException("The tree must hold more files than the heavy files that lead it.", nameof(options));
@@ -82,6 +87,14 @@ public static class WorstCaseTreeGenerator
 		if (!oversizeFits)
 		{
 			throw new ArgumentException("The oversize files must fit, at least two slots apart, after the heavy files.", nameof(options));
+		}
+	}
+
+	private static void ValidateShare(int basisPoints, string languageName)
+	{
+		if (basisPoints < 0 || basisPoints > WorstCaseTreePlanner.BASIS_POINT_DENOMINATOR)
+		{
+			throw new ArgumentException($"The {languageName} share must be between 0 and 10,000 basis points.", nameof(basisPoints));
 		}
 	}
 

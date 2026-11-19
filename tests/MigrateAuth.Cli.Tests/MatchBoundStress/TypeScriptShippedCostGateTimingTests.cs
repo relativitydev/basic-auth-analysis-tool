@@ -19,6 +19,11 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// THE 975 ms FIGURE IS AN AIM, NOT A GATE, printed beside the worst shape. What is asserted is what must hold whatever the aim: no expression
 /// times out, no enumeration stalls, no flow evaluation trips, and every shape's worst per-file figure stays under the MATCH BOUND in force.
 ///
+/// THREE PARTS BY SHAPE FAMILY. There is one test per family of <see cref="TypeScriptShippedCostGateStressSet.ShippedShapeFamily"/>,
+/// each with the same assertions. Together they time exactly the shapes of <see cref="TypeScriptShippedCostGateStressSet.Build"/> (a non-timing test pins that). Each part writes its own report, where the report variable points with
+/// the part's suffix before the extension (<see cref="EARLIER_SET_REPORT_SUFFIX"/>, <see cref="GROUP_AND_REFUSAL_REPORT_SUFFIX"/>, <see cref="REMAINING_SHAPES_REPORT_SUFFIX"/>); the worst benign figure of the gate
+/// is the largest of the three parts' "Worst benign per-file" lines.
+///
 /// A `TypeScript` file has no first-line rule, so nothing is charged to the lexical budget here; the budget's own measurement is <see cref="TypeScriptLexicalBudgetTimingTests"/>. The extension of each shape selects the
 /// file form (`.ts`, `.tsx`, `.mts`, `.cts`, `.d.ts`), so every file form the analyzer reads is gated.
 ///
@@ -37,6 +42,15 @@ public sealed class TypeScriptShippedCostGateTimingTests
 	/// <summary>On a build with the JIT optimizer disabled the generated expressions run several times slower than in the product: ten times the bound would still catch an expression that lost its bound.</summary>
 	internal const double UNOPTIMIZED_BUILD_CEILING_MILLISECONDS = MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE * RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS;
 
+	/// <summary>The suffix put before the extension of the report path of the part that times the shapes of the earlier per-expression set.</summary>
+	internal const string EARLIER_SET_REPORT_SUFFIX = "-earlier-set";
+
+	/// <summary>The suffix of the part that times the generic-argument group on each callee and the tail refusal on each tail.</summary>
+	internal const string GROUP_AND_REFUSAL_REPORT_SUFFIX = "-group-and-refusal";
+
+	/// <summary>The suffix of the part that times the extension, backward-predicate, deep-declaration, member-pass and C4 shapes.</summary>
+	internal const string REMAINING_SHAPES_REPORT_SUFFIX = "-remaining-shapes";
+
 	private const char _SHAPE_FILTER_SEPARATOR = ',';
 
 	private readonly ITestOutputHelper _output;
@@ -47,20 +61,44 @@ public sealed class TypeScriptShippedCostGateTimingTests
 	}
 
 	[Fact]
-	public void NoTerminatingBenignTypeScriptShapeReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
+	public void NoTerminatingBenignTypeScriptShapeOfTheEarlierPerExpressionSetReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
+	{
+		RunThePart(TypeScriptShippedCostGateStressSet.ShippedShapeFamily.EarlierPerExpressionSet, EARLIER_SET_REPORT_SUFFIX);
+	}
+
+	[Fact]
+	public void NoTerminatingBenignTypeScriptGenericArgumentGroupOrTailRefusalShapeReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
+	{
+		RunThePart(TypeScriptShippedCostGateStressSet.ShippedShapeFamily.GenericArgumentGroupAndTailRefusal, GROUP_AND_REFUSAL_REPORT_SUFFIX);
+	}
+
+	[Fact]
+	public void NoTerminatingBenignTypeScriptShapeOfTheRemainingAddedFamiliesReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
+	{
+		RunThePart(TypeScriptShippedCostGateStressSet.ShippedShapeFamily.RemainingAddedShapes, REMAINING_SHAPES_REPORT_SUFFIX);
+	}
+
+	private void RunThePart(TypeScriptShippedCostGateStressSet.ShippedShapeFamily family, string reportSuffix)
 	{
 		TypeScriptRecognitionHarness harness = new();
 		MatchBoundTimingTarget target = ForTypeScript(harness);
 		bool tableRequested = MatchBoundTimingHarness.TimingTableIsRequested(ENGINE_REPORT_PATH_VARIABLE_NAME);
-		ImmutableArray<MatchBoundStressShape> shapes = TypeScriptShippedCostGateStressSet.Build();
+		ImmutableArray<MatchBoundStressShape> shapes = TypeScriptShippedCostGateStressSet.BuildTheFamily(family);
 		ImmutableArray<MatchBoundShapeTiming> timings =
 		[
 			.. SelectTheShapesToTime(shapes).Select(shape => MatchBoundTimingHarness.Measure(target, shape, tableRequested))
 		];
-		string report = MatchBoundTimingHarness.Describe(
+		string table = MatchBoundTimingHarness.Describe(
 			timings,
 			MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE,
 			MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS);
+		string report = string.Format(
+			CultureInfo.InvariantCulture,
+			"# Part of the TypeScript shipped cost gate: {0} ({1} shapes); the gate's worst figure is the largest of its three parts{2}{3}",
+			family,
+			shapes.Length,
+			Environment.NewLine,
+			table);
 		double ceiling = JavaScriptMatchBoundTimingTests.TheTestAssemblyIsOptimized()
 			? RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS
 			: UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
@@ -71,7 +109,7 @@ public sealed class TypeScriptShippedCostGateTimingTests
 			"# Aim (not a gate): worst benign per-file figure about {0:F0} ms; gate: under the match bound of {1:F0} ms.",
 			JavaScriptMatchBoundTimingTests.AIM_WORST_FILE_MILLISECONDS,
 			ceiling));
-		WriteWhereRequested(ENGINE_REPORT_PATH_VARIABLE_NAME, report);
+		WriteWhereRequested(ENGINE_REPORT_PATH_VARIABLE_NAME, report, reportSuffix);
 		WriteTheStressSetWhereRequested(shapes);
 
 		Assert.All(timings, timing => Assert.False(timing.AnExpressionTimedOut, timing.ShapeName));
@@ -120,13 +158,17 @@ public sealed class TypeScriptShippedCostGateTimingTests
 		}
 	}
 
-	private static void WriteWhereRequested(string variableName, string report)
+	/// <summary>Writes the part's report where the variable points, with the part's suffix before the extension, so the three parts never overwrite one another.</summary>
+	private static void WriteWhereRequested(string variableName, string report, string reportSuffix)
 	{
 		string? reportPath = Environment.GetEnvironmentVariable(variableName);
 
 		if (!string.IsNullOrWhiteSpace(reportPath))
 		{
-			File.WriteAllText(reportPath, report, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+			string suffixedFileName = string.Format(CultureInfo.InvariantCulture, "{0}{1}{2}", Path.GetFileNameWithoutExtension(reportPath), reportSuffix, Path.GetExtension(reportPath));
+			string suffixedPath = Path.Combine(Path.GetDirectoryName(reportPath) ?? string.Empty, suffixedFileName);
+
+			File.WriteAllText(suffixedPath, report, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 		}
 	}
 }

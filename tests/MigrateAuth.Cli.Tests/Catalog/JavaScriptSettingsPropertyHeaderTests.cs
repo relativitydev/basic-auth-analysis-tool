@@ -203,6 +203,150 @@ public sealed class JavaScriptSettingsPropertyHeaderTests
 		}
 	}
 
+	// ---- The widened name test: the property name contains the word, at any position and in any case ----
+
+	[Theory]
+	[InlineData(_JAVASCRIPT, "\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n", "settings.authorizationHeader")]
+	[InlineData(_JAVASCRIPT, "\tserviceAuthorizationValue: process.env['SERVICE_AUTH_HEADER']\n", "settings.serviceAuthorizationValue")]
+	[InlineData(_JAVASCRIPT, "\tmyAUTHORIZATIONHeader: import.meta.env.VITE_SERVICE_TOKEN\n", "settings.myAUTHORIZATIONHeader")]
+	[InlineData(_JAVASCRIPT, "\tauthorizationEnabled: Bun.env.SERVICE_SECRET\n", "settings.authorizationEnabled")]
+	[InlineData(_JAVASCRIPT, "\tauthorizationRequired: Deno.env.get('SERVICE_AUTH_HEADER')\n", "settings.authorizationRequired")]
+	[InlineData(_TYPESCRIPT, "\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n", "settings.authorizationHeader")]
+	[InlineData(_TYPESCRIPT, "\tserviceAuthorizationValue: process.env['SERVICE_AUTH_HEADER']\n", "settings.serviceAuthorizationValue")]
+	[InlineData(_TYPESCRIPT, "\tmyAUTHORIZATIONHeader: import.meta.env.VITE_SERVICE_TOKEN\n", "settings.myAUTHORIZATIONHeader")]
+	[InlineData(_TYPESCRIPT, "\tauthorizationEnabled: Bun.env.SERVICE_SECRET\n", "settings.authorizationEnabled")]
+	[InlineData(_TYPESCRIPT, "\tauthorizationRequired: Deno.env.get('SERVICE_AUTH_HEADER')\n", "settings.authorizationRequired")]
+	public void AnObjectMemberWhoseNameHoldsTheWordAtAnyPositionReadsAtLowAndAFlagWordAfterTheWordIsNotRefused(string language, string memberLine, string value)
+	{
+		string source = $"const settings = {{\n{memberLine}}};\nawait fetch(url, {{ headers: {{ Authorization: {value} }} }});\n";
+
+		AssertOnlyTheSettingsPropertyClassAtLow(language, source, 1);
+	}
+
+	[Theory]
+	[InlineData("settings.authorizationHeader = process.env.SERVICE_AUTH_HEADER;\n", "settings.authorizationHeader")]
+	[InlineData("config.serviceAuthorizationValue = process.env['API_TOKEN_VALUE'];\n", "config.serviceAuthorizationValue")]
+	[InlineData("this.authorizationHeader = process.env.SERVICE_AUTH_HEADER;\n", "this.authorizationHeader")]
+	public void APropertyAssignmentWhoseNameHoldsTheWordAtAnyPositionReadsAtLow(string assignment, string value)
+	{
+		string source = $"{assignment}await fetch(url, {{ headers: {{ Authorization: {value} }} }});\n";
+
+		foreach (string language in _languages)
+		{
+			AssertOnlyTheSettingsPropertyClassAtLow(language, source);
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(EveryLanguage))]
+	public void TheWidenedNameIsReadAtEachOfTheFiveCarriersAndAMemberAssignedAfterItsUse(string language)
+	{
+		const string member = "const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\n";
+
+		foreach (string use in _carrierUses)
+		{
+			AssertOnlyTheSettingsPropertyClassAtLow(language, $"{member}{use.Replace("serviceAuthorization", "authorizationHeader", StringComparison.Ordinal)}");
+		}
+
+		AssertOnlyTheSettingsPropertyClassAtLow(language, $"{_USE_LINE.Replace("serviceAuthorization", "authorizationHeader", StringComparison.Ordinal)}{member}");
+	}
+
+	[Theory]
+	[InlineData("a flag word at the start, requireAuthorizationHeader", "\trequireAuthorizationHeader: process.env.SERVICE_AUTH_FLAG", "settings.requireAuthorizationHeader")]
+	[InlineData("a flag word at the start, skipAuthorizationCheck", "\tskipAuthorizationCheck: process.env.SERVICE_AUTH_FLAG", "settings.skipAuthorizationCheck")]
+	[InlineData("a flag word at the start, isAuthorizationRequired", "\tisAuthorizationRequired: process.env.SERVICE_AUTH_FLAG", "settings.isAuthorizationRequired")]
+	[InlineData("a flag word at the start, useAuthorizationHeader", "\tuseAuthorizationHeader: process.env.SERVICE_AUTH_FLAG", "settings.useAuthorizationHeader")]
+	[InlineData("a host name into a widened name", "\tauthorizationHost: process.env.SERVICE_HOST", "settings.authorizationHost")]
+	[InlineData("an address name into a widened name", "\tserviceAuthorizationAddress: process.env.SERVICE_ADDRESS", "settings.serviceAuthorizationAddress")]
+	[InlineData("an endpoint name into a widened name", "\tauthorizationEndpoint: process.env.SERVICE_ENDPOINT", "settings.authorizationEndpoint")]
+	[InlineData("a port name into a widened name", "\tauthorizationPort: process.env.SERVICE_PORT", "settings.authorizationPort")]
+	[InlineData("a name that resembles the word, authorizedUsers", "\tauthorizedUsers: process.env.SERVICE_AUTH_HEADER", "settings.authorizedUsers")]
+	[InlineData("a name that resembles the word, unauthorizedMessage", "\tunauthorizedMessage: process.env.SERVICE_AUTH_HEADER", "settings.unauthorizedMessage")]
+	[InlineData("a name that resembles the word, authorizeUrl", "\tauthorizeUrl: process.env.SERVICE_AUTH_HEADER", "settings.authorizeUrl")]
+	[InlineData("a headers receiver on a widened name", "\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER", "config.headers.authorizationHeader")]
+	public void ANearMissOfTheWidenedFormIsSilent(string kind, string memberLine, string value)
+	{
+		string source = $"const settings = {{\n{memberLine}\n}};\nawait fetch(url, {{ headers: {{ Authorization: {value} }} }});\n";
+
+		foreach (string language in _languages)
+		{
+			AssertSilent(language, source, kind);
+		}
+	}
+
+	[Theory]
+	[InlineData("X-Authorization with a widened value", "await fetch(url, { headers: { 'X-Authorization': settings.authorizationHeader } });\n")]
+	[InlineData("Proxy-Authorization with a widened value", "await fetch(url, { headers: { 'Proxy-Authorization': settings.authorizationHeader } });\n")]
+	[InlineData("another header with a widened value", "await fetch(url, { headers: { Accept: settings.authorizationHeader } });\n")]
+	[InlineData("an inbound read", "const value = req.headers.authorization;\nconst other = settings.authorizationHeader;\n")]
+	[InlineData("a further segment after a widened name", "await fetch(url, { headers: { Authorization: settings.authorizationHeader.value } });\n")]
+	public void ANearMissOfTheWidenedUseSideIsSilentEvenWithTheMemberRecordInTheFile(string kind, string use)
+	{
+		const string member = "const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\n";
+
+		foreach (string language in _languages)
+		{
+			AssertSilent(language, $"{member}{use}", kind);
+		}
+	}
+
+	[Theory]
+	[InlineData("a widened name assigned twice from the environment", "const first = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\nconst second = {\n\tauthorizationHeader: process.env.OTHER_AUTH_HEADER\n};\n")]
+	[InlineData("a widened name assigned from the environment and from a literal", "const first = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\nconst second = {\n\tauthorizationHeader: 'static'\n};\n")]
+	[InlineData("a widened name assigned from the environment and a call", "settings.authorizationHeader = process.env.SERVICE_AUTH_HEADER;\nsettings.authorizationHeader = loadValue();\n")]
+	[InlineData("a scheme fallback on a widened name", "const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER || 'Basic dXNlcjpwYXNz'\n};\n")]
+	public void AWidenedNameAssignedTwiceOrWithASchemeFallbackIsSilent(string kind, string members)
+	{
+		const string widenedUse = "await fetch(url, { headers: { Authorization: settings.authorizationHeader } });\n";
+
+		foreach (string language in _languages)
+		{
+			AssertSilent(language, $"{members}{widenedUse}", kind);
+		}
+	}
+
+	[Theory]
+	[InlineData(_FILLER_LINES_INSIDE_THE_BEARER_WINDOW, false)]
+	[InlineData(_FILLER_LINES_AT_THE_BEARER_WINDOW_EDGE, true)]
+	public void ABearerWriteInTheWindowSilencesAWidenedNameAndOneThirtyOneLinesAwayDoesNot(int fillerLines, bool classReads)
+	{
+		const string member = "const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\n";
+		const string widenedUse = "await fetch(url, { headers: { Authorization: settings.authorizationHeader } });\n";
+
+		foreach (string language in _languages)
+		{
+			AssertReadsOnlyWhen(language, $"{member}{_BEARER_WRITE}{Filler(fillerLines)}{widenedUse}", classReads);
+			AssertReadsOnlyWhen(language, $"{member}{widenedUse}{Filler(fillerLines)}{_BEARER_WRITE}", classReads);
+		}
+	}
+
+	[Theory]
+	[InlineData("a name with the word first, auth", "\tauth: process.env.SERVICE_AUTH_HEADER", "settings.auth")]
+	[InlineData("a name that does not contain the word, authHeader", "\tauthHeader: process.env.SERVICE_AUTH_HEADER", "settings.authHeader")]
+	[InlineData("a name that does not contain the word, credentialHeader", "\tcredentialHeader: process.env.SERVICE_AUTH_HEADER", "settings.credentialHeader")]
+	public void TheDeclaredVariantOfTheReworkedEntryIsStillNotReadAndReportsNothing(string kind, string memberLine, string value)
+	{
+		string source = $"const settings = {{\n{memberLine}\n}};\nawait fetch(url, {{ headers: {{ Authorization: {value} }} }});\n";
+
+		foreach (string language in _languages)
+		{
+			AssertSilent(language, source, kind);
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(EveryLanguage))]
+	public void AnEnvironmentReadWhoseNameHoldsTheWordFirstIsTheEnvironmentClassAndAWidenedDottedValueIsTheSettingsClassNeverBoth(string language)
+	{
+		ImmutableArray<RecognizedConstruct> direct = Recognize(language, "await fetch(url, { headers: { Authorization: process.env.AUTHORIZATION_HEADER } });\n");
+		ImmutableArray<RecognizedConstruct> widened = Recognize(language, "const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\nawait fetch(url, { headers: { Authorization: settings.authorizationHeader } });\n");
+
+		Assert.Single(direct);
+		Assert.Equal(_ENVIRONMENT_CLASS, direct[0].PatternClassIdentifier);
+		Assert.Single(widened);
+		Assert.Equal(_CLASS, widened[0].PatternClassIdentifier);
+	}
+
 	// ---- The Bearer guard, worded as built ----
 
 	[Theory]
@@ -403,7 +547,7 @@ public sealed class JavaScriptSettingsPropertyHeaderTests
 			: new JavaScriptRecognitionHarness().Recognize(source);
 	}
 
-	private static void AssertOnlyTheSettingsPropertyClassAtLow(string language, string source, int count)
+	private static void AssertOnlyTheSettingsPropertyClassAtLow(string language, string source, int count = 1)
 	{
 		ImmutableArray<RecognizedConstruct> constructs = Recognize(language, source);
 

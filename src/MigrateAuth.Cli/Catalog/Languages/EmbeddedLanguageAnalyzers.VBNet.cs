@@ -651,7 +651,8 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 	/// The declared triples. <c>VB-002</c> subsumes <c>VB-001</c> at identical anchors (both anchor on the credential-type token). The four sink classes
 	/// carry the credential construction inside their own span, so a credential that a recognized sink consumes is the sink's and not also the residue's:
 	/// <c>VB-003</c>, <c>VB-012</c>, <c>VB-016</c> and <c>VB-018</c> each subsume <c>VB-013</c> at overlapping spans. <c>VB-015</c> subsumes <c>VB-014</c> at
-	/// identical anchors: the empty half is the stronger fact.
+	/// identical anchors: the empty half is the stronger fact. <c>VB-006</c> subsumes <c>VB-014</c> at overlapping spans: the encoder call of a pair
+	/// written inline lies within the header value, so the header is one finding (catalog amendment 0.7).
 	/// </summary>
 	private static FrozenSet<SubsumptionRule> BuildSubsumptionRelation()
 	{
@@ -662,7 +663,8 @@ file sealed class VBNetAnalyzer : ILanguageAnalyzer
 			Subsumption(_VB_012, _VB_013, SubsumptionCondition.MatchSpansOverlap),
 			Subsumption(_VB_016, _VB_013, SubsumptionCondition.MatchSpansOverlap),
 			Subsumption(_VB_018, _VB_013, SubsumptionCondition.MatchSpansOverlap),
-			Subsumption(_VB_015, _VB_014, SubsumptionCondition.AnchorPositionsAreIdentical)
+			Subsumption(_VB_015, _VB_014, SubsumptionCondition.AnchorPositionsAreIdentical),
+			Subsumption(_VB_006, _VB_014, SubsumptionCondition.MatchSpansOverlap)
 		}.ToFrozenSet();
 
 		return relation;

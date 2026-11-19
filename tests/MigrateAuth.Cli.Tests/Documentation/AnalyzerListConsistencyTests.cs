@@ -14,7 +14,8 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 /// A language is added to the tool by registering an analyzer, and the public pages that say which languages the tool reads
 /// are written by hand in many places. This test reads the registered analyzers from the same catalog the report is built from and
 /// holds each page to the full list, so that a page which still lists the languages of an earlier release fails the day a language
-/// is registered. A line that names an earlier version of the tool is history and is not held to the list.
+/// is registered. A line that names an earlier version of the tool is history and is not held to the list, and neither is a line in the release notes section of a version
+/// other than the current one: a released section states the languages of its own release and is not rewritten.
 /// </summary>
 public sealed class AnalyzerListConsistencyTests
 {
@@ -28,6 +29,9 @@ public sealed class AnalyzerListConsistencyTests
 	private const string _PART_A_PREFIX = "part-a-";
 	private const string _PART_C_PREFIX = "part-c-";
 	private const string _FENCE_MARKER = "```";
+	private const string _SECTION_HEADING_PREFIX = "## ";
+	private const string _VERSION_HEADING_PREFIX = "## Version ";
+	private const string _RELEASED_VERSION_FOR_BOUNDARY_TEST = "0.6.1-alpha";
 	private const string _LINK_TEMPLATE = "part-{0}-{1}.md";
 	private const string _SCAN_ROW_EXCERPT_ELLIPSIS = "...";
 	private const int _EXCERPT_LENGTH = 110;
@@ -45,16 +49,19 @@ public sealed class AnalyzerListConsistencyTests
 	/// </summary>
 	private static readonly string[] _publicPagesPending = [];
 
-	/// <summary>The languages the documentation covers are exactly the languages the catalog registers an analyzer for.</summary>
+	private const string _PYTHON_LANGUAGE_NAME = "Python";
+
+	/// <summary>The languages the documentation covers are exactly the languages the catalog registers an analyzer for: no registered analyzer waits without its Part A and Part C.</summary>
 	[Fact]
 	public void TheDocumentedLanguagesAreExactlyTheRegisteredAnalyzers()
 	{
 		string[] registered = [.. CSharpRenderedTexts.Catalog().AnalyzersByLanguageName.Keys.Order(StringComparer.Ordinal)];
-		string[] documented = [.. DocumentedLanguage.All.Select(language => language.LanguageName)];
+		string[] documented = [.. DocumentedLanguage.All.Select(language => language.LanguageName).Order(StringComparer.Ordinal)];
 
-		Assert.Equal(registered, documented.Order(StringComparer.Ordinal).ToArray());
+		Assert.Equal(registered, documented);
 		Assert.Empty(_publicPagesPending.Except(documented));
 		Assert.Contains("VB.NET", DocumentedLanguage.All.Select(language => language.DisplayName));
+		Assert.Contains(_PYTHON_LANGUAGE_NAME, documented);
 	}
 
 	/// <summary>A language whose public pages are pending may wait only in a pre-release build; the release must flip this list to empty.</summary>
@@ -106,13 +113,27 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		string stale = "This release analyzes C# and PowerShell.\n\nSee [Part A](part-a-csharp.md) and [Part A](part-a-powershell.md).";
 		string history = "The release 0.2.0-alpha analyzed C# and PowerShell.";
-		string current = "This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript and TypeScript.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md), [Part A](part-a-javascript.md), [Part A](part-a-typescript.md).";
+		string current = "This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript and Python.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md), [Part A](part-a-javascript.md), [Part A](part-a-typescript.md), [Part A](part-a-python.md).";
 
 		Assert.NotEmpty(LanguageListProblems("stale", stale));
 		Assert.NotEmpty(MissingLinks("stale", stale, "a"));
 		Assert.Empty(LanguageListProblems("history", history));
 		Assert.Empty(LanguageListProblems("current", current));
 		Assert.Empty(MissingLinks("current", current, "a"));
+	}
+
+	/// <summary>A wrong language list is reported in the current release-notes section and is history inside the section of an earlier released version, shown on synthetic text.</summary>
+	[Fact]
+	public void AWrongLanguageListIsReportedInTheCurrentSectionAndIsHistoryInAReleasedSection()
+	{
+		string line = "This release analyzes C# and PowerShell.";
+		string current = $"{_VERSION_HEADING_PREFIX}{MigrateAuth.Cli.Reporting.ToolVersion.CURRENT}\n\n{line}";
+		string released = $"{_VERSION_HEADING_PREFIX}{_RELEASED_VERSION_FOR_BOUNDARY_TEST}\n\n{line}";
+		string releasedThenCurrent = $"{released}\n\n{current}";
+
+		Assert.NotEmpty(LanguageListProblems("current", current));
+		Assert.Empty(LanguageListProblems("released", released));
+		Assert.Single(LanguageListProblems("both", releasedThenCurrent));
 	}
 
 	/// <summary>
@@ -195,12 +216,20 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
 		bool insideFence = false;
+		string section = string.Empty;
 
 		foreach (string line in text.Split('\n'))
 		{
 			insideFence ^= line.TrimStart().StartsWith(_FENCE_MARKER, StringComparison.Ordinal);
 
-			if (!insideFence && _languageList.IsMatch(line) && !_earlierVersion.IsMatch(line))
+			if (line.StartsWith(_SECTION_HEADING_PREFIX, StringComparison.Ordinal))
+			{
+				section = line.StartsWith(_VERSION_HEADING_PREFIX, StringComparison.Ordinal) ? line : string.Empty;
+			}
+
+			bool insideReleasedSection = section.Length > 0 && !section.Contains(MigrateAuth.Cli.Reporting.ToolVersion.CURRENT, StringComparison.Ordinal);
+
+			if (!insideFence && !insideReleasedSection && _languageList.IsMatch(line) && !_earlierVersion.IsMatch(line))
 			{
 				string[] missing = [.. PageLanguages().Select(language => language.DisplayName).Where(name => !line.Contains(name, StringComparison.Ordinal))];
 

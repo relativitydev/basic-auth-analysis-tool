@@ -30,6 +30,11 @@ namespace MigrateAuth.Cli.Recognition;
 /// DECLARATIONS ARE COLLECTED IN CODE ZONES ONLY. A constant written inside a comment or quoted
 /// inside a literal is not a declaration, and counting it would let a commented-out line decide a
 /// live finding's level.
+///
+/// A CONSTANT DECLARED IN A BRANCH THE FILE'S OWN SYMBOLS SWITCH OFF IS NOT A DECLARATION EITHER: the file's conditional-region map
+/// (<see cref="ConditionalRegionMap"/>) is read at the declaration's name, and an inactive one is not collected. A branch the tool
+/// cannot decide is not in the map, so it still counts. Only constant declarations read the map; the member records of the second
+/// dictionary do not, and no language that has member records declares a conditional-compilation element.
 /// </summary>
 public sealed class FileSymbolTable
 {
@@ -78,10 +83,19 @@ public sealed class FileSymbolTable
 	/// </summary>
 	public static FileSymbolTable Collect(LexicalProfile profile, string normalizedText, ZoneMask mask)
 	{
+		return Collect(profile, normalizedText, mask, ConditionalRegionMap.Empty);
+	}
+
+	/// <summary>
+	/// The same collection, reading the file's conditional-region map: a constant declaration whose position lies in an inactive region
+	/// (<see cref="ConditionalRegionMap.IsInactiveAt"/>) is not collected, so it is neither counted nor resolved.
+	/// </summary>
+	public static FileSymbolTable Collect(LexicalProfile profile, string normalizedText, ZoneMask mask, ConditionalRegionMap regions)
+	{
 		MatchBoundWatch matchBoundWatch = new(TimeProvider.System);
 
 		matchBoundWatch.BeginFile();
-		TryCollect(profile, normalizedText, mask, matchBoundWatch, out FileSymbolTable table);
+		TryCollect(profile, new CollectedFile(normalizedText, mask, regions), matchBoundWatch, out FileSymbolTable table);
 
 		return table;
 	}
@@ -99,19 +113,21 @@ public sealed class FileSymbolTable
 	/// </summary>
 	internal static bool TryCollect(
 		LexicalProfile profile,
-		string normalizedText,
-		ZoneMask mask,
+		CollectedFile file,
 		MatchBoundWatch matchBoundWatch,
 		out FileSymbolTable table)
 	{
 		ArgumentNullException.ThrowIfNull(profile);
-		ArgumentNullException.ThrowIfNull(normalizedText);
-		ArgumentNullException.ThrowIfNull(mask);
+		ArgumentNullException.ThrowIfNull(file.NormalizedText);
+		ArgumentNullException.ThrowIfNull(file.Mask);
+		ArgumentNullException.ThrowIfNull(file.Regions);
+
+		(string normalizedText, ZoneMask mask, ConditionalRegionMap regions) = (file.NormalizedText, file.Mask, file.Regions);
 		ArgumentNullException.ThrowIfNull(matchBoundWatch);
 
 		Dictionary<string, List<Declaration>> declarationsByName = new(ComparerFor(profile.IdentifierCaseSensitivity));
 		Dictionary<string, List<Declaration>> membersByName = new(ComparerFor(profile.IdentifierCaseSensitivity));
-		bool completed = CollectEvery(profile.ConstantDeclarationExpression, normalizedText, matchBoundWatch, declarationsByName, (found, byName) => RecordDeclaration(found, mask, byName));
+		bool completed = CollectEvery(profile.ConstantDeclarationExpression, normalizedText, matchBoundWatch, declarationsByName, (found, byName) => RecordDeclaration(found, mask, regions, byName));
 
 		if (completed && profile.MemberDeclarationExpression is not null)
 		{
@@ -148,6 +164,9 @@ public sealed class FileSymbolTable
 
 		return completed;
 	}
+
+	/// <summary>The file a collection reads: its text, the zone mask that indexes the text and the conditional-region map of the same file.</summary>
+	internal readonly record struct CollectedFile(string NormalizedText, ZoneMask Mask, ConditionalRegionMap Regions);
 
 	/// <summary>The name comparer the profile's identifier case sensitivity selects.</summary>
 	private static StringComparer ComparerFor(IdentifierCaseSensitivityMode identifierCaseSensitivity)
@@ -274,13 +293,14 @@ public sealed class FileSymbolTable
 	private static void RecordDeclaration(
 		Match match,
 		ZoneMask mask,
+		ConditionalRegionMap regions,
 		Dictionary<string, List<Declaration>> declarationsByName)
 	{
 		Group nameGroup = match.Groups[NAME_CAPTURE_GROUP];
 		Group valueGroup = match.Groups[VALUE_CAPTURE_GROUP];
 		bool isEnvironment = match.Groups[EnvironmentDeclarationGroups.MARKER].Success;
 
-		if (nameGroup.Success && (valueGroup.Success || isEnvironment) && LiesInCode(match.Index, mask))
+		if (nameGroup.Success && (valueGroup.Success || isEnvironment) && LiesInCode(match.Index, mask) && !regions.IsInactiveAt(nameGroup.Index))
 		{
 			if (!declarationsByName.TryGetValue(nameGroup.Value, out List<Declaration>? declarations))
 			{

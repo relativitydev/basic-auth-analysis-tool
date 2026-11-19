@@ -54,6 +54,14 @@ public static class LowReasonVocabulary
 		$"{PATTERN_CLASS_SENTENCE_LEAD}the Authorization header takes its whole value, scheme included, from a settings property that is filled from an environment value, so the code does not show whether the scheme is Basic or a bearer token; confirm what the deployed value holds and migrate it if it is Basic";
 	private const string _UNSCHEMED_WEB_CREDENTIAL_SENTENCE =
 		PATTERN_CLASS_SENTENCE_LEAD + "the credential is passed to a web command with no scheme named; against a server that answers with a bearer challenge, as RelativityOne does, it is not sent as Basic, but against a server that asks for Basic it is, so confirm where the call points";
+	private const string _UNREACHED_HEADER_MAPPING_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "this header mapping names the Authorization header with a Basic value, but it is not passed to a request in the text the tool can see; it is routed to manual review and no scheme migration is proposed";
+	private const string _ROUND_TRIPPER_DEFINITION_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "this method implements an HTTP transport that writes Basic Authentication into requests it forwards; the credential itself is reported at its own location, and this definition is routed to manual review with no scheme migration proposed";
+	private const string _AUTHENTICATION_HELPER_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "this function builds a Basic Authentication header or encoded pair from its own parameters; calls to it are not followed, so every caller needs review, and no scheme migration is proposed here";
+	private const string _ENVIRONMENT_AUTHORIZATION_HEADER_SENTENCE =
+		PATTERN_CLASS_SENTENCE_LEAD + "this Authorization header takes its whole value from the environment, so the scheme is not visible; it is routed to manual review and no scheme migration is proposed";
 
 	/// <summary>How the sentence for a class that is Low by definition starts; the clause after it says why for that class.</summary>
 	public const string PATTERN_CLASS_SENTENCE_LEAD = "this pattern class is Low by definition: ";
@@ -134,7 +142,11 @@ public static class LowReasonVocabulary
 			["JS-014"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
 			["JS-016"] = _CHALLENGE_DEPENDENT_CREDENTIAL_SENTENCE,
 			["JS-018"] = _ENVIRONMENT_HELD_SCHEME_SENTENCE,
-			["JS-019"] = _SETTINGS_PROPERTY_HELD_SCHEME_SENTENCE
+			["JS-019"] = _SETTINGS_PROPERTY_HELD_SCHEME_SENTENCE,
+			["PY-014"] = _UNREACHED_HEADER_MAPPING_SENTENCE,
+			["GO-010"] = _ROUND_TRIPPER_DEFINITION_SENTENCE,
+			["GO-011"] = _AUTHENTICATION_HELPER_SENTENCE,
+			["GO-012"] = _ENVIRONMENT_AUTHORIZATION_HEADER_SENTENCE
 		}.ToFrozenDictionary(StringComparer.Ordinal);
 
 	/// <summary>The stable values of the reasons that apply, in the declared order. Empty when none do.</summary>

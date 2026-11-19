@@ -153,9 +153,9 @@ public sealed class LanguageAttributionTests
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		LanguageAttribution attribution = new(harness.Catalog);
 
-		AttributedLanguage attributed = attribution.Attribute(harness.PathOf("script.py"), firstLine: null);
+		AttributedLanguage attributed = attribution.Attribute(harness.PathOf("script.go"), firstLine: null);
 
-		Assert.Equal(AssessedLanguages.CanonicalName(AssessedLanguage.Python), attributed.LanguageName);
+		Assert.Equal(AssessedLanguages.CanonicalName(AssessedLanguage.Go), attributed.LanguageName);
 		Assert.False(attributed.IsRecognized);
 		Assert.Null(attributed.Analyzer);
 	}

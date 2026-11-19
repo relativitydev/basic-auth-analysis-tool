@@ -14,17 +14,17 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// <summary>
 /// THE DECLARED UNSUPPORTED COVERAGE OF THE SHIPPED `JavaScript` ANALYZER, and the report section that lists it.
 ///
-/// Forty-six entries are declared: the forty-two the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
+/// Forty-seven entries are declared: the forty-three the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
 /// word that only that entry's construct carries, so a dropped, duplicated or merged entry fails here. A form the catalog says is not supported must yield no finding, and the
 /// tests below write such a form. Every script is invented, with placeholder names.
 /// </summary>
 public sealed class JavaScriptDeclaredCoverageTests
 {
-	private const int _DECLARED_ENTRY_COUNT = 46;
-	private const int _ENTRIES_OF_THE_CATALOG_LIST = 42;
+	private const int _DECLARED_ENTRY_COUNT = 47;
+	private const int _ENTRIES_OF_THE_CATALOG_LIST = 43;
 	private const int _INTERNAL_LIMIT_COUNT = 4;
 	private const int _UNSUPPORTED_ENTRY_COUNT = 22;
-	private const int _COST_ENTRY_COUNT = 12;
+	private const int _COST_ENTRY_COUNT = 13;
 	private const int _NOT_APPLICABLE_ENTRY_COUNT = 7;
 	private const string _LANGUAGE_NAME = "JavaScript";
 	private const int _NESTED_TEMPLATE_DEPTH_BEYOND_THE_BOUND = 9;
@@ -70,10 +70,11 @@ public sealed class JavaScriptDeclaredCoverageTests
 		("cost:O5-37", "scheme is not visible"),
 		("unsupported:O5-38", "a bare member name for the user name or the password"),
 		("unsupported:O5-39", "built inside the project's own function"),
-		("unsupported:O5-40", "whose name does not end with authorization"),
+		("unsupported:O5-40", "whose name does not contain authorization"),
 		("unsupported:O5-41", "read by bracket access"),
 		("unsupported:O5-42", "the project's own encoder function"),
 		("unsupported:O5-43", "chosen by a selector"),
+		("cost:O5-44", "separated from the Basic literal"),
 		("K-1", "takes too long"),
 		("K-2", "findings cap"),
 		("K-3", "a call goes to RelativityOne"),
@@ -81,7 +82,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 	];
 
 	[Fact]
-	public void TheAnalyzerDeclaresTheFortyTwoEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
+	public void TheAnalyzerDeclaresTheFortyThreeEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
 	{
 		ImmutableArray<DeclaredUnsupportedCoverage> declared = [.. JavaScriptRegisteredExpressions.Analyzer.LanguageIdentification.DeclaredUnsupportedCoverage];
 
@@ -111,7 +112,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 	}
 
 	[Fact]
-	public void TheIdentifiersAreUniqueAndTheGroupsHoldTwentyTwoUnsupportedTwelveCostAndSevenNotApplicableEntries()
+	public void TheIdentifiersAreUniqueAndTheGroupsHoldTwentyTwoUnsupportedThirteenCostAndSevenNotApplicableEntries()
 	{
 		Assert.Equal(DeclaredEntries.Length, DeclaredEntries.Select(entry => entry.Id).Distinct(StringComparer.Ordinal).Count());
 		Assert.Equal(_UNSUPPORTED_ENTRY_COUNT, DeclaredEntries.Count(entry => entry.Id.StartsWith("unsupported:", StringComparison.Ordinal)));

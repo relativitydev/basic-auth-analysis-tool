@@ -28,6 +28,7 @@ public sealed class TypeScriptDeclaredCoverageTests
 	private const int _OT_ENTRY_COUNT = 39;
 	private const int _OT_COST_ENTRY_COUNT = 19;
 	private const string _SETTINGS_PROPERTY_PATTERN_CLASS = "JS-019";
+	private const string _SEPARATED_ENCODER_KEYWORD = "separated from the Basic literal";
 
 	/// <summary>The words that only one `TypeScript`-alone or adapted entry's construct carries, with the identifier the catalog gives it.</summary>
 	private static readonly ImmutableArray<(string Id, string Keyword)> _typeScriptEntries =
@@ -186,6 +187,14 @@ public sealed class TypeScriptDeclaredCoverageTests
 		Assert.Equal(_OT_COST_ENTRY_COUNT, _costEntryIdentifiers.Length);
 		Assert.All(_costEntryIdentifiers, identifier => Assert.Contains(_typeScriptEntries, entry => entry.Id == identifier));
 		Assert.Equal(_OT_COST_ENTRY_COUNT, _typeScriptEntries.Count(entry => _costEntryIdentifiers.Contains(entry.Id)));
+	}
+
+	[Fact]
+	public void TheEntryOfAnEncoderSeparatedFromTheBasicLiteralIsInheritedByTypeScriptAsItStands()
+	{
+		DeclaredUnsupportedCoverage inherited = Assert.Single(JavaScriptDeclared, entry => entry.Construct.Contains(_SEPARATED_ENCODER_KEYWORD, StringComparison.Ordinal));
+
+		Assert.Contains(Declared, entry => entry.Construct == inherited.Construct && entry.Reason == inherited.Reason);
 	}
 
 	[Theory]

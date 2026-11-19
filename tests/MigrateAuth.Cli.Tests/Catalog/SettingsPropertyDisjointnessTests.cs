@@ -44,7 +44,11 @@ public sealed class SettingsPropertyDisjointnessTests
 		"await fetch(url, { headers: { Authorization: window.process.env.SERVICE_AUTHORIZATION } });\n",
 		"headers['Authorization'] = process.env.SERVICE_AUTHORIZATION;\nheaders['Authorization'] = settings.serviceAuthorization;\n",
 		"await fetch(url, { headers: { Authorization: `${process.env.SERVICE_AUTHORIZATION}` } });\n",
-		"await fetch(url, { headers: { Authorization: process.env.SERVICE_AUTHORIZATION || 'neutral' } });\n"
+		"await fetch(url, { headers: { Authorization: process.env.SERVICE_AUTHORIZATION || 'neutral' } });\n",
+		"const settings = {\n\tauthorizationHeader: process.env.SERVICE_AUTH_HEADER\n};\nawait fetch(url, { headers: { Authorization: settings.authorizationHeader } });\n",
+		"config.serviceAuthorizationValue = process.env['API_TOKEN_VALUE'];\nclient.defaults.headers.common['Authorization'] = config.serviceAuthorizationValue;\n",
+		"const settings = {\n\tmyAUTHORIZATIONHeader: process.env.SERVICE_AUTH_HEADER\n};\nawait fetch(url, { headers: { Authorization: settings.myAUTHORIZATIONHeader } });\nawait fetch(url, { headers: { Authorization: process.env.AUTHORIZATION_HEADER } });\n",
+		"await fetch(url, { headers: { Authorization: config.headers.authorizationHeader } });\n"
 	];
 
 	[Theory]

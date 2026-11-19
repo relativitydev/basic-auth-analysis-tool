@@ -7,7 +7,7 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Agent;
 
 /// <summary>
-/// WHAT THE USER IS TOLD BEFORE THE QUESTION, ELEMENT BY ELEMENT, OVER THE THREE ENVIRONMENTS. Each of the twelve
+/// WHAT THE USER IS TOLD BEFORE THE QUESTION, ELEMENT BY ELEMENT, OVER THE THREE ENVIRONMENTS. Each of the eleven
 /// elements of the cost notice and the repository-access statement is a fixed phrase, written here as a literal and
 /// filled with the environment's own agent and provider names, and each is checked in the console transcript between
 /// the resolution line and the confirmation question. The entry count and the provider appear in the notice, and
@@ -58,13 +58,12 @@ public sealed class AiAssistNoticeElementTests
 	private const string _ACCESS_COMMON =
 		"Beyond the repository and the folder that holds a copy of the pack, this tool gives the agent access to nothing; what the agent can reach under your own permissions is governed by the agent, not by this tool.";
 
-	/// <summary>The twelve elements, each as the fixed phrase it must be found as, for an agent and a provider.</summary>
+	/// <summary>The eleven elements, each as the fixed phrase it must be found as, for an agent and a provider.</summary>
 	private static readonly (string Element, Func<string, string, string, string, string> Phrase)[] _elements =
 	[
 		("C1", (agent, provider, _, _) => $"Launching the review runs {agent} under your own subscription or account with {provider}"),
 		("C1-charge", (_, provider, _, _) => $"and {provider} may charge you for it"),
-		("C2", (_, provider, _, _) => $"Those charges are billed by {provider}; they are not charges for this tool"),
-		("C3", (_, _, _, _) => "they are outside this engagement's contract"),
+		("C2", (_, provider, _, _) => $"Those charges are billed by {provider}; they are not charges for this tool. The cost grows"),
 		("C4", (_, _, _, _) => $"The cost grows with the size of the repository and with the number of findings under review; this pack lists {_FIXTURE_ENTRY_COUNT} entries"),
 		("C5", (_, provider, _, _) => $"under your own subscription or account with {provider}"),
 		("R1", (agent, _, _, _) => $"If you launch, {agent} is started in the repository folder and is given access to its contents, including the places the pack lists where credential material occurs"),

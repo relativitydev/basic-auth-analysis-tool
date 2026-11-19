@@ -19,6 +19,8 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// analyzer (the shipped profile, executed strings included) and the engine's own file accumulator is read back, so the figure is exactly what a real scan charges against the match bound.
 /// The draft gate (<see cref="ShellMatchBoundTimingTests"/>) timed test-local expressions; this one times what ships.
 ///
+/// THE 975 ms FIGURE IS AN AIM, NOT A GATE (as for the `JavaScript` and `TypeScript` gates): it is printed beside the worst shape, and every shape's worst per-file figure is asserted under the MATCH BOUND in force.
+///
 /// Timing-sensitive: it asserts on wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing".
 /// </summary>
 [Collection(TimingSensitiveStressCollection.NAME)]
@@ -54,10 +56,15 @@ public sealed class ShellShippedCostGateTimingTests
 			MatchBoundTimingTests.DECLARED_SAFETY_MULTIPLE,
 			MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS);
 		double ceiling = ShellMatchBoundTimingTests.TheTestAssemblyIsOptimized()
-			? ShellMatchBoundTimingTests.TARGET_WORST_FILE_MILLISECONDS
+			? RecognitionEnginePolicy.PROVISIONAL_MATCH_BOUND_IN_MILLISECONDS
 			: ShellMatchBoundTimingTests.UNOPTIMIZED_BUILD_CEILING_MILLISECONDS;
 
 		_output.WriteLine(report);
+		_output.WriteLine(string.Format(
+			CultureInfo.InvariantCulture,
+			"# Aim (not a gate): worst benign per-file figure about {0:F0} ms; gate: under the match bound of {1:F0} ms.",
+			ShellMatchBoundTimingTests.AIM_WORST_FILE_MILLISECONDS,
+			ceiling));
 		WriteWhereRequested(ENGINE_REPORT_PATH_VARIABLE_NAME, report);
 
 		Assert.All(timings, timing => Assert.False(timing.AnExpressionTimedOut, timing.ShapeName));

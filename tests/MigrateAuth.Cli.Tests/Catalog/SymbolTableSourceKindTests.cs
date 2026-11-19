@@ -151,21 +151,23 @@ public sealed class SymbolTableSourceKindTests
 	}
 
 	[Fact]
-	public void OnlyTheJavaScriptAndTypeScriptProfilesDeclareAnEnvironmentRecord()
+	public void OnlyTheJavaScriptTypeScriptAndPythonProfilesDeclareAnEnvironmentRecord()
 	{
 		ILanguageAnalyzer[] analyzers = [.. LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()];
 		ILanguageAnalyzer javaScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("JavaScript"));
 		ILanguageAnalyzer typeScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("TypeScript"));
+		ILanguageAnalyzer python = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Python"));
+		ILanguageAnalyzer[] declaring = [javaScript, typeScript, python];
 
 		Assert.All(
-			new[] { javaScript, typeScript },
+			declaring,
 			analyzer =>
 			{
 				Assert.Contains(EnvironmentDeclarationGroups.MARKER, analyzer.LexicalProfile.ConstantDeclarationExpression.GetGroupNames());
 				Assert.Contains(EnvironmentDeclarationGroups.FALLBACK_WORD, analyzer.LexicalProfile.ConstantDeclarationExpression.GetGroupNames());
 			});
 		Assert.All(
-			analyzers.Where(analyzer => analyzer != javaScript && analyzer != typeScript),
+			analyzers.Except(declaring),
 			analyzer => Assert.DoesNotContain(EnvironmentDeclarationGroups.MARKER, analyzer.LexicalProfile.ConstantDeclarationExpression.GetGroupNames()));
 	}
 

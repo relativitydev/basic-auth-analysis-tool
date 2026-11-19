@@ -86,6 +86,12 @@ public sealed class RecognitionEngine
 	/// </summary>
 	public int FlowSignalTripCount { get; private set; }
 
+	/// <summary>
+	/// How many conditional-region maps this engine has built: one per file it recognized, built before the file symbol table and shared by it and by the flow
+	/// evaluation. Diagnostic, so a test can assert the map is built once and not once per reader.
+	/// </summary>
+	public int ConditionalRegionMapsBuilt { get; private set; }
+
 	/// <summary>The engine as the pipeline builds it, on the system clock.</summary>
 	public RecognitionEngine(EmissionPoint emissionPoint)
 		: this(emissionPoint, TimeProvider.System)
@@ -153,11 +159,13 @@ public sealed class RecognitionEngine
 
 		try
 		{
-			completed = RecognizeEveryRule(context, classifiedMatches);
+			ConditionalRegionMap regions = BuildTheRegionMap(context);
+
+			completed = RecognizeEveryRule(context, regions, classifiedMatches);
 
 			if (completed)
 			{
-				recognized = ReduceAndEvaluateFlow(context, classifiedMatches);
+				recognized = ReduceAndEvaluateFlow(context, regions, classifiedMatches);
 			}
 		}
 		catch (RegexMatchTimeoutException)
@@ -175,6 +183,17 @@ public sealed class RecognitionEngine
 	}
 
 	/// <summary>
+	/// The conditional-region map, built once per file and before everything that reads it: the file symbol table, the rule loop and the flow evaluation all receive this one
+	/// value (a constant declared, or a flow signal written, in an inactive region is not read). A profile that declares no conditional-compilation element gets <see cref="ConditionalRegionMap.Empty"/>, so for every language but one the readers see no inactive offset.
+	/// </summary>
+	private ConditionalRegionMap BuildTheRegionMap(FileRecognitionContext context)
+	{
+		ConditionalRegionMapsBuilt++;
+
+		return ConditionalRegionMap.Build(context.Analyzer.LexicalProfile.ConditionalCompilation, context.NormalizedText, context.Mask);
+	}
+
+	/// <summary>
 	/// THE FILE'S PRE-RULE PHASES, THEN THE RULE LOOP.
 	///
 	/// <see cref="FileSymbolTable.TryCollect"/> and <see cref="FileDemotionSignals.TryEvaluate"/> each run
@@ -188,12 +207,11 @@ public sealed class RecognitionEngine
 	/// read per match at its anchor offset. It is built here and not in the scanner or the analysis stage so that every
 	/// caller of the engine, tests included, gets it.
 	/// </summary>
-	private bool RecognizeEveryRule(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
+	private bool RecognizeEveryRule(FileRecognitionContext context, ConditionalRegionMap regions, List<ClassifiedMatch> classifiedMatches)
 	{
 		bool completed = FileSymbolTable.TryCollect(
 			context.Analyzer.LexicalProfile,
-			context.NormalizedText,
-			context.Mask,
+			new FileSymbolTable.CollectedFile(context.NormalizedText, context.Mask, regions),
 			_matchBoundWatch,
 			out FileSymbolTable symbols);
 
@@ -205,8 +223,6 @@ public sealed class RecognitionEngine
 		}
 
 		VariableReferenceIndex references = new(context.NormalizedText, context.Mask);
-		ConditionalRegionMap regions = ConditionalRegionMap.Build(
-			context.Analyzer.LexicalProfile.ConditionalCompilation, context.NormalizedText, context.Mask);
 
 		if (completed)
 		{
@@ -235,7 +251,7 @@ public sealed class RecognitionEngine
 	/// <see cref="FlowEvidence.None"/> with a trip mark, the trip is counted, and the file is not
 	/// skipped. This narrows the machine-speed exception from findings to flow decisions.
 	/// </summary>
-	private RecognitionResult ReduceAndEvaluateFlow(FileRecognitionContext context, List<ClassifiedMatch> classifiedMatches)
+	private RecognitionResult ReduceAndEvaluateFlow(FileRecognitionContext context, ConditionalRegionMap regions, List<ClassifiedMatch> classifiedMatches)
 	{
 		ImmutableArray<RecognizedConstruct> constructs = ConstructPrecedenceReduction.Apply(
 			context.Analyzer.ConstructPrecedence,
@@ -250,7 +266,7 @@ public sealed class RecognitionEngine
 		if (FlowSignalEvaluation.IsRequiredFor(constructs))
 		{
 			FilesEvaluatedForFlowSignals++;
-			tripped = !TryEvaluateFlowSignals(context, out evidence);
+			tripped = !TryEvaluateFlowSignals(context, regions, out evidence);
 
 			if (tripped)
 			{
@@ -261,13 +277,13 @@ public sealed class RecognitionEngine
 		return new RecognitionResult { Constructs = constructs, FlowEvidence = evidence, FlowEvaluationTripped = tripped };
 	}
 
-	private bool TryEvaluateFlowSignals(FileRecognitionContext context, out FlowEvidence evidence)
+	private bool TryEvaluateFlowSignals(FileRecognitionContext context, ConditionalRegionMap regions, out FlowEvidence evidence)
 	{
 		bool completed;
 
 		try
 		{
-			completed = FlowSignalEvaluation.TryEvaluate(context, _matchBoundWatch, out evidence);
+			completed = FlowSignalEvaluation.TryEvaluate(context, regions, _matchBoundWatch, out evidence);
 		}
 		catch (RegexMatchTimeoutException)
 		{

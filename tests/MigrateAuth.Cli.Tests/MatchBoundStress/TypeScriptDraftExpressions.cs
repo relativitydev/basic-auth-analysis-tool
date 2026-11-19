@@ -184,8 +184,12 @@ internal static partial class JavaScriptDraftExpressions
 		@"(?![\x27\x22`](?i:basic)(?!\w)[^\x27\x22`\n]{0,300}[\x27\x22`]" + _BLANKS + @"(?:;|\|(?!\|)))"
 			+ @"(?!`(?i:basic)[ \t]{0,8}\$\{[ \t]{0,8}(?:string|number)[ \t]{0,8}\})";
 
+	/// <summary>The encoder call that directly follows the Basic literal on the same line, so that the header match covers it and the encoder class is subsumed: the extension of the shipped `EX-JS-004`; the encoder must directly follow the Basic literal.</summary>
+	private const string _ENCODER_CALL_RIGHT_AFTER_THE_BASIC_LITERAL =
+		@"(?:[ \t]{0,8}(?:\$\{|[\x27\x22`][ \t]{0,40}\+)[ \t]{0,40}(?:[A-Za-z_$][\w$]{0,63}\.){0,2}btoa(?![\w$])[ \t]{0,40}\()";
+
 	internal const string EX_TS_T_004 =
-		@"(?:" + _TS_CARRIERS + @"|" + _CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT + _K6_TAIL_REFUSAL + @")(?:" + MERGED_BASIC_VALUE + @"|" + MERGED_ENVIRONMENT_READ_WITH_A_BASIC_FALLBACK + @")";
+		@"(?:" + _TS_CARRIERS + @"|" + _CARRIER_K6_AUTHORIZATION_KEY_OF_ANY_OBJECT + _K6_TAIL_REFUSAL + @")(?:" + MERGED_BASIC_VALUE + _ENCODER_CALL_RIGHT_AFTER_THE_BASIC_LITERAL + @"?|" + MERGED_ENVIRONMENT_READ_WITH_A_BASIC_FALLBACK + @")";
 
 	// ------------------------------------------------------------------------------------------
 	// The typed constant declaration (the symbol table). The annotation is greedy and cannot cross an equals sign or a line end, so it needs no lazy loop (a lazy bounded loop in an optional group is

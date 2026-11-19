@@ -3,7 +3,7 @@ using System.Globalization;
 namespace MigrateAuth.WorstCase;
 
 /// <summary>
-/// Command line for the generator: <c>--output &lt;folder&gt; [--files &lt;n&gt;] [--seed &lt;n&gt;] [--oversize-files &lt;n&gt;] [--powershell-basis-points &lt;n&gt;] [--vbnet-basis-points &lt;n&gt;] [--shell-basis-points &lt;n&gt;] [--javascript-basis-points &lt;n&gt;] [--typescript-basis-points &lt;n&gt;]</c>.
+/// Command line for the generator: <c>--output &lt;folder&gt; [--files &lt;n&gt;] [--seed &lt;n&gt;] [--oversize-files &lt;n&gt;] [--powershell-basis-points &lt;n&gt;] [--vbnet-basis-points &lt;n&gt;] [--shell-basis-points &lt;n&gt;] [--javascript-basis-points &lt;n&gt;] [--typescript-basis-points &lt;n&gt;] [--python-basis-points &lt;n&gt;] [--go-basis-points &lt;n&gt;] [--tree-shape &lt;standard|venv|vendored&gt;]</c>.
 /// </summary>
 internal static class Program
 {
@@ -20,7 +20,21 @@ internal static class Program
 	private const string _SHELL_OPTION = "--shell-basis-points";
 	private const string _JAVASCRIPT_OPTION = "--javascript-basis-points";
 	private const string _TYPESCRIPT_OPTION = "--typescript-basis-points";
-	private const string _USAGE = "Usage: worst-case-generator --output <folder outside any repository> [--files <n, default 50000>] [--seed <n>] [--oversize-files <n, default 101>] [--powershell-basis-points <n of every 10,000 ordinary files, default 0>] [--vbnet-basis-points <n of every 10,000 ordinary files, default 0>] [--shell-basis-points <n of every 10,000 ordinary files, default 0>] [--javascript-basis-points <n of every 10,000 ordinary files, default 0>] [--typescript-basis-points <n of every 10,000 ordinary files, default 0>]";
+	private const string _PYTHON_OPTION = "--python-basis-points";
+	private const string _GO_OPTION = "--go-basis-points";
+	private const string _TREE_SHAPE_OPTION = "--tree-shape";
+	private const string _STANDARD_TREE_SHAPE_NAME = "standard";
+	private const string _VIRTUAL_ENVIRONMENT_TREE_SHAPE_NAME = "venv";
+	private const string _VENDORED_TREE_SHAPE_NAME = "vendored";
+	private const string _USAGE = "Usage: worst-case-generator --output <folder outside any repository> [--files <n, default 50000>] [--seed <n>] [--oversize-files <n, default 101>] [--powershell-basis-points <n of every 10,000 ordinary files, default 0>] [--vbnet-basis-points <n of every 10,000 ordinary files, default 0>] [--shell-basis-points <n of every 10,000 ordinary files, default 0>] [--javascript-basis-points <n of every 10,000 ordinary files, default 0>] [--typescript-basis-points <n of every 10,000 ordinary files, default 0>] [--python-basis-points <n of every 10,000 ordinary files, default 0>] [--go-basis-points <n of every 10,000 ordinary files, default 0>] [--tree-shape <standard|venv|vendored, default standard>]";
+
+	private static readonly Dictionary<string, WorstCaseTreeShape> _treeShapesByName = new(StringComparer.Ordinal)
+	{
+		[_STANDARD_TREE_SHAPE_NAME] = WorstCaseTreeShape.Standard,
+		[_VIRTUAL_ENVIRONMENT_TREE_SHAPE_NAME] = WorstCaseTreeShape.VirtualEnvironment,
+		[_VENDORED_TREE_SHAPE_NAME] = WorstCaseTreeShape.Vendored
+	};
+
 	private const string _DONE_FORMAT = "Done: {0:N0} files, {1:N0} bytes";
 	private const int _DEFAULT_OVERSIZE_FILE_COUNT = WorstCaseTreeOptions.RETAINED_NAMES_PER_CATEGORY + 1;
 
@@ -84,8 +98,19 @@ internal static class Program
 			ShellScriptBasisPoints = int.Parse(values.GetValueOrDefault(_SHELL_OPTION, _NO_SHARE_DEFAULT), CultureInfo.InvariantCulture),
 			JavaScriptSourceBasisPoints = int.Parse(values.GetValueOrDefault(_JAVASCRIPT_OPTION, _NO_SHARE_DEFAULT), CultureInfo.InvariantCulture),
 			TypeScriptSourceBasisPoints = int.Parse(values.GetValueOrDefault(_TYPESCRIPT_OPTION, _NO_SHARE_DEFAULT), CultureInfo.InvariantCulture),
+			PythonSourceBasisPoints = int.Parse(values.GetValueOrDefault(_PYTHON_OPTION, _NO_SHARE_DEFAULT), CultureInfo.InvariantCulture),
+			GoSourceBasisPoints = int.Parse(values.GetValueOrDefault(_GO_OPTION, _NO_SHARE_DEFAULT), CultureInfo.InvariantCulture),
+			TreeShape = TreeShapeOf(values.GetValueOrDefault(_TREE_SHAPE_OPTION, _STANDARD_TREE_SHAPE_NAME)),
 			ReportProgress = Console.WriteLine
 		};
+	}
+
+	/// <summary>The shape a name stands for; a name that is none of them is a usage error.</summary>
+	private static WorstCaseTreeShape TreeShapeOf(string name)
+	{
+		return _treeShapesByName.TryGetValue(name, out WorstCaseTreeShape shape)
+			? shape
+			: throw new FormatException(name);
 	}
 
 	private static Dictionary<string, string> ParseOptions(string[] arguments)

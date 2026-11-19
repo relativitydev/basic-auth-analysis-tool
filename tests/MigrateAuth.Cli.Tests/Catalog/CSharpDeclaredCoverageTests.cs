@@ -21,7 +21,7 @@ public sealed class CSharpDeclaredCoverageTests
 {
 	private const string _LANGUAGE_NAME = "CSharp";
 	private const string _SWITCHED_OFF_BLOCK_ENTRY_PHRASE = "conditional-compilation blocks in a file that also holds an interpolated raw string";
-	private const string _DEAD_REGION_EVIDENCE_ENTRY_PHRASE = "a declaration or a flow signal inside a switched-off conditional-compilation block";
+	private const string _DEAD_REGION_EVIDENCE_ENTRY_PHRASE = "a declaration or a flow signal inside a conditional-compilation block whose condition the tool cannot decide";
 	private const string _RAW_STRING_ENTRY_PHRASE = "certain unusual string literal forms";
 	private const string _NON_CREDENTIAL_PAIR_ENTRY_PHRASE = "separated by a colon that is not actually a credential";
 	private const string _OLD_PREPROCESSOR_CLAUSE = "preprocessor conditional block";

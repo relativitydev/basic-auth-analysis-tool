@@ -35,6 +35,7 @@ public sealed class DisabledLanguageConfigurationTests
 {
 	private const string _CSHARP_FILE_NAME = "HighFinding.cs";
 	private const string _PYTHON_FILE_NAME = "script.py";
+	private const string _GO_FILE_NAME = "script.go";
 	private const string _DIFFERS_FROM_SESSION_FIELD = "enabledLanguagesDifferFromSession";
 	private const string _STAGE_NAME_SEPARATOR = ": ";
 
@@ -43,6 +44,7 @@ public sealed class DisabledLanguageConfigurationTests
 		"class HighFindingFixture\n{\n\tvoid Build()\n\t{\n\t\tvar credentials = new UsernamePasswordCredentials(options.UserName, options.Password);\n\t}\n}\n";
 
 	private const string _pythonContent = "print('hello')\n";
+	private const string _goContent = "package main\n";
 
 	[Fact]
 	public void ADisabledCSharpYieldsZeroCandidatesAndZeroFindingsAndIsMarkedDisabledOnAllThreeSurfaces()
@@ -74,8 +76,8 @@ public sealed class DisabledLanguageConfigurationTests
 
 	/// <summary>
 	/// C# enabled, everything else - Python among it - disabled by the same profile file: C#'s
-	/// finding is unaffected, and Python's inventory row - which carries no analyzer either, but for
-	/// a different reason - reads disabled rather than "no analyzer in this release".
+	/// finding is unaffected, and Python's inventory row - which has an analyzer, switched off by the
+	/// configuration - reads disabled rather than assessed.
 	/// </summary>
 	[Fact]
 	public void AMixedConfigurationKeepsCSharpFindingsAndMarksPythonDisabledRatherThanUnanalyzed()
@@ -146,7 +148,7 @@ public sealed class DisabledLanguageConfigurationTests
 		using RepositoryFixture fixture = RepositoryFixture.CreateEmpty();
 
 		fixture.WriteText(_CSHARP_FILE_NAME, _csharpHighFindingContent);
-		fixture.WriteText(_PYTHON_FILE_NAME, _pythonContent);
+		fixture.WriteText(_GO_FILE_NAME, _goContent);
 
 		RepositoryFolderPath repository = fixture.Repository;
 		LanguageCatalog catalog = LanguageCatalogRegistry.BuildEmbeddedCatalog();
@@ -156,7 +158,7 @@ public sealed class DisabledLanguageConfigurationTests
 
 		EffectiveConfiguration scanTimeConfiguration = ResolveConfigurationEnablingOnly(
 			AssessedLanguage.CSharp,
-			AssessedLanguage.Python);
+			AssessedLanguage.Go);
 		StageSet processOne = BuildStages(repository, destinationFolder, catalog, scanTimeConfiguration);
 		SessionStateStore store = new(destinationFolder);
 		SessionState processOneState = SessionState.Fresh(catalog.Version, repository.Label);
@@ -192,7 +194,7 @@ public sealed class DisabledLanguageConfigurationTests
 		Assert.True(ScanSummaryOf(artifact).GetProperty(_DIFFERS_FROM_SESSION_FIELD).GetBoolean());
 		Assert.EndsWith(
 			$"| {MarkdownReportRenderer.ASSESSED_NO} |",
-			MarkdownTableRow(markdown, AssessedLanguage.Python),
+			MarkdownTableRow(markdown, AssessedLanguage.Go),
 			StringComparison.Ordinal);
 	}
 

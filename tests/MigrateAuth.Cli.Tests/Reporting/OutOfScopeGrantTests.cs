@@ -6,11 +6,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Reporting;
 
 /// <summary>
-/// The tool recommends two flows and no others: no `CSharp`, `PowerShell`, `VBNet`, `Shell`, `JavaScript` or `TypeScript` recommendation, template
+/// The tool recommends two flows and no others: no `CSharp`, `PowerShell`, `VBNet`, `Shell`, `JavaScript`, `TypeScript` or `Python` recommendation, template
 /// or generic, under either flow, names a grant the tool does not recommend.
 /// </summary>
 public sealed class OutOfScopeGrantTests
 {
+	private const int _GENERIC_ROUTE_TEXTS_PER_FLOW = 1;
+
 	private static readonly string[] _outOfScopeGrantMarkers =
 	[
 		"grant_type=password",
@@ -162,6 +164,34 @@ public sealed class OutOfScopeGrantTests
 	{
 		Assert.Equal((TypeScriptRenderedTexts.TemplatedPatternClasses.Length + 1) * TypeScriptRenderedTexts.Flows.Length, TypeScriptRenderedTexts.AllComposedTexts().Length);
 		Assert.All(TypeScriptRenderedTexts.AllComposedTexts(), text => Assert.False(string.IsNullOrWhiteSpace(text)));
+	}
+
+	/// <summary>Every (class, flow) `Python` recommendation and both generic texts, composed exactly as the report composes them.</summary>
+	[Fact]
+	public void NoComposedPythonRecommendationNamesAnOutOfScopeGrant()
+	{
+		foreach (string text in PythonRenderedTexts.AllComposedTexts())
+		{
+			AssertNoOutOfScopeGrant(text);
+		}
+	}
+
+	/// <summary>The `Python` analyzer's own declared fallback texts, before the shared engine composes them with the OAuth2 Client block.</summary>
+	[Fact]
+	public void NoDeclaredPythonFallbackTextNamesAnOutOfScopeGrant()
+	{
+		foreach (CredentialFlow flow in PythonRenderedTexts.Flows)
+		{
+			AssertNoOutOfScopeGrant(PythonRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![flow]);
+		}
+	}
+
+	/// <summary>The composed `Python` texts are not empty, so the two checks above cannot pass over nothing.</summary>
+	[Fact]
+	public void ThePythonTextsTheGrantChecksReadAreNotEmpty()
+	{
+		Assert.Equal((PythonRenderedTexts.TemplatedPatternClasses.Length + _GENERIC_ROUTE_TEXTS_PER_FLOW) * PythonRenderedTexts.Flows.Length, PythonRenderedTexts.AllComposedTexts().Length);
+		Assert.All(PythonRenderedTexts.AllComposedTexts(), text => Assert.False(string.IsNullOrWhiteSpace(text)));
 	}
 
 	private static void AssertNoOutOfScopeGrant(string text)

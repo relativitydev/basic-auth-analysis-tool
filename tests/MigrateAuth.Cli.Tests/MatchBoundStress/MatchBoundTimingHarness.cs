@@ -126,8 +126,12 @@ internal sealed record MatchBoundShapeTiming
 /// </summary>
 internal static class MatchBoundTimingHarness
 {
-	internal const int WARM_UP_ITERATIONS = 2;
-	internal const int MEASURED_ITERATIONS = 5;
+	/// <summary>One warm-up and three measured iterations per shape.</summary>
+	internal const int WARM_UP_ITERATIONS = 1;
+	internal const int MEASURED_ITERATIONS = 3;
+
+	/// <summary>Two warm-up iterations, for a measurement whose first pass is cold; passed explicitly to <see cref="Measure(CSharpRecognitionHarness, MatchBoundStressShape, bool, int)"/>.</summary>
+	internal const int COLD_FIRST_PASS_WARM_UP_ITERATIONS = 2;
 
 	/// <summary>
 	/// Whether the timing table was asked for: the report variable the calling test names is set to a non-blank path. GATE MODE is its absence: only
@@ -148,9 +152,13 @@ internal static class MatchBoundTimingHarness
 
 	private const string _NOT_COMPUTED_IN_GATE_MODE = "not computed - gate mode (set the report variable to record the table)";
 
-	internal static MatchBoundShapeTiming Measure(CSharpRecognitionHarness harness, MatchBoundStressShape shape, bool timingTableRequested)
+	internal static MatchBoundShapeTiming Measure(
+		CSharpRecognitionHarness harness,
+		MatchBoundStressShape shape,
+		bool timingTableRequested,
+		int warmUpIterations = WARM_UP_ITERATIONS)
 	{
-		return Measure(ForCSharp(harness), shape, timingTableRequested);
+		return Measure(ForCSharp(harness), shape, timingTableRequested, warmUpIterations);
 	}
 
 	/// <summary>The `CSharp` harness as a target: its shapes stand at <c>stress/{name}.cs</c>.</summary>
@@ -201,7 +209,11 @@ internal static class MatchBoundTimingHarness
 		};
 	}
 
-	internal static MatchBoundShapeTiming Measure(MatchBoundTimingTarget target, MatchBoundStressShape shape, bool timingTableRequested)
+	internal static MatchBoundShapeTiming Measure(
+		MatchBoundTimingTarget target,
+		MatchBoundStressShape shape,
+		bool timingTableRequested,
+		int warmUpIterations = WARM_UP_ITERATIONS)
 	{
 		FileRecognitionContext context = target.ContextFor(shape.Text, target.RelativePathOf(shape));
 		ImmutableArray<string> nonTerminating = ProbeTermination(target.Analyzer, context.NormalizedText);
@@ -209,7 +221,7 @@ internal static class MatchBoundTimingHarness
 
 		try
 		{
-			timing = TimeTheShape(target, context, shape, nonTerminating, timingTableRequested);
+			timing = TimeTheShape(target, context, shape, nonTerminating, new MeasurementOptions(timingTableRequested, warmUpIterations));
 		}
 		catch (RegexMatchTimeoutException)
 		{
@@ -232,13 +244,18 @@ internal static class MatchBoundTimingHarness
 		return timing;
 	}
 
+	/// <summary>How one shape is measured: whether the timing table is computed, and how many warm-up iterations precede the measured ones.</summary>
+	private readonly record struct MeasurementOptions(bool TimingTableRequested, int WarmUpIterations);
+
 	private static MatchBoundShapeTiming TimeTheShape(
 		MatchBoundTimingTarget target,
 		FileRecognitionContext context,
 		MatchBoundStressShape shape,
 		ImmutableArray<string> nonTerminating,
-		bool timingTableRequested)
+		MeasurementOptions options)
 	{
+		bool timingTableRequested = options.TimingTableRequested;
+		int warmUpIterations = options.WarmUpIterations;
 		bool fileCanBeTimed = nonTerminating.IsEmpty;
 		double worstAnalyzerExpression = 0;
 		double worstWholeFile = 0;
@@ -246,9 +263,9 @@ internal static class MatchBoundTimingHarness
 		(int Evaluations, int Trips) flow = (0, 0);
 		Dictionary<string, double> worstPerRule = new(StringComparer.Ordinal);
 
-		for (int iteration = 0; iteration < WARM_UP_ITERATIONS + MEASURED_ITERATIONS; iteration++)
+		for (int iteration = 0; iteration < warmUpIterations + MEASURED_ITERATIONS; iteration++)
 		{
-			bool measured = iteration >= WARM_UP_ITERATIONS;
+			bool measured = iteration >= warmUpIterations;
 			(double wholeFileMilliseconds, int recognized) = fileCanBeTimed && timingTableRequested ? TimeTheWholeFile(target, context) : (0, 0);
 			(double analyzerExpressionMilliseconds, int flowEvaluations, int flowTrips) = fileCanBeTimed
 				? TimeEveryAnalyzerExpression(target, context)
