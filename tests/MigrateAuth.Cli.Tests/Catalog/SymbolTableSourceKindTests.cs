@@ -22,13 +22,15 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// validator refuses an expected kind on a cell with no symbolic verdict and a declaration expression that declares an environment record without the group that captures its
 /// fallback word. The semantic test of the copied value is here: a name with no fallback or a fallback that is neither `Basic` nor `Bearer`
 /// reaches the Low class, a `Basic` fallback confirms the Medium class, a `Bearer` fallback and an indeterminate name stay silent, and a name reassigned to a literal is
-/// indeterminate. No profile but the `JavaScript` one declares an environment record or an expected kind.
+/// indeterminate. No profile but the `Go`, `JavaScript`, `TypeScript` and `Python` ones declares an environment record or an expected kind.
 /// </summary>
 public sealed class SymbolTableSourceKindTests
 {
 	private const string _HELD_CLASS = "JS-017";
 	private const string _ENVIRONMENT_CLASS = "JS-018";
 	private const string _SETTINGS_PROPERTY_CLASS = "JS-019";
+	private const string _GO_ENVIRONMENT_CLASS = "GO-012";
+	private const string _GO_LOCAL_HELPER_CLASS = "GO-013";
 	private const int _SOURCE_KIND_CODE = 74;
 	private const string _USE = "await fetch(url, { headers: { Authorization: authValue } });\n";
 
@@ -146,18 +148,19 @@ public sealed class SymbolTableSourceKindTests
 		Assert.Equal(SymbolSourceKind.Environment, analyzer.DetectionRulesByPatternClass[_SETTINGS_PROPERTY_CLASS].SymbolicVerdictInterpretation.ExpectedSourceKind);
 		Assert.All(
 			LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct().SelectMany(candidate => candidate.DetectionRulesByPatternClass)
-				.Where(entry => entry.Key != _ENVIRONMENT_CLASS && entry.Key != _SETTINGS_PROPERTY_CLASS),
+				.Where(entry => entry.Key != _ENVIRONMENT_CLASS && entry.Key != _SETTINGS_PROPERTY_CLASS && entry.Key != _GO_ENVIRONMENT_CLASS && entry.Key != _GO_LOCAL_HELPER_CLASS),
 			entry => Assert.Null(entry.Value.SymbolicVerdictInterpretation.ExpectedSourceKind));
 	}
 
 	[Fact]
-	public void OnlyTheJavaScriptTypeScriptAndPythonProfilesDeclareAnEnvironmentRecord()
+	public void OnlyTheGoJavaScriptTypeScriptAndPythonProfilesDeclareAnEnvironmentRecord()
 	{
 		ILanguageAnalyzer[] analyzers = [.. LanguageCatalogRegistry.BuildEmbeddedCatalog().AnalyzersByLanguageName.Values.Distinct()];
+		ILanguageAnalyzer go = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Go"));
 		ILanguageAnalyzer javaScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("JavaScript"));
 		ILanguageAnalyzer typeScript = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("TypeScript"));
 		ILanguageAnalyzer python = analyzers.Single(analyzer => analyzer.LanguageIdentification.DeclaredLanguageNames.Contains("Python"));
-		ILanguageAnalyzer[] declaring = [javaScript, typeScript, python];
+		ILanguageAnalyzer[] declaring = [go, javaScript, typeScript, python];
 
 		Assert.All(
 			declaring,

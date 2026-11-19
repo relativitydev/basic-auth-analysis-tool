@@ -9,13 +9,13 @@ namespace MigrateAuth.Cli.Tests.Scanning;
 
 /// <summary>
 /// THE ACCEPTANCE TEST: A REPOSITORY WITH ALL EIGHT LANGUAGES, THROUGH THE REAL SCAN
-/// STAGE, WITH SIX OF THEM SHIPPING AN ANALYZER.
+/// STAGE, WITH ALL EIGHT OF THEM SHIPPING AN ANALYZER.
 ///
-/// The embedded catalog this harness builds carries the real `CSharp`, `JavaScript`, `PowerShell`, `TypeScript`, `VBNet` and `Shell` analyzers
-/// and the invented reference profile - nothing for the other two. This class proves each file of those
-/// two is named by <see cref="BaseLanguageDetection"/>, marked unassessed, excluded
-/// from candidate selection, and that the three genuinely unrecognized files - no extension and no
-/// table-named shebang, and a `.txt` file - are the only ones counted as unrecognized.
+/// The embedded catalog this harness builds carries the real `CSharp`, `Go`, `JavaScript`, `PowerShell`, `Python`, `TypeScript`, `VBNet` and `Shell` analyzers
+/// and the invented reference profile. This class proves each language is named by <see cref="BaseLanguageDetection"/>, assessed,
+/// and that the three genuinely unrecognized files - no extension and no
+/// table-named shebang, and a `.txt` file - are the only ones still counted as unrecognized. The unassessed summary is proved on a catalog
+/// built without the `Go` analyzer, because every embedded language is assessed.
 /// </summary>
 public sealed class BaseLanguageInventoryScanTests
 {
@@ -25,6 +25,7 @@ public sealed class BaseLanguageInventoryScanTests
 	private const string _TYPESCRIPT_FILE_NAME = "app.ts";
 	private const string _PYTHON_FILE_NAME = "script.py";
 	private const string _GO_FILE_NAME = "main.go";
+	private const string _GO_LANGUAGE_NAME = "Go";
 	private const string _POWERSHELL_FILE_NAME = "script.ps1";
 	private const string _SHELL_FILE_NAME = "script.sh";
 
@@ -55,9 +56,8 @@ public sealed class BaseLanguageInventoryScanTests
 	private const int _TOTAL_FILE_COUNT = 18;
 
 	/// <summary>
-	/// Go carries the one file no analyzer assesses on this line. Python, PowerShell and Shell carry two each (the named-extension
-	/// file plus the shebang file that resolves to the same language) and are assessed, as is VBNet with its one, TypeScript with its `app.ts`, and JavaScript with its `app.js` and the four
-	/// extensionless `node` and `nodejs` shebang files, which its own first-line rule attributes. The unassessed total is 1.
+	/// Every language this tree holds is assessed by the embedded catalog; the summary test builds its own catalog without the `Go` analyzer, so
+	/// that the one `Go` file is the unassessed one: the unassessed total is 1.
 	/// </summary>
 	private const int _UNASSESSED_FILE_COUNT = 1;
 
@@ -111,7 +111,7 @@ public sealed class BaseLanguageInventoryScanTests
 	}
 
 	[Fact]
-	public void EveryUnshippedLanguageIsMarkedNotAssessedAndTheSevenShippedOnesAreNot()
+	public void EveryEmbeddedLanguageIsAssessedAndNoneIsMarkedNotAssessed()
 	{
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
@@ -125,7 +125,7 @@ public sealed class BaseLanguageInventoryScanTests
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.JavaScript), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.TypeScript), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Python), assessed: true);
-		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: false);
+		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Go), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.PowerShell), assessed: true);
 		AssertLanguageLineIsAssessed(lines, AssessedLanguages.CanonicalName(AssessedLanguage.Shell), assessed: true);
 	}
@@ -154,7 +154,20 @@ public sealed class BaseLanguageInventoryScanTests
 		using ScanHarness harness = ScanHarness.CreateEmpty();
 		PlantMixedLanguageTree(harness);
 
-		harness.BuildStage().Run(harness.State, CancellationToken.None);
+		LanguageCatalog catalogWithoutGo = new(
+			harness.Catalog.Version,
+			[.. harness.Catalog.Analyzers.Where(analyzer => !analyzer.LanguageIdentification.DeclaredLanguageNames.Contains(_GO_LANGUAGE_NAME))]);
+
+		new ScanStage(new ScanStageContext
+		{
+			Repository = harness.Fixture.Repository,
+			Catalog = catalogWithoutGo,
+			Configuration = harness.Configuration,
+			EmissionPoint = harness.Fixture.EmissionPoint,
+			SkippedItems = harness.Fixture.Ledger,
+			Output = harness.Output,
+			TimeProvider = harness.Clock
+		}).Run(harness.State, CancellationToken.None);
 
 		string expectedSummary = string.Format(
 			CultureInfo.InvariantCulture,
@@ -163,6 +176,17 @@ public sealed class BaseLanguageInventoryScanTests
 			_TOTAL_FILE_COUNT);
 
 		Assert.Contains(expectedSummary, harness.Output.ToString(), StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void NoUnassessedLanguagesSummaryLineIsPrintedWhenEveryEmbeddedLanguageIsAssessed()
+	{
+		using ScanHarness harness = ScanHarness.CreateEmpty();
+		PlantMixedLanguageTree(harness);
+
+		harness.BuildStage().Run(harness.State, CancellationToken.None);
+
+		Assert.DoesNotContain(string.Format(CultureInfo.InvariantCulture, ScanStage.UNASSESSED_LANGUAGES_SUMMARY_FORMAT, 0, _TOTAL_FILE_COUNT), harness.Output.ToString(), StringComparison.Ordinal);
 	}
 
 	private static void PlantMixedLanguageTree(ScanHarness harness)

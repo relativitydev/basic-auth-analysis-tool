@@ -23,6 +23,15 @@ public static class WorstCaseFileContent
 	private const int _STREAM_PYTHON_CONSTRUCT_SHARE = 18;
 	private const int _STREAM_PYTHON_CONSTRUCT_COUNT = 19;
 	private const int _PYTHON_CONSTRUCT_MAXIMUM_COUNT = 3;
+	private const int _STREAM_GO_CONSTRUCT_SHARE = 20;
+	private const int _STREAM_GO_CONSTRUCT_COUNT = 21;
+	private const int _GO_CONSTRUCT_MAXIMUM_COUNT = 3;
+
+	/// <summary>
+	/// How many of every ten thousand Go sources carry constructs the shipped analyzer recognizes: five hundred, one file in twenty, as for Python. Each such file holds one to three,
+	/// so a generated Go file adds a modest number of findings and never reaches the per-file cap.
+	/// </summary>
+	public const int GO_CONSTRUCT_BASIS_POINTS = 500;
 
 	/// <summary>
 	/// How many of every ten thousand Python sources and shebang scripts carry constructs the shipped analyzer recognizes: five hundred, one file in twenty. Each such file holds one to three,
@@ -78,6 +87,7 @@ public static class WorstCaseFileContent
 	private const string _GO_ANCHOR_LINE = "const endpoint = \"https://status.invalid/health\"\n";
 	private const string _GO_COMMENT_PREFIX = "// Ordinary arithmetic for ";
 	private const string _GO_FUNCTION_FORMAT = "\nfunc AddAmount{0}(amount int) int {{\n\ttotal += amount * {0}\n\treturn total\n}}\n";
+	private const string _GO_CONSTRUCT_FORMAT = "\nfunc Authorize{0}(request *http.Request, accountA string, accountB string) {{\n\trequest.SetBasicAuth(accountA, accountB)\n}}\n";
 	private const string _POWERSHELL_ANCHOR_LINE = "$credentialSource = 'configured elsewhere'\n";
 	private const string _POWERSHELL_FUNCTION_FORMAT = "\nfunction Add-Amount{0}\n{{\n\tparam([int]$Amount)\n\t$script:total += $Amount * {0}\n\treturn $script:total\n}}\n";
 
@@ -470,7 +480,10 @@ public static class WorstCaseFileContent
 		return builder.ToString();
 	}
 
-	/// <summary>Ordinary Go with no construct, in the same small, medium and large mix; a share of the files still carry one constant holding a URL with no credential. A line that registers no Go analyzer enumerates the file and does not assess it.</summary>
+	/// <summary>
+	/// Ordinary Go, one file in twenty with one to three recognized constructs (see <see cref="GoConstructCountOf"/>), in the same small, medium and large mix; a share of the files still carry one constant holding a URL with no credential,
+	/// a content-only preselection anchor of the shipped analyzer. The recognized forms are one function each, so the text is the shape of Go the analyzer reads.
+	/// </summary>
 	private static string GoText(WorstCaseTreeOptions options, long index, string functionName)
 	{
 		StringBuilder builder = new();
@@ -481,12 +494,28 @@ public static class WorstCaseFileContent
 		builder.Append(_GO_TOTAL_DECLARATION).Append(_LINE_END);
 		builder.Append(MentionsAnchor(options, index) ? _GO_ANCHOR_LINE : string.Empty);
 
+		for (int number = 0; number < GoConstructCountOf(options, index); number++)
+		{
+			builder.Append(string.Format(CultureInfo.InvariantCulture, _GO_CONSTRUCT_FORMAT, number));
+		}
+
 		for (int number = 0; number < functionCount; number++)
 		{
 			builder.Append(string.Format(CultureInfo.InvariantCulture, _GO_FUNCTION_FORMAT, number));
 		}
 
 		return builder.ToString();
+	}
+
+	/// <summary>
+	/// How many constructs a generated Go source holds: none for most files, and for <see cref="GO_CONSTRUCT_BASIS_POINTS"/> of every ten thousand one to three, each a call of the request method that sets Basic
+	/// authentication with held names, a High class (<c>GO-001</c>) of the shipped analyzer. Drawn on streams of their own, so no other file and no other draw changes.
+	/// </summary>
+	public static int GoConstructCountOf(WorstCaseTreeOptions options, long index)
+	{
+		bool carriesConstructs = DeterministicRandom.Below(WorstCaseTreePlanner.BASIS_POINT_DENOMINATOR, options.Seed, index, _STREAM_GO_CONSTRUCT_SHARE) < GO_CONSTRUCT_BASIS_POINTS;
+
+		return carriesConstructs ? 1 + DeterministicRandom.Below(_GO_CONSTRUCT_MAXIMUM_COUNT, options.Seed, index, _STREAM_GO_CONSTRUCT_COUNT) : 0;
 	}
 
 	private static byte[] UndecodableBytes(WorstCaseTreeOptions options, long index, string typeName)

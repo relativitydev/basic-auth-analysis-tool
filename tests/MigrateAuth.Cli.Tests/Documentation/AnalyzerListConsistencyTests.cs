@@ -44,24 +44,32 @@ public sealed class AnalyzerListConsistencyTests
 
 	/// <summary>
 	/// The languages whose Part A and Part C are written and whose public pages (the README, the release notes, the limits, the index and
-	/// the OAuth 2.0 essentials) do not name them yet. It is empty. The list is not a way round the
-	/// rule: it holds only languages that are documented, and a non-empty list is refused in any build that is not a pre-release.
+	/// the OAuth 2.0 essentials) do not name them yet. It is empty.
+	/// The list is not a way round the rule: it holds only languages that are documented, and a non-empty list is refused in any build that is not a pre-release.
 	/// </summary>
 	private static readonly string[] _publicPagesPending = [];
 
-	private const string _PYTHON_LANGUAGE_NAME = "Python";
+	/// <summary>
+	/// The languages the catalog registers whose documentation (Part A, Part C and the public pages) is not written yet. It is empty: <c>Go</c> was listed here until the change that wrote its Part A and
+	/// Part C, and then in <see cref="_publicPagesPending"/> until the pages that name it were written. It is not a way round the rule: a language leaves it by being documented.
+	/// </summary>
+	private static readonly string[] _registeredWithoutDocumentation = [];
 
-	/// <summary>The languages the documentation covers are exactly the languages the catalog registers an analyzer for: no registered analyzer waits without its Part A and Part C.</summary>
+	private const string _PYTHON_LANGUAGE_NAME = "Python";
+	private const string _GO_LANGUAGE_NAME = "Go";
+
+	/// <summary>The languages the documentation covers are exactly the languages the catalog registers an analyzer for, except those listed as not documented yet.</summary>
 	[Fact]
 	public void TheDocumentedLanguagesAreExactlyTheRegisteredAnalyzers()
 	{
-		string[] registered = [.. CSharpRenderedTexts.Catalog().AnalyzersByLanguageName.Keys.Order(StringComparer.Ordinal)];
+		string[] registered = [.. CSharpRenderedTexts.Catalog().AnalyzersByLanguageName.Keys.Except(_registeredWithoutDocumentation).Order(StringComparer.Ordinal)];
 		string[] documented = [.. DocumentedLanguage.All.Select(language => language.LanguageName).Order(StringComparer.Ordinal)];
 
 		Assert.Equal(registered, documented);
 		Assert.Empty(_publicPagesPending.Except(documented));
 		Assert.Contains("VB.NET", DocumentedLanguage.All.Select(language => language.DisplayName));
 		Assert.Contains(_PYTHON_LANGUAGE_NAME, documented);
+		Assert.Contains(_GO_LANGUAGE_NAME, documented);
 	}
 
 	/// <summary>A language whose public pages are pending may wait only in a pre-release build; the release must flip this list to empty.</summary>
@@ -113,7 +121,7 @@ public sealed class AnalyzerListConsistencyTests
 	{
 		string stale = "This release analyzes C# and PowerShell.\n\nSee [Part A](part-a-csharp.md) and [Part A](part-a-powershell.md).";
 		string history = "The release 0.2.0-alpha analyzed C# and PowerShell.";
-		string current = "This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript and Python.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md), [Part A](part-a-javascript.md), [Part A](part-a-typescript.md), [Part A](part-a-python.md).";
+		string current = "This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go.\n\n[Part A](part-a-csharp.md), [Part A](part-a-powershell.md), [Part A](part-a-vbnet.md), [Part A](part-a-shell.md), [Part A](part-a-javascript.md), [Part A](part-a-typescript.md), [Part A](part-a-python.md), [Part A](part-a-go.md).";
 
 		Assert.NotEmpty(LanguageListProblems("stale", stale));
 		Assert.NotEmpty(MissingLinks("stale", stale, "a"));

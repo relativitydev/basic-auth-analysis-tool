@@ -246,7 +246,7 @@ Points to know:
 
 - The warning gives the location and the pattern class only. It never prints the value, and neither does the report.
 - The warning is a signal to look at that location, not proof that the value is a live credential. Check it yourself.
-- If a finding is below the minimum confidence level you configured, it does not appear in the findings table, but its warning still appears and says that it is below the threshold. A credential in source is a risk at every confidence level.
+- If a finding is below the minimum confidence level you configured, it does not appear in the findings table, but its warning still appears, followed by `(below the reporting threshold; not in the report)`. A credential in source is a risk at every confidence level.
 - The tool reads only the languages it supports in this release, and only the constructs its catalog recognizes. A clean run does not mean your repository holds no hardcoded credentials, so use the searches in the next subsection as well.
 - Treat a credential that appears in a warning as compromised. The steps are: rotate it as described in [Rotating client secrets](#rotating-client-secrets), move the new value into a secret store, and remove the old value from the code. Removing a value from the latest commit does not remove it from the history.
 

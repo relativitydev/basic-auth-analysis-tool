@@ -29,6 +29,7 @@ public sealed class MemberRecordSymbolTableTests
 	private const string _LITERAL_CLASS = "JS-017";
 	private const string _JAVASCRIPT_PROFILE = "JavaScript";
 	private const string _TYPESCRIPT_PROFILE = "TypeScript";
+	private const string _GO_PROFILE = "Go";
 	private static readonly TimeSpan _NO_BACKTRACKING_GUARD_TIMEOUT = TimeSpan.FromSeconds(30);
 	private const int _MEMBER_BOUND_CODE = 79;
 	private const int _MEMBER_MALFORMED_CODE = 80;
@@ -382,8 +383,9 @@ public sealed class MemberRecordSymbolTableTests
 		Assert.Equal(0, table.MemberRecordCountOf(_MEMBER));
 		Assert.NotNull(JavaScriptRegisteredExpressions.Analyzer.LexicalProfile.MemberDeclarationExpression);
 		Assert.NotNull(TypeScriptRegisteredExpressions.Analyzer.LexicalProfile.MemberDeclarationExpression);
+		Assert.NotNull(GoRegisteredExpressions.Analyzer.LexicalProfile.MemberDeclarationExpression);
 		Assert.All(
-			LanguageCatalogRegistry.BuildEmbeddedCatalog().Analyzers.Where(analyzer => analyzer.LexicalProfile.ProfileName is not (_JAVASCRIPT_PROFILE or _TYPESCRIPT_PROFILE)),
+			LanguageCatalogRegistry.BuildEmbeddedCatalog().Analyzers.Where(analyzer => analyzer.LexicalProfile.ProfileName is not (_JAVASCRIPT_PROFILE or _TYPESCRIPT_PROFILE or _GO_PROFILE)),
 			analyzer => Assert.Null(analyzer.LexicalProfile.MemberDeclarationExpression));
 	}
 

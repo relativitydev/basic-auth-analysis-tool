@@ -19,6 +19,9 @@ namespace MigrateAuth.Cli.Tests.Reporting;
 /// </summary>
 public sealed class CoverageStatementTests
 {
+	/// <summary>Any language the fixture catalogs hold no analyzer for; chosen by position so no test names a language that ships.</summary>
+	private static readonly AssessedLanguage UnanalyzedLanguage = AssessedLanguages.AllInDeclaredOrder.First(language => language != AssessedLanguage.CSharp);
+
 	[Fact]
 	public void EveryOneOfTheEightLanguagesGetsARowWhateverTheCatalogHolds()
 	{
@@ -39,11 +42,11 @@ public sealed class CoverageStatementTests
 			ReportHarness.CatalogWithCSharpOnly(),
 			ReportHarness.ConfigurationWith(ConfidenceLevel.Low));
 
-		LanguageCoverageRow goRow = rows.Single(row => row.Language == AssessedLanguage.Go);
+		LanguageCoverageRow unanalyzedRow = rows.First(row => row.Language != AssessedLanguage.CSharp);
 
-		Assert.Equal(LanguageCoverageState.DeclaredUnsupported, goRow.State);
-		Assert.Equal(CoverageStatement.DECLARED_UNSUPPORTED, CoverageStatement.Describe(goRow));
-		Assert.Equal(0, goRow.PatternClassesSearched);
+		Assert.Equal(LanguageCoverageState.DeclaredUnsupported, unanalyzedRow.State);
+		Assert.Equal(CoverageStatement.DECLARED_UNSUPPORTED, CoverageStatement.Describe(unanalyzedRow));
+		Assert.Equal(0, unanalyzedRow.PatternClassesSearched);
 	}
 
 	[Fact]
@@ -90,13 +93,13 @@ public sealed class CoverageStatementTests
 	{
 		EffectiveConfiguration configuration = ReportHarness.ConfigurationWith(
 			ConfidenceLevel.Low,
-			AssessedLanguage.Go);
+			UnanalyzedLanguage);
 
-		LanguageCoverageRow goRow = CoverageStatement
+		LanguageCoverageRow unanalyzedRow = CoverageStatement
 			.Compose(ReportHarness.CatalogWithCSharpOnly(), configuration)
-			.Single(row => row.Language == AssessedLanguage.Go);
+			.Single(row => row.Language == UnanalyzedLanguage);
 
-		Assert.Equal(LanguageCoverageState.DisabledByConfiguration, goRow.State);
+		Assert.Equal(LanguageCoverageState.DisabledByConfiguration, unanalyzedRow.State);
 	}
 
 	[Fact]
@@ -144,8 +147,8 @@ public sealed class CoverageStatementTests
 			ReportHarness.CatalogWithDeclaredUnsupportedCoverage(),
 			ReportHarness.ConfigurationWith(ConfidenceLevel.Low));
 
-		LanguageCoverageRow goRow = rows.Single(row => row.Language == AssessedLanguage.Go);
+		LanguageCoverageRow unanalyzedRow = rows.First(row => row.Language != AssessedLanguage.CSharp);
 
-		Assert.Empty(goRow.DeclaredUnsupportedConstructs);
+		Assert.Empty(unanalyzedRow.DeclaredUnsupportedConstructs);
 	}
 }

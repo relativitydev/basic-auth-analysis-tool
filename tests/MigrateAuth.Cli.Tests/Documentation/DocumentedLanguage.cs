@@ -25,6 +25,8 @@ public sealed record DocumentedLanguage(
 {
 	private const string _PYTHON_SERVER_SIDE_VARIANT_MARKER = "**Variant 1 — a server-side web application";
 	private const string _PYTHON_COMMAND_LINE_VARIANT_MARKER = "**Variant 2 — a command-line or desktop tool**";
+	private const string _GO_WEB_SERVER_VARIANT_MARKER = "**Variant 1 — a Go web server";
+	private const string _GO_COMMAND_LINE_VARIANT_MARKER = "**Variant 2 — a command-line tool or a desktop process";
 
 	/// <summary>The two variants of how an Authorization Code entry says the code is received, as the labels each language's templates write them.</summary>
 	public ImmutableArray<(string Element, string Marker)> AuthorizationCodeVariantMarkers { get; init; } =
@@ -146,8 +148,27 @@ public sealed record DocumentedLanguage(
 		]
 	};
 
+	/// <summary>The eighth language: Part A and Part C of Go.</summary>
+	public static readonly DocumentedLanguage Go = new(
+		"Go",
+		"Go",
+		AssessedLanguage.Go,
+		"part-a-go.md",
+		"part-c-go.md",
+		GoRenderedTexts.UNDECLARED_PATTERN_CLASS,
+		"go",
+		"*.go")
+	{
+		CacheAndReacquireMarker = PublicDocumentChecks.CACHE_AND_RE_ACQUIRE_WITHOUT_COMMA_MARKER,
+		AuthorizationCodeVariantMarkers =
+		[
+			("the web server variant", _GO_WEB_SERVER_VARIANT_MARKER),
+			("the command-line or desktop variant with its loopback listener", _GO_COMMAND_LINE_VARIANT_MARKER)
+		]
+	};
+
 	/// <summary>Every language whose Part A and Part C are published, in the order the User Guide lists them.</summary>
-	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript, TypeScript, Python];
+	public static readonly ImmutableArray<DocumentedLanguage> All = [CSharp, PowerShell, VBNet, Shell, JavaScript, TypeScript, Python, Go];
 
 	/// <summary>The embedded analyzer of this language, read through the same catalog the report is built from.</summary>
 	public ILanguageAnalyzer Analyzer()

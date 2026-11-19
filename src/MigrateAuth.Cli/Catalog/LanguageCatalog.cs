@@ -12,7 +12,7 @@ namespace MigrateAuth.Cli.Catalog;
 public sealed class LanguageCatalog
 {
 	private const int _CURRENT_VERSION_MAJOR = 1;
-	private const int _CURRENT_VERSION_MINOR = 50;
+	private const int _CURRENT_VERSION_MINOR = 51;
 	private const int _CURRENT_VERSION_REVISION = 0;
 
 	private readonly FrozenDictionary<string, ILanguageAnalyzer> _analyzersByFileExtension;
@@ -51,6 +51,12 @@ public sealed class LanguageCatalog
 	/// position of a held literal `NAME = "Basic token"`: the token of the declared literal, which the finding at the carrier carries as a literal credential. The declared unsupported coverage entry for a held scheme that is more than the scheme word is retired. The operand of a held scheme value takes up to three call groups, each bounded at 120 units, where a unit is one character or a nested group of at most 120 characters. Findings move up for these
 	/// constructs (a pair or a held scheme that was not read is read at Medium), and the credential signal moves for the held literal with a token; a construct read before is read as before. A session started under 1.49.0 is
 	/// started fresh on the same terms as at each earlier move.
+	///
+	/// <b>1.47.0 (the `Go` analyzer is registered).</b> The catalog gains the `Go` analyzer, with its lexical profile (three quote rules and two comment rules, no predicate), its twelve classes `GO-001` to `GO-012`, its four subsumption triples, its six preselection anchors, its demotion signals and its declared coverage, and no first-line rule. Its flow signals and its recommendation templates are not declared yet, so a `Go` file reads the default flow and a High or Medium finding reads the generic text of its flow. Findings move for every `.go` file, which was counted and not assessed before, so a session started under 1.46.0 is started fresh on the same terms as at each earlier move. No contract element changes. The `Python` analyzer was numbered separately at the same time; see 1.51.0.
+	///
+	/// <b>1.48.0 (the `Go` flow signals, recommendation templates and fallback texts are declared).</b> The `Go` analyzer declares its eleven flow signals, six interactive and five fixed-credential, the recommendation text of its nine classes that give advice under both flows (the three Low classes carry none) and its own generic fallback text for each flow. The templates use the standard library only, the web-server variant of Authorization Code serves the redirect with `net/http`, and the Authorization Code and PKCE facts carry the label of facts NSerio verified and Relativity does not document. A `Go` file that holds an interactive signal is assigned Authorization Code, one that holds only a fixed-credential signal Client Credentials, and one that holds neither keeps the default flow, so findings move in flow and in recommendation text for every `.go` file. No class, level, expression of a class, demotion signal or declared-coverage text changes. No contract element changes. A session started under 1.47.0 is started fresh on the same terms as at each earlier move.
+	///
+	/// <b>1.51.0 (the `Python` and `Go` analyzers are joined: all eight languages are registered).</b> The catalog that carries the `Go` analyzer, numbered 1.48.0, is joined with the one that carries the `Python` analyzer, numbered 1.50.0. The catalog holds its eighth language, because both the `Python` and the `Go` analyzers are now registered, and the `.py`, `.pyw` and `.go` files are all assessed. No expression, class, level, flow, demotion, template or declared-coverage text of any language changes in the join, so no finding moves; only the number moves. The number is the higher minor plus one: 1.50.0 over 1.48.0. The entries numbered 1.47.0 and 1.48.0 above were each taken twice, once for each analyzer while the two were numbered separately; the `Python` entries come first and the `Go` entries follow them. A session started under 1.50.0 is started fresh on the same terms as at each earlier move.
 	///
 	/// <b>Its relation to the product version.</b> This number and the product version are
 	/// counted on two SEPARATE scales, not one scale under two names: this one versions the

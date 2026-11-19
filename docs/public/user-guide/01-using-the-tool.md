@@ -12,7 +12,7 @@ The other sections of this guide are listed in the [index](index.md).
 - **It never contacts RelativityOne or any network service.** It works offline. The optional `ai-assist` step can start your own AI tool when you confirm, and that tool, not `migrate-auth`, contacts its provider; see [The ai-assist command](#the-ai-assist-command). It cannot tell you which OAuth2 Clients your RelativityOne instance already has, and it does not check that a URL, a user or a client exists.
 - **It never configures an OAuth2 Client.** The OAuth2 Client settings in the report are guidance. Creating or changing the client is a manual step you do in RelativityOne; see [Configuring the OAuth2 Client](05-configuring-the-oauth2-client.md).
 - **It reports what its catalog searches for.** A construct the catalog does not cover, or a language this release does not analyze, produces no finding. An empty result is not proof that no Basic Authentication exists. See [Limits of the tool](03-limits.md).
-- **This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript and Python only, and includes the optional `ai-assist` command.** This guide covers those seven languages and `ai-assist`. **Go is not in this release.** It is not the final version of the guide: it is updated again when Go is delivered. Python files are those ending in `.py` or `.pyw`, and files with no extension whose first line names `python`, `python2`, `python3` or `python3.<digits>` as the interpreter. JavaScript files are those ending in `.js`, `.mjs`, `.cjs` or `.jsx`, and files with no extension whose first line is a shebang that names `node` or `nodejs`. TypeScript files are those ending in `.ts`, `.tsx`, `.mts` or `.cts`, and declaration files (`.d.ts`, `.d.mts` and `.d.cts`), which are reported at Low. Files in other languages, including Go, are counted and are not analyzed. See the [release notes](02-release-notes.md).
+- **This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go only, and includes the optional `ai-assist` command.** This guide covers those eight languages and `ai-assist`. Go files are those ending in `.go`; a file with no extension is not read as Go. Python files are those ending in `.py` or `.pyw`, and files with no extension whose first line names `python`, `python2`, `python3` or `python3.<digits>` as the interpreter. JavaScript files are those ending in `.js`, `.mjs`, `.cjs` or `.jsx`, and files with no extension whose first line is a shebang that names `node` or `nodejs`. TypeScript files are those ending in `.ts`, `.tsx`, `.mts` or `.cts`, and declaration files (`.d.ts`, `.d.mts` and `.d.cts`), which are reported at Low. Files in other languages are counted and are not analyzed. See the [release notes](02-release-notes.md).
 
 ## Installing
 
@@ -20,14 +20,14 @@ A release consists of one file for each platform and a `SHA256SUMS` file that li
 
 | Platform | File you download | What to do after checking the checksum |
 | --- | --- | --- |
-| Windows (x64) | the `win-x64` binary, `migrate-auth-0.8.0-alpha-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
-| Linux (x64) | the `linux-x64` binary, `migrate-auth-0.8.0-alpha-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
-| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-0.8.0-alpha-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
-| macOS on Intel | the `osx-x64` binary, `migrate-auth-0.8.0-alpha-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| Windows (x64) | the `win-x64` binary, `migrate-auth-0.9.0-alpha-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
+| Linux (x64) | the `linux-x64` binary, `migrate-auth-0.9.0-alpha-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
+| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-0.9.0-alpha-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| macOS on Intel | the `osx-x64` binary, `migrate-auth-0.9.0-alpha-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
 
-In this release the macOS binaries are plain binaries, like the Linux one. They are not signed with an Apple Developer ID certificate and not notarized by Apple, so the checksum is the only check that your download is intact. The Intel binary of this release was run on macOS 15.8.2. The Apple silicon binary is built and checked when the release is assembled, and it was not run for this release. To find which binary your Mac needs, run `uname -m` in Terminal: it prints `arm64` on Apple silicon and `x86_64` on Intel.
+In this release the macOS binaries are plain binaries, like the Linux one. They are not signed with an Apple Developer ID certificate and not notarized by Apple, so the checksum is the only check that your download is intact. Both macOS binaries of this release were run on macOS 15. To find which binary your Mac needs, run `uname -m` in Terminal: it prints `arm64` on Apple silicon and `x86_64` on Intel.
 
-Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-0.8.0-alpha-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
+Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-0.9.0-alpha-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
 
 ### Supported operating systems
 
@@ -37,8 +37,8 @@ Each binary is self-contained: it does not need .NET or any other runtime instal
 | --- | --- | --- |
 | Windows (x64) | Windows 11, version 24H2. Windows 11 version 23H2 and Windows 10 versions 21H2, 1809 and 1607 only in the Enterprise or IoT editions that .NET 10 lists. Windows Server 2016; Windows Server 2012 and 2012 R2 only with Extended Security Updates | Windows 11 Enterprise, version 25H2 (build 26200) |
 | Linux (x64) | A distribution with glibc 2.35 or later, for example Ubuntu 22.04 | Ubuntu 22.04 LTS, in a virtual machine |
-| macOS on Apple silicon (`osx-arm64`) | macOS 15 | Not run for this release: the binary is built and checked, not run |
-| macOS on Intel (`osx-x64`) | macOS 15 | macOS 15.8.2 |
+| macOS on Apple silicon (`osx-arm64`) | macOS 15 | macOS 15 (Apple silicon) |
+| macOS on Intel (`osx-x64`) | macOS 15 | macOS 15.8.3 |
 
 - **Linux.** .NET 10 itself supports glibc 2.27 and later on x64, but a native binary built on Linux runs only on the same or a newer Linux version than the one it was built on. The Linux binary of this release was built on Ubuntu 22.04, whose glibc is 2.35, so a distribution with an older glibc is not supported even where .NET 10 lists it. Distributions based on musl rather than glibc, such as Alpine Linux, are not supported: the `linux-x64` binary needs glibc.
 - **macOS.** .NET 10 supports macOS 15, 26 and 27. macOS 13 and macOS 14 are older than the versions .NET 10 supports, so they are not supported, whether or not the binary happens to start on them. Use macOS 15 or later.
@@ -69,11 +69,11 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 The command checks every file named in `SHA256SUMS` that is present in the current folder, and prints `OK` beside a file whose checksum matches.
 
-**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-0.8.0-alpha-osx-x64`.
+**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-0.9.0-alpha-osx-x64`.
 
 ```bash
-shasum -a 256 migrate-auth-0.8.0-alpha-osx-arm64
-grep migrate-auth-0.8.0-alpha-osx-arm64 SHA256SUMS
+shasum -a 256 migrate-auth-0.9.0-alpha-osx-arm64
+grep migrate-auth-0.9.0-alpha-osx-arm64 SHA256SUMS
 ```
 
 The first command prints the checksum of your download and the second prints the line of `SHA256SUMS` that names the file. The two hexadecimal values must be identical. Check the checksum before you make the file executable or allow it in Gatekeeper: the macOS binaries are not signed or notarized, so macOS cannot vouch for them, and the checksum is the integrity check.
@@ -87,7 +87,7 @@ The Windows binary is not signed. When you start a file you downloaded with a br
 1. In the SmartScreen window, choose **More info**.
 2. Choose **Run anyway**.
 
-If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-0.8.0-alpha-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
+If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-0.9.0-alpha-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
 
 The first launch of a freshly downloaded copy can take longer than later launches. See the [release notes](02-release-notes.md#known-issues).
 
@@ -96,24 +96,24 @@ The first launch of a freshly downloaded copy can take longer than later launche
 Linux does not show a reputation check for a downloaded binary. Make the file executable, then run it:
 
 ```bash
-chmod +x ./migrate-auth-0.8.0-alpha-linux-x64
-./migrate-auth-0.8.0-alpha-linux-x64 --version
+chmod +x ./migrate-auth-0.9.0-alpha-linux-x64
+./migrate-auth-0.9.0-alpha-linux-x64 --version
 ```
 
 ### First run on macOS
 
 The macOS binaries of this release are **not signed with an Apple Developer ID certificate and not notarized by Apple**. macOS therefore cannot tell you who made the file or whether it was changed after it was built, and the checksum you verified above is the only integrity check. Do not continue unless the checksum matches.
 
-1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-0.8.0-alpha-osx-x64`.
+1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-0.9.0-alpha-osx-x64`.
 
 	```bash
-	chmod +x ./migrate-auth-0.8.0-alpha-osx-arm64
+	chmod +x ./migrate-auth-0.9.0-alpha-osx-arm64
 	```
 
 2. Run it once:
 
 	```bash
-	./migrate-auth-0.8.0-alpha-osx-arm64 --version
+	./migrate-auth-0.9.0-alpha-osx-arm64 --version
 	```
 
 	If you downloaded the file with a web browser, macOS Gatekeeper blocks this first run and shows a warning that Apple cannot check the file for malicious software. This is expected for this release. Close the warning with **Done**; do not choose **Move to Trash**.
@@ -124,7 +124,7 @@ The macOS binaries of this release are **not signed with an Apple Developer ID c
 	- **In Terminal.** Remove the quarantine attribute that macOS attaches to a downloaded file, then run the command again:
 
 		```bash
-		xattr -d com.apple.quarantine ./migrate-auth-0.8.0-alpha-osx-arm64
+		xattr -d com.apple.quarantine ./migrate-auth-0.9.0-alpha-osx-arm64
 		```
 
 		If the file does not carry the attribute, the command reports that there is no such attribute and changes nothing.
@@ -135,10 +135,10 @@ If your Mac is managed by your organization, its device management can prevent y
 
 ### Checking that the tool starts
 
-Run the tool with `--version` (on Windows, `.\migrate-auth-0.8.0-alpha-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
+Run the tool with `--version` (on Windows, `.\migrate-auth-0.9.0-alpha-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
 
 ```text
-migrate-auth 0.8.0-alpha (catalog 1.50.0)
+migrate-auth 0.9.0-alpha (catalog 1.51.0)
 ```
 
 `--help` (or `-h`) prints the usage, the two options described below, and the list of commands, and exits.
@@ -187,9 +187,10 @@ Running a stage again invalidates the stages after it: after a new `scan` you ru
 
 - a folder named `vendor` or `third-party`, in any letter case, at any depth (vendored code). `VendorPortal` does not match;
 - a folder named `sample`, `samples`, `example` or `examples`, in any letter case, at any depth, and a file whose name begins with `Sample` or `Example` with a capital first letter (sample and example code). `SampleClient.cs` and `ExampleRunner.cs` match; `sampleClient.cs`, `SamplesCore` and a folder named `demo` do not;
-- mocks, fakes and stubs, and generated code, in all seven languages, as Part A lists for [C#](../migration/part-a-csharp.md#how-confidence-is-assigned), for [PowerShell](../migration/part-a-powershell.md#how-confidence-is-assigned), for [VB.NET](../migration/part-a-vbnet.md#how-confidence-is-assigned) for [Shell](../migration/part-a-shell.md#how-confidence-is-assigned), for [JavaScript](../migration/part-a-javascript.md#how-confidence-is-assigned) and for [TypeScript](../migration/part-a-typescript.md#how-confidence-is-assigned) (the Part A page for Python is not published yet; the rule is the same);
+- mocks, fakes and stubs, and generated code, in all eight languages, as Part A lists for [C#](../migration/part-a-csharp.md#how-confidence-is-assigned), for [PowerShell](../migration/part-a-powershell.md#how-confidence-is-assigned), for [VB.NET](../migration/part-a-vbnet.md#how-confidence-is-assigned) for [Shell](../migration/part-a-shell.md#how-confidence-is-assigned), for [JavaScript](../migration/part-a-javascript.md#how-confidence-is-assigned), for [TypeScript](../migration/part-a-typescript.md#how-confidence-is-assigned) and for [Python](../migration/part-a-python.md#how-confidence-is-assigned) and for [Go](../migration/part-a-go.md#how-confidence-is-assigned);
 - for JavaScript and for TypeScript, a folder named `demo` or `demos` is also read as sample code; for JavaScript, a file name ending in `.min.js`, `.bundle.js` or `.chunk.js` is read as generated code, and TypeScript has no file name that marks a file as generated, as Part A explains;
 - for Python, a virtual-environment folder named `venv`, `.venv`, `dist-packages`, `__pypackages__` or `.tox`, a mock, sample or generated file, and a match in a documentation string or a comment; the details are in [Python: what the tool reads and what it does not](03-limits.md#python-what-the-tool-reads-and-what-it-does-not);
+- for Go, a vendored folder named `vendor`, `third_party`, `third-party`, `thirdparty` or `Godeps`; a mock, fake or stub recognized by its file name or its folder name; a generated file, recognized by the name its generator gives it (such as a file ending in `.pb.go`) or by a `// Code generated ... DO NOT EDIT.` line comment before the first line of code; and a documentation example (a file ending in `example_test.go`, or a function named `Example`). A file ending in `_test.go`, or under a folder named `testdata`, `test`, `tests`, `e2e`, `fixture`, `fixtures`, `testutil` or `testutils`, is test code and is reported at Medium at most. The details are in [Go: what the tool reads and what it does not](03-limits.md#go-what-the-tool-reads-and-what-it-does-not);
 - for TypeScript, a declaration file (`.d.ts`, `.d.mts` or `.d.cts`), which holds types and no runtime call;
 - for C# only, a folder named `Deployment`. PowerShell, VB.NET, Shell, JavaScript and TypeScript do not use this signal: a script or a source file under a `Deployment` folder is reported at its full level, because that folder is where deployment code is kept.
 
@@ -542,7 +543,7 @@ The file is a JSON object. This example uses every key:
 
 | Key | Values | Meaning | Where it is read |
 | --- | --- | --- | --- |
-| `enabledLanguages` | A list of language names: `CSharp`, `VBNet`, `JavaScript`, `TypeScript`, `Python`, `Go`, `PowerShell`, `Shell`. | The languages to assess. When the key is absent, all eight are enabled. A language you leave out is not scanned for candidates and has no findings; its files are still counted and are marked as not assessed. Only `CSharp`, `PowerShell`, `VBNet`, `Shell`, `JavaScript`, `TypeScript` and `Python` have an analyzer in this release, so enabling `Go` changes nothing yet. A list that enables no language at all is refused at start-up (exit code 6). This includes a list that names only languages the tool does not know: the tool says that every name was unknown, names them together with the accepted names, and does not start the session. | Repository file first, then user profile. A list in the repository file replaces the profile's. |
+| `enabledLanguages` | A list of language names: `CSharp`, `VBNet`, `JavaScript`, `TypeScript`, `Python`, `Go`, `PowerShell`, `Shell`. | The languages to assess. When the key is absent, all eight are enabled. A language you leave out is not scanned for candidates and has no findings; its files are still counted and are marked as not assessed. A list that enables no language at all is refused at start-up (exit code 6). This includes a list that names only languages the tool does not know: the tool says that every name was unknown, names them together with the accepted names, and does not start the session. | Repository file first, then user profile. A list in the repository file replaces the profile's. |
 | `minimumConfidenceLevel` | `Low`, `Medium`, `High`. | The lowest confidence level that appears in the output. The default is `Low`, which shows everything. The setting only hides findings from the output; it never changes the level a finding receives. | Repository file first, then user profile. A level in the repository file replaces the profile's. |
 | `outputPath` | A folder path. | Where the report, the data file and the saved session state are written, when `--documentationDestinationFolderPath` is not given. A leading `~`, `~/` or `~\` is your home folder; see [What a relative path is relative to](#the-configuration-file). | User profile only. |
 | `defaultFlow` | `ClientCredentials` or `AuthorizationCode`. | The flow a finding receives when no signal in its file decides one. The default is `ClientCredentials`. | User profile only. |
@@ -571,7 +572,7 @@ When the repository's own configuration file raised the minimum confidence level
 
 Report section **1. Coverage**; JSON `coverage`.
 
-A table lists all eight languages and what this release does for each (`coverage.languages[]`, with `language` and `coverage`): "supported, 19 classes searched" for C#, "supported, 14 classes searched" for PowerShell and "supported, 19 classes searched" for VB.NET, "supported, 25 classes searched" for Shell, "supported, 19 classes searched" for JavaScript and "supported, 21 classes searched" for TypeScript, "supported, 14 classes searched" for Python (`patternClassesSearched` is the number of classes), and "declared unsupported in this release" for Go. An introductory sentence (`coverage.statement`) says that the report is not a guarantee of absence.
+A table lists all eight languages and what this release does for each (`coverage.languages[]`, with `language` and `coverage`): "supported, 19 classes searched" for C#, "supported, 14 classes searched" for PowerShell and "supported, 19 classes searched" for VB.NET, "supported, 25 classes searched" for Shell, "supported, 19 classes searched" for JavaScript and "supported, 21 classes searched" for TypeScript, "supported, 14 classes searched" for Python and "supported, 13 classes searched" for Go (`patternClassesSearched` is the number of classes). An introductory sentence (`coverage.statement`) says that the report is not a guarantee of absence.
 
 **Declared unsupported constructs** (`declaredUnsupportedConstructs[]`, each with a `construct` and a `reason`) lists what the catalogs of the supported languages do not cover, so that a missing finding is not read as a clean result. Part A explains the same list ([C#](../migration/part-a-csharp.md#declared-unsupported-coverage), [PowerShell](../migration/part-a-powershell.md#declared-unsupported-coverage), [VB.NET](../migration/part-a-vbnet.md#declared-unsupported-coverage), [Shell](../migration/part-a-shell.md#declared-unsupported-coverage), [JavaScript](../migration/part-a-javascript.md#declared-unsupported-coverage), [TypeScript](../migration/part-a-typescript.md#declared-unsupported-coverage)).
 
@@ -709,7 +710,7 @@ Every field of the JSON file that takes one of a fixed set of values is listed h
 | `findings[].flowDecision` | `InteractiveSignal`, `FixedSignal` or `Default`; null for a Low finding. |
 | `findings[].testCode` | `true` or `false`; present on every finding. |
 | `findings[].lowReasons` | A list of `patternClass`, `commentOrStringLiteral`, `demotedMockFile`, `demotedSampleFile`, `demotedVendoredFile`, `demotedGeneratedFile`, `demotedDeploymentFolder`, `neutralOperandPair` and `inactivePreprocessorRegion`, in that order when several apply; empty when the reason was not recorded; null for a finding that is not Low. |
-| `findings[].patternClass` | `CS-001` to `CS-020`, without `CS-010`, for C#; `PS-001` to `PS-014` for PowerShell; `VB-001` to `VB-019` for VB.NET; `SH-001` to `SH-025` for Shell; `JS-001` to `JS-019` for JavaScript; `JS-001` to `JS-019`, `TS-001` and `TS-003` for TypeScript; `PY-001` to `PY-014` for Python. See Part A ([C#](../migration/part-a-csharp.md#pattern-classes), [PowerShell](../migration/part-a-powershell.md#pattern-classes), [VB.NET](../migration/part-a-vbnet.md#pattern-classes), [Shell](../migration/part-a-shell.md#pattern-classes), [JavaScript](../migration/part-a-javascript.md#pattern-classes), [TypeScript](../migration/part-a-typescript.md#pattern-classes)). |
+| `findings[].patternClass` | `CS-001` to `CS-020`, without `CS-010`, for C#; `PS-001` to `PS-014` for PowerShell; `VB-001` to `VB-019` for VB.NET; `SH-001` to `SH-025` for Shell; `JS-001` to `JS-019` for JavaScript; `JS-001` to `JS-019`, `TS-001` and `TS-003` for TypeScript; `PY-001` to `PY-014` for Python; `GO-001` to `GO-013` for Go. See Part A ([C#](../migration/part-a-csharp.md#pattern-classes), [PowerShell](../migration/part-a-powershell.md#pattern-classes), [VB.NET](../migration/part-a-vbnet.md#pattern-classes), [Shell](../migration/part-a-shell.md#pattern-classes), [JavaScript](../migration/part-a-javascript.md#pattern-classes), [TypeScript](../migration/part-a-typescript.md#pattern-classes)). |
 | `provenance.minimumConfidenceLevelOrigin`, `provenance.enabledLanguagesOrigin` | `built-in default`, `the configuration file in the user profile` or `the configuration file in the repository`. |
 | `provenance.outputPathOrigin` | `the command line`, `the configuration file in the user profile` or `the working directory captured at launch`. |
 | `provenance.defaultFlowOrigin` | `BuiltInDefault` or `Profile`. The other origin fields use the phrases above, and this one uses a code. |
@@ -767,7 +768,7 @@ The codes are stable: a number is never given a new meaning in a later release.
 
 ## Where to go next
 
-- Part A ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md), [VB.NET](../migration/part-a-vbnet.md), [Shell](../migration/part-a-shell.md), [JavaScript](../migration/part-a-javascript.md), [TypeScript](../migration/part-a-typescript.md), [Python](../migration/part-a-python.md)): what each pattern looks like, how to search for it yourself, and how the tool assigns confidence and a flow.
-- Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md), [Shell](../migration/part-c-shell.md), [JavaScript](../migration/part-c-javascript.md), [TypeScript](../migration/part-c-typescript.md), [Python](../migration/part-c-python.md)): the migration suggestion for each pattern and each flow, the same text as the tool's recommendation.
+- Part A ([C#](../migration/part-a-csharp.md), [PowerShell](../migration/part-a-powershell.md), [VB.NET](../migration/part-a-vbnet.md), [Shell](../migration/part-a-shell.md), [JavaScript](../migration/part-a-javascript.md), [TypeScript](../migration/part-a-typescript.md), [Python](../migration/part-a-python.md), [Go](../migration/part-a-go.md)): what each pattern looks like, how to search for it yourself, and how the tool assigns confidence and a flow.
+- Part C ([C#](../migration/part-c-csharp.md), [PowerShell](../migration/part-c-powershell.md), [VB.NET](../migration/part-c-vbnet.md), [Shell](../migration/part-c-shell.md), [JavaScript](../migration/part-c-javascript.md), [TypeScript](../migration/part-c-typescript.md), [Python](../migration/part-c-python.md), [Go](../migration/part-c-go.md)): the migration suggestion for each pattern and each flow, the same text as the tool's recommendation.
 - [Part B](../migration/part-b-secret-management.md): where the new secrets go.
 - [Limits of the tool](03-limits.md) and the [release notes](02-release-notes.md).

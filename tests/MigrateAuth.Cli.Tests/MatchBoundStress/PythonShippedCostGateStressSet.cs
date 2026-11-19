@@ -38,6 +38,12 @@ internal static class PythonShippedCostGateStressSet
 
 	internal const string FLOW_SIGNAL_SHAPE_NAME_PREFIX = $"{SHAPE_NAME_PREFIX}{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}";
 
+	/// <summary>
+	/// The one High construct a flow-signal shape opens with: the engine evaluates the flow signals only over a file that holds a High or Medium construct, so without it the shape would time the detection rules alone. It is
+	/// the helper class of the Basic scheme called over invented operands (class <c>PY-001</c>) and it gives no flow evidence of its own.
+	/// </summary>
+	internal const string FLOW_SHAPE_HIGH_CONSTRUCT = "auth = HTTPBasicAuth(account_a, account_b)\n";
+
 	internal const int TARGET_SIZE_IN_CHARACTERS = ReadingCeilings.MAXIMUM_FILE_SIZE_IN_BYTES - _SIZE_MARGIN_IN_CHARACTERS;
 
 	internal const int LONG_LINE_LENGTH_IN_CHARACTERS = ReadingCeilings.MAXIMUM_LINE_LENGTH_IN_CHARACTERS - _LINE_MARGIN_IN_CHARACTERS;
@@ -62,6 +68,12 @@ internal static class PythonShippedCostGateStressSet
 	private const int _ANNOTATION_AT_THE_BOUND_CHARACTERS = 98;
 	private const int _CLOSING_PARENTHESIS_AND_BREAK_WIDTH = 2;
 	private const int _ONE_UNIT_PAST_THE_BOUND = 1;
+	private const int _LOOKBEHIND_WINDOW_LINES = 30;
+	private const int _ENVIRONMENT_BLANKS_AT_THE_BOUND = 40;
+	private const int _ENVIRONMENT_KEY_CHARACTERS_AT_THE_BOUND = 100;
+	private const string _ENVIRONMENT_OPENER = "os.environ[";
+	private const string _ENVIRONMENT_CREDENTIAL_WORD = "password";
+	private const string _PROMPT_STATEMENT = "secret_value = input(\"Enter your password: \")";
 	private const char _NEAR_MISS_MEMBER_UNIT = 'a';
 	private const char _ANNOTATION_UNIT = 'T';
 
@@ -304,7 +316,7 @@ internal static class PythonShippedCostGateStressSet
 		return shapes.ToImmutable();
 	}
 
-	/// <summary>The shapes of the flow-signal expressions alone, in the order <see cref="Build"/> adds them. The timing gate times them with the remaining shapes of the set.</summary>
+	/// <summary>The shapes of the flow-signal expressions alone, in the order <see cref="Build"/> adds them. The timing gate times them as a part of their own.</summary>
 	internal static ImmutableArray<MatchBoundStressShape> BuildTheFlowSignalShapes()
 	{
 		ImmutableArray<MatchBoundStressShape>.Builder shapes = ImmutableArray.CreateBuilder<MatchBoundStressShape>();
@@ -312,6 +324,18 @@ internal static class PythonShippedCostGateStressSet
 		AddFlowSignalShapes(shapes);
 
 		return shapes.ToImmutable();
+	}
+
+	/// <summary>Every shape of the set that is neither an argument-window shape nor a flow-signal shape: the part the timing gate reports as the remaining shapes.</summary>
+	internal static ImmutableArray<MatchBoundStressShape> BuildTheRemainingShapes()
+	{
+		ImmutableArray<MatchBoundStressShape> argumentWindow = BuildTheArgumentWindowShapes();
+		ImmutableArray<MatchBoundStressShape> flowSignals = BuildTheFlowSignalShapes();
+
+		return
+		[
+			.. Build().Where(shape => !argumentWindow.Any(window => window.Name == shape.Name) && !flowSignals.Any(flow => flow.Name == shape.Name))
+		];
 	}
 
 	/// <summary>The shapes of the argument window alone, in the order <see cref="Build"/> adds them.</summary>
@@ -422,16 +446,66 @@ internal static class PythonShippedCostGateStressSet
 
 		foreach ((string slug, string group) in _FLOW_LONG_LINE_GROUPS)
 		{
-			shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}long-line-{slug}", LongLines(group)));
+			shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}long-line-{slug}", LongLines(group)));
 		}
 
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}long-line-form-openers-after-a-credential-annotation", LongLines("Form(a), ", "def f(password: str = ", ")")));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}anchor-dense-near-misses", FillToCeiling(_FLOW_ANCHOR_DENSE_NEAR_MISSES)));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}open-windows", FillWindowsToCeiling(_FLOW_OPEN_WINDOWS)));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}input-prompts-with-local-declarations-in-full-lookbehind-windows", FillToCeilingWithLines(GuardWindowLine("def run(input): secret_value = input(\"Enter your password: \"); "))));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}loopback-servers-with-query-parsers-in-full-spans", FillToCeilingWithLines(GuardWindowLine("server = HTTPServer((\"localhost\", 8080), H); params = parse_qs(query); "))));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}authenticate-window-at-the-unit-bound", FillToCeilingWithLines($"authenticate({atTheUnitBound})\n")));
-		shapes.Add(Shape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}authenticate-window-past-the-unit-bound", FillToCeilingWithLines($"authenticate({pastTheUnitBound})\n")));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}long-line-form-openers-after-a-credential-annotation", LongLines("Form(a), ", "def f(password: str = ", ")")));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}anchor-dense-near-misses", FillToCeiling(_FLOW_ANCHOR_DENSE_NEAR_MISSES)));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}open-windows", FillWindowsToCeiling(_FLOW_OPEN_WINDOWS)));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}input-prompts-with-local-declarations-in-full-lookbehind-windows", FillToCeilingWithLines(GuardWindowLine("def run(input): secret_value = input(\"Enter your password: \"); "))));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}loopback-servers-with-query-parsers-in-full-spans", FillToCeilingWithLines(GuardWindowLine("server = HTTPServer((\"localhost\", 8080), H); params = parse_qs(query); "))));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}authenticate-window-at-the-unit-bound", FillToCeilingWithLines($"authenticate({atTheUnitBound})\n")));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}authenticate-window-past-the-unit-bound", FillToCeilingWithLines($"authenticate({pastTheUnitBound})\n")));
+
+		AddTheLookbehindAndEnvironmentKeyShapes(shapes);
+	}
+
+	/// <summary>
+	/// THE SHAPES THAT REACH THE COSTLIEST PATH OF TWO FLOW EXPRESSIONS AND STILL GIVE EVIDENCE. The engine stops a signal at its first match that fires, so a shape that fires on its first line times that one line; a shape
+	/// that is to time the whole file and still give evidence is a file of refusals closed by one line that fires. <c>EX-PY-121</c>: the prompt with no declaration of its name in the thirty lines before it, after
+	/// refused prompts (a declaration on the line of the call is read last by the look-behind, which scans the window from its far end, so the refused lines already cost a full window each); the last prompt follows a
+	/// window and one line of declaration-free lines, so its look-behind walks the full thirty lines of about 390 characters. <c>EX-PY-130</c>: the environment opener followed by a credential key, with the run of blanks at its bound of 40 and the quoted key at its bound of 100 characters,
+	/// then a key one character past its bound and a run one blank past its bound, each file of such misses closed by a line at the bounds. A line at the bounds at match density is not a shape: it fires on the first line.
+	/// </summary>
+	private static void AddTheLookbehindAndEnvironmentKeyShapes(ImmutableArray<MatchBoundStressShape>.Builder shapes)
+	{
+		string refusedPrompt = GuardWindowLine($"def run(input): {_PROMPT_STATEMENT}; ");
+		string declarationFreeLines = string.Concat(Enumerable.Repeat(GuardWindowLine(string.Empty), _LOOKBEHIND_WINDOW_LINES + _ONE_UNIT_PAST_THE_BOUND));
+		string environmentLineAtTheBounds = EnvironmentKeyLine(_ENVIRONMENT_BLANKS_AT_THE_BOUND, _ENVIRONMENT_KEY_CHARACTERS_AT_THE_BOUND, _ENVIRONMENT_CREDENTIAL_WORD);
+		string environmentLineWithNoWord = EnvironmentKeyLine(_ENVIRONMENT_BLANKS_AT_THE_BOUND, _ENVIRONMENT_KEY_CHARACTERS_AT_THE_BOUND, string.Empty);
+		string wordPastTheKeyBound = EnvironmentKeyLine(_ENVIRONMENT_BLANKS_AT_THE_BOUND, _ENVIRONMENT_KEY_CHARACTERS_AT_THE_BOUND + _ONE_UNIT_PAST_THE_BOUND, _ENVIRONMENT_CREDENTIAL_WORD);
+		string blanksPastTheBound = EnvironmentKeyLine(_ENVIRONMENT_BLANKS_AT_THE_BOUND + _ONE_UNIT_PAST_THE_BOUND, 0, _ENVIRONMENT_CREDENTIAL_WORD);
+
+		// The shape of unrefused prompts on every line was dropped: the engine admits the first prompt and stops, so it never walked the look-behind. This one walks a full window at every refused prompt and again at the firing one.
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}input-prompts-refused-in-full-lookbehind-windows-then-one-unrefused-after-them", FillToCeilingThenClose(refusedPrompt, $"{declarationFreeLines}{_PROMPT_STATEMENT}{LINE_BREAK}")));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}environment-keys-at-the-bounds-then-a-credential-key", FillToCeilingThenClose(environmentLineWithNoWord, environmentLineAtTheBounds)));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}environment-keys-one-past-the-key-bound-then-a-credential-key", FillToCeilingThenClose(wordPastTheKeyBound, environmentLineAtTheBounds)));
+		shapes.Add(FlowShape($"{FLOW_SIGNAL_SHAPE_SLUG_PREFIX}environment-openers-one-past-the-blank-bound-then-a-credential-key", FillToCeilingThenClose(blanksPastTheBound, environmentLineAtTheBounds)));
+	}
+
+	/// <summary>One environment read: the opener, a run of blanks, a quoted key made of filler characters and then a word (out of reach of the expression when the filler is past its bound), closed by a bracket and a line break.</summary>
+	private static string EnvironmentKeyLine(int blanks, int keyFillerCharacters, string word)
+	{
+		return $"{_ENVIRONMENT_OPENER}{new string(_SEAM_BLANK, blanks)}\"{new string(_FILLER_UNIT, keyFillerCharacters)}{word}\"]{LINE_BREAK}";
+	}
+
+	/// <summary>The line repeated to just under the file ceiling, less room for the closing text, then the closing text.</summary>
+	private static string FillToCeilingThenClose(string line, string closing)
+	{
+		StringBuilder builder = new(TARGET_SIZE_IN_CHARACTERS + _BUILDER_SLACK_IN_CHARACTERS);
+
+		while (builder.Length + line.Length + closing.Length < TARGET_SIZE_IN_CHARACTERS)
+		{
+			builder.Append(line);
+		}
+
+		return builder.Append(closing).ToString();
+	}
+
+	/// <summary>A flow-signal shape: the High construct the engine needs before it evaluates the flow signals, then the text that makes one signal do its most work.</summary>
+	private static MatchBoundStressShape FlowShape(string slug, string text)
+	{
+		return Shape(slug, string.Concat(FLOW_SHAPE_HIGH_CONSTRUCT, text));
 	}
 
 	private static void AddArgumentWindow(ImmutableArray<MatchBoundStressShape>.Builder shapes, string slug, string text)

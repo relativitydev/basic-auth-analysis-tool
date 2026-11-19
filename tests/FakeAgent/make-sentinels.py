@@ -37,12 +37,14 @@ WINDOWS_CMD_WRAPPER = '@"%~dp0{name}.exe" %*\r\n@exit /b %ERRORLEVEL%\r\n'
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_PATH = REPOSITORY_ROOT / "tests" / "FakeAgent" / "FakeAgent.csproj"
 EXIT_REFUSED = 2
+OPERATING_SYSTEM_BY_PLATFORM = {"win32": "win", "darwin": "osx"}
+DEFAULT_OPERATING_SYSTEM = "linux"
 
 
 def default_runtime_identifier() -> str:
 	machine = platform.machine().lower()
 	architecture = "arm64" if machine in ("arm64", "aarch64") else "x64"
-	operating_system = "win" if sys.platform == "win32" else "linux"
+	operating_system = OPERATING_SYSTEM_BY_PLATFORM.get(sys.platform, DEFAULT_OPERATING_SYSTEM)
 	return f"{operating_system}-{architecture}"
 
 

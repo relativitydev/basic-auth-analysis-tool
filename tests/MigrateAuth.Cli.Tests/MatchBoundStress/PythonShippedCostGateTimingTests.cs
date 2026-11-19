@@ -17,7 +17,8 @@ namespace MigrateAuth.Cli.Tests.MatchBoundStress;
 /// THE 975 ms FIGURE IS AN AIM, NOT A GATE. What is asserted is what must hold whatever the aim: no expression times out, no enumeration stalls, no flow evaluation trips, and every shape's worst per-file figure stays under the
 /// MATCH BOUND in force. A `Python` file has a first-line rule, but it is charged to the lexical budget and not here: its own measurement is the first-line stress set and the lexical-budget timing of the `Python` profile.
 ///
-/// TWO PARTS BY SHAPE FAMILY, with the same assertions: the argument-window shapes and the rest of the set (the shapes the catalog names, the window families and the per-file worst shapes). Together they
+/// THREE PARTS BY SHAPE FAMILY, with the same assertions: the argument-window shapes, the rest of the set (the shapes the catalog names, the window families and the per-file worst shapes) and the flow-signal shapes, which
+/// also assert that the engine evaluated the flow signals once per shape (each opens with one High construct; the engine evaluates them only over a file that holds one). Together they
 /// time exactly the shapes of <see cref="PythonShippedCostGateStressSet.Build"/>, which a test with no clock pins. Each part writes its own report, where the report variable points with the part's suffix before the extension.
 ///
 /// Timing-sensitive: it asserts on wall-clock time, so it runs alone in the <c>TimingSensitiveStressCollection</c> collection and its name carries "Timing". It is WRITTEN AND COMPILED in the set that registers the analyzer and
@@ -42,6 +43,9 @@ public sealed class PythonShippedCostGateTimingTests
 	/// <summary>The suffix of the part that times every other shape of the set.</summary>
 	internal const string REMAINING_SHAPES_REPORT_SUFFIX = "-remaining-shapes";
 
+	/// <summary>The suffix of the part that times the flow-signal expressions: its shapes each open with one High construct, so the engine evaluates the flow signals inside the same accumulator.</summary>
+	internal const string FLOW_SIGNALS_REPORT_SUFFIX = "-flow-signals";
+
 	private const char _SHAPE_FILTER_SEPARATOR = ',';
 
 	private readonly ITestOutputHelper _output;
@@ -60,16 +64,16 @@ public sealed class PythonShippedCostGateTimingTests
 	[Fact]
 	public void NoTerminatingBenignPythonShapeOfTheRemainingFamiliesReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
 	{
-		ImmutableArray<MatchBoundStressShape> argumentWindow = PythonShippedCostGateStressSet.BuildTheArgumentWindowShapes();
-		ImmutableArray<MatchBoundStressShape> remaining =
-		[
-			.. PythonShippedCostGateStressSet.Build().Where(shape => !argumentWindow.Any(window => window.Name == shape.Name))
-		];
-
-		RunThePart(remaining, REMAINING_SHAPES_REPORT_SUFFIX, "the remaining shapes");
+		RunThePart(PythonShippedCostGateStressSet.BuildTheRemainingShapes(), REMAINING_SHAPES_REPORT_SUFFIX, "the remaining shapes");
 	}
 
-	private void RunThePart(ImmutableArray<MatchBoundStressShape> shapes, string reportSuffix, string partName)
+	[Fact]
+	public void NoTerminatingBenignPythonFlowSignalShapeReachesTheMatchBoundOnTheShippedAnalyzerAndTheFiguresAreRecorded()
+	{
+		RunThePart(PythonShippedCostGateStressSet.BuildTheFlowSignalShapes(), FLOW_SIGNALS_REPORT_SUFFIX, "the flow-signal shapes", flowSignalsMustBeEvaluated: true);
+	}
+
+	private void RunThePart(ImmutableArray<MatchBoundStressShape> shapes, string reportSuffix, string partName, bool flowSignalsMustBeEvaluated = false)
 	{
 		PythonRecognitionHarness harness = new();
 		MatchBoundTimingTarget target = ForPython(harness);
@@ -84,7 +88,7 @@ public sealed class PythonShippedCostGateTimingTests
 			MatchBoundTimingTests.ROUNDING_STEP_IN_MILLISECONDS);
 		string report = string.Format(
 			CultureInfo.InvariantCulture,
-			"# Part of the Python shipped cost gate: {0} ({1} shapes); the gate's worst figure is the larger of its two parts{2}{3}",
+			"# Part of the Python shipped cost gate: {0} ({1} shapes); the gate's worst figure is the largest of its three parts{2}{3}",
 			partName,
 			shapes.Length,
 			Environment.NewLine,
@@ -105,6 +109,12 @@ public sealed class PythonShippedCostGateTimingTests
 		Assert.All(timings, timing => Assert.False(timing.AnExpressionTimedOut, timing.ShapeName));
 		Assert.All(timings, timing => Assert.Equal(0, timing.FlowTrips));
 		Assert.All(timings, timing => Assert.Empty(timing.NonTerminatingRules));
+
+		if (flowSignalsMustBeEvaluated)
+		{
+			Assert.All(timings, timing => Assert.Equal(1, timing.FlowEvaluations));
+		}
+
 		Assert.All(
 			timings,
 			timing => Assert.True(timing.WorstFileMilliseconds < ceiling, $"{timing.ShapeName}: {timing.WorstFileMilliseconds:F1} ms against {ceiling:F0} ms"));

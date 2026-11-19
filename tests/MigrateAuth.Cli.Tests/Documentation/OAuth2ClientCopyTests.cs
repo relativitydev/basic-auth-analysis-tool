@@ -89,6 +89,16 @@ public sealed class OAuth2ClientCopyTests
 		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(partCPath);
 	}
 
+	/// <summary>Every generated block of the Part C of Go carries the same field list as row 5 for its flow, so the guide, Part C of Go and the report cannot say different things about a field.</summary>
+	[Fact]
+	public void EveryPartCBlockOfGoCarriesTheSameFieldListAsRowFive()
+	{
+		string partCPath = DocumentedLanguage.Go.PartCPath();
+
+		Assert.NotEmpty(GeneratedBlockMarkers.Blocks(File.ReadAllText(partCPath)));
+		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(partCPath);
+	}
+
 	private static void AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(string partCPath)
 	{
 		string partC = File.ReadAllText(partCPath);
