@@ -5,7 +5,7 @@ Moving from Basic Authentication to OAuth 2.0 does not remove secrets. It change
 ## What the new secrets are
 
 - **The client secret** of an OAuth2 Client. The application presents it, with the client ID, to obtain a token. Anyone who holds the client ID and the client secret can obtain tokens as that client. RelativityOne shows the secret **once**, when the client is created or when the secret is reset.
-- **Refresh tokens**, where you enable them on an Authorization Code client. A refresh token lets the application obtain new access tokens without asking the user to sign in again, so it is as sensitive as a password. A Client Credentials client has no refresh tokens.
+- **Refresh tokens**, where you enable them on an Authorization Code client. A refresh token lets the application obtain new access tokens without asking the user to sign in again, so it is as sensitive as a password. A Client Credentials client has no refresh tokens; see [Token expiry](07-token-expiry.md) for what is and is not documented about them.
 - **Access tokens** are secrets too, but they are short-lived. Send them only over HTTPS and never write them to a log.
 
 The client ID and the Redirect URLs are not secrets.
