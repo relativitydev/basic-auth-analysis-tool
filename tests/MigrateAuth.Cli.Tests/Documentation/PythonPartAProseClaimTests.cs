@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Globalization;
 
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Recognition;
@@ -73,8 +72,8 @@ public sealed class PythonPartAProseClaimTests
 		new(_HELD_HEADER_CLASS, "the literal and `%` and an operand", _HELD_HEADER_CLASS, true, ConfidenceLevel.Medium, $"scheme_value = \"Basic %s\" % encoded\n{_HELD_HEADER_REQUEST}"),
 		new(_HELD_HEADER_CLASS, "the literal and `.format(` with its arguments", _HELD_HEADER_CLASS, true, ConfidenceLevel.Medium, $"scheme_value = \"Basic {{}}\".format(encoded)\n{_HELD_HEADER_REQUEST}"),
 		new(_HELD_HEADER_CLASS, "a declaration that continues past the operand (a second `+`", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, $"scheme_value = \"Basic \" + first_part + second_part\n{_HELD_HEADER_REQUEST}"),
-		new(_HELD_HEADER_CLASS, "A value that begins with another word (`Bearer`, `Token`, `Digest`) is the migrated form and is not reported", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, $"scheme_value = \"Bearer \" + access_token\n{_HELD_HEADER_REQUEST}"),
-		new(_HELD_HEADER_CLASS, "A declaration that no header uses gives no finding", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "scheme_value = \"Basic dXNlcjpzZWNyZXQ=\"\n"),
+		new(_HELD_HEADER_CLASS, "A value that begins with another word (`Bearer`, `Token`, `Digest`) is the migrated form and does not match", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, $"scheme_value = \"Bearer \" + access_token\n{_HELD_HEADER_REQUEST}"),
+		new(_HELD_HEADER_CLASS, "A declaration that no header uses does not match", _HELD_HEADER_CLASS, false, ConfidenceLevel.Medium, "scheme_value = \"Basic dXNlcjpzZWNyZXQ=\"\n"),
 		// PY-011 and PY-012: the schemes, the nesting and the proxy refusal
 		new(_REQUEST_URL_CLASS, "every other scheme", _REQUEST_URL_CLASS, false, ConfidenceLevel.Medium, "response = requests.get(\"ftp://user:secret@example.test/items\")\n"),
 		new(_REQUEST_URL_CLASS, "a literal inside a list, a tuple or a mapping given to the call", _REQUEST_URL_CLASS, false, ConfidenceLevel.Medium, "response = requests.get(url, proxies={\"https\": \"https://user:secret@proxy.example:3128\"})\n"),
@@ -128,7 +127,7 @@ public sealed class PythonPartAProseClaimTests
 		RecognizedConstruct construct = Assert.Single(new PythonRecognitionHarness().Recognize(source), candidate => candidate.PatternClassIdentifier == patternClass);
 
 		Assert.Contains("a concatenation of a literal with code is not literal", partA, StringComparison.Ordinal);
-		Assert.Contains("the finding then also raises the in-code secret warning", partA, StringComparison.Ordinal);
+		Assert.Contains("the match also holds an in-code secret", partA, StringComparison.Ordinal);
 		Assert.Equal(expectedWarning, construct.LiteralCredentialSignal);
 	}
 
@@ -186,20 +185,17 @@ public sealed class PythonPartAProseClaimTests
 		Assert.Contains(control, construct => construct.PatternClassIdentifier == _NAMED_PAIR_CLASS && construct.Level == ConfidenceLevel.High && construct.LiteralCredentialSignal);
 	}
 
-	/// <summary>The drop order of the findings cap, as Part A states it: by path and not by confidence, with the two figures the cap's own constants give.</summary>
+	/// <summary>The limits Part A states about reading describe what the rules read and not what a run of the tool keeps or drops, so they state no findings cap and no drop order.</summary>
 	[Fact]
-	public void TheFindingsCapDropOrderStatedInPartAIsByPathAndTheFiguresAreTheCapsOwn()
+	public void PartAStatesNoFindingsCapAndNoDropOrder()
 	{
 		string partA = File.ReadAllText(DocumentedLanguage.Python.PartAPath());
-		string perFile = FindingsCapPolicy.PROVISIONAL_PER_FILE_FINDINGS_CAP.ToString("N0", CultureInfo.InvariantCulture);
-		string global = FindingsCapPolicy.PROVISIONAL_GLOBAL_FINDINGS_CAP.ToString("N0", CultureInfo.InvariantCulture);
+		string limits = PublicDocumentChecks.SectionOf(partA, "## Limits of the reading") ?? string.Empty;
 
-		Assert.Contains("the drop order is by path prefix and not by confidence", partA, StringComparison.Ordinal);
-		Assert.Contains($"more than {global} findings", partA, StringComparison.Ordinal);
-		Assert.Contains($"keeps at most {perFile} findings from any one file", partA, StringComparison.Ordinal);
-		Assert.Contains("drops the rest, by path and not by confidence", partA, StringComparison.Ordinal);
-		Assert.Contains("A Low finding that sorts early is therefore kept ahead of a High finding that sorts late.", partA, StringComparison.Ordinal);
-		Assert.Contains("(for example `tests/`, `third_party/` or `vendor/`)", partA, StringComparison.Ordinal);
+		Assert.NotEmpty(limits);
+		Assert.DoesNotContain("findings cap", limits, StringComparison.Ordinal);
+		Assert.DoesNotContain("drop order", limits, StringComparison.Ordinal);
+		Assert.DoesNotContain("findings are kept from any one file", limits, StringComparison.Ordinal);
 	}
 
 	[Fact]

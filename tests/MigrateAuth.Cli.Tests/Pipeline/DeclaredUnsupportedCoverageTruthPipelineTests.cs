@@ -23,7 +23,7 @@ public sealed class DeclaredUnsupportedCoverageTruthPipelineTests
 	private const string _FINDINGS_CAP_JSON_FIELD_NAME = "findingsCap";
 	private const string _UNSHIPPED_CAP_CLAIM = "not yet shipped";
 	private const string _UNSHIPPED_FALLBACK_CLAIM = "does not yet exist";
-	private const string _AGGREGATE_ONLY_CLAIM = "aggregate counts are reported";
+	private const string _AGGREGATE_ONLY_CLAIM = "aggregate counts are stated";
 	private const string _PER_END_USER_GAP_CONSTRUCT = "authenticates as each individual end user";
 	private const string _PER_END_USER_GAP_REASON = "authenticates as each of its end users";
 	private const string _INBOUND_DIRECTION_GAP_CONSTRUCT = "checks incoming Basic Authentication from its own callers";

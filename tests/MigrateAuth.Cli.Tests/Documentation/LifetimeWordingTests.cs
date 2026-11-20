@@ -14,8 +14,8 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 ///
 /// The wording is the tool's own: the lifetime line of the OAuth2 Client block, which both flows carry and
 /// which is rendered from <see cref="OAuth2ClientConfigurationBlocks.RECOMMENDED_ACCESS_TOKEN_LIFETIME_IN_MINUTES"/>.
-/// The check has four legs: the two blocks as the composer renders them carry the identical sentence; every
-/// generated block of Part C carries it; rows 5 and 7 of the User Guide carry it; and in every Markdown file
+/// The check has four legs: the two blocks as the composer renders them carry the identical sentence; the
+/// OAuth2 Client section of each flow in every Part C carries it; rows 5 and 7 of the User Guide carry it; and in every Markdown file
 /// under <c>docs/public/</c> every line that speaks of a lifetime and gives a number of minutes gives the
 /// recommended one, so no document recommends a different value.
 /// </summary>
@@ -52,17 +52,19 @@ public sealed class LifetimeWordingTests
 		Assert.DoesNotContain("required", clientCredentials, StringComparison.OrdinalIgnoreCase);
 	}
 
-	/// <summary>Every generated block of Part C carries the sentence, so Part C says what the blocks say.</summary>
+	/// <summary>The OAuth2 Client section of each flow in each of the eight Part C files carries the sentence, so Part C says what the blocks say; the entries link to those sections and repeat nothing.</summary>
 	[Fact]
-	public void EveryPartCBlockCarriesTheSentence()
+	public void EveryPartCOAuth2ClientSectionCarriesTheSentence()
 	{
-		string partC = File.ReadAllText(PublicDocuments.PartCPath());
 		string canonical = CanonicalWording();
 
-		ImmutableArray<GeneratedBlock> blocks = GeneratedBlockMarkers.Blocks(partC);
+		foreach (DocumentedLanguage language in DocumentedLanguage.All)
+		{
+			ImmutableArray<GeneratedBlock> sections = [.. GeneratedBlockMarkers.Blocks(File.ReadAllText(language.PartCPath())).Where(block => PartCBlockComposition.IsOAuth2ClientKey(block.Key))];
 
-		Assert.NotEmpty(blocks);
-		Assert.All(blocks, block => Assert.Contains(canonical, block.Content, StringComparison.Ordinal));
+			Assert.Equal(PartCBlockComposition.Flows.Length, sections.Length);
+			Assert.All(sections, section => Assert.Contains(canonical, section.Content, StringComparison.Ordinal));
+		}
 	}
 
 	/// <summary>Row 5 carries the sentence in both of its blocks and row 7 quotes it.</summary>

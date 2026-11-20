@@ -6,8 +6,8 @@ using MigrateAuth.Cli.Reporting;
 namespace MigrateAuth.Cli.Catalog.Languages;
 
 /// <summary>
-/// The recommendation text for `JavaScript`: twelve classes, both flows and both generic fallback texts. The five classes that are Low by definition (the calls that send Basic
-/// only after the server challenges for it, the non-HTTP shape and the helper definition) carry no entry: they are routed to manual review, and their reason sentences are the
+/// The recommendation text for `JavaScript`: twelve classes, both flows and both generic fallback texts. The seven classes that are Low by definition (JS-007, JS-009, JS-011, JS-014, JS-016, JS-018 and JS-019)
+/// carry no entry: they are routed to manual review, and their reason sentences are the
 /// shared Low vocabulary's.
 ///
 /// HOW A RECOMMENDATION IS COMPOSED. Part 1 is the class's four fields and is flow-neutral, so the source form, the target form and the verification note are the same text for both
@@ -35,7 +35,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>The question every template opens its target form with: the engine cannot see which host the code calls.</summary>
 	private const string _DESTINATION_QUESTION =
-		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — this finding is informational and the rest of this template does not apply.";
+		"**First, the destination:** if this Relativity instance is not RelativityOne — including a Relativity Server instance, whose own documentation governs — no migration to RelativityOne applies and the rest of this entry does not apply.";
 
 	/// <summary>The first line of every verification note.</summary>
 	private const string _TOKEN_LIFETIME =
@@ -43,7 +43,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>The class share of the credential provenance every template carries.</summary>
 	private const string _ROUTE_BY_DESTINATION =
-		"**Where the credentials come from.** The text establishes that a client sends Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, this finding is informational for this tool, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and the user name and password are replaced by the OAuth2 Client's client ID and secret, kept as " + SecretManagementPointer.PART_B_NAME + " describes, never in source, in a tracked `.env` file or in a bundle.";
+		"**Where the credentials come from.** The text establishes that a client sends Basic, not that the destination is RelativityOne. If it is not RelativityOne, the migration is that service's own token mechanism, no migration to RelativityOne applies, and the reader stops here. If it is RelativityOne, the token comes from the token-acquisition part that follows, and the user name and password are replaced by the OAuth2 Client's client ID and secret, kept as " + SecretManagementPointer.PART_B_NAME + " describes, never in source, in a tracked `.env` file or in a bundle.";
 
 	/// <summary>The rotation statement of the classes that expose a credential.</summary>
 	private const string _ROTATION_STATEMENT =
@@ -51,7 +51,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>The rotation statement for a credential that browser code carries.</summary>
 	private const string _BROWSER_ROTATION =
-		"**If this code runs in a browser, the credential has been public for as long as the code has shipped.** The exposure and the rotation are stated here and the tool does not escalate it:\n\n"
+		"**If this code runs in a browser, the credential has been public for as long as the code has shipped.** The exposure and the rotation are stated here, and this text does not escalate it:\n\n"
 		+ _ROTATION_STATEMENT;
 
 	/// <summary>The block that acquires and caches a Client Credentials token in a Node.js process that acts as itself, by the built-in <c>fetch</c>.</summary>
@@ -115,7 +115,7 @@ internal static class JavaScriptRecommendationTemplates
 		+ "\tconst state = base64Url(crypto.randomBytes(RANDOM_BYTES));\n"
 		+ "\tconst verifier = base64Url(crypto.randomBytes(RANDOM_BYTES));\n"
 		+ "\tconst challenge = base64Url(crypto.createHash(\"sha256\").update(verifier).digest());\n"
-		+ "\tpendingBySession.set(sessionId, { state, verifier });\n"
+		+ "\tconst pending = { state, verifier: undefined };\n"
 		+ "\tconst query = new URLSearchParams({\n"
 		+ "\t\tresponse_type: \"code\",\n"
 		+ "\t\tclient_id: CLIENT_ID,\n"
@@ -125,7 +125,9 @@ internal static class JavaScriptRecommendationTemplates
 		+ "\tif (wantRefreshToken) {\n"
 		+ "\t\tquery.set(\"code_challenge\", challenge);\n"
 		+ "\t\tquery.set(\"code_challenge_method\", \"S256\");\n"
+		+ "\t\tpending.verifier = verifier;\n"
 		+ "\t}\n"
+		+ "\tpendingBySession.set(sessionId, pending);\n"
 		+ "\treturn `${IDENTITY_BASE}/authorize?${query}`;\n"
 		+ "}\n"
 		+ "\n"
@@ -138,24 +140,27 @@ internal static class JavaScriptRecommendationTemplates
 		+ "\t\t&& crypto.timingSafeEqual(Buffer.from(returnedState), Buffer.from(pending.state));\n"
 		+ "\tlet tokens = null;\n"
 		+ "\tif (stateMatches) {\n"
+		+ "\t\tconst body = new URLSearchParams({\n"
+		+ "\t\t\tgrant_type: \"authorization_code\",\n"
+		+ "\t\t\tcode: returnedCode,\n"
+		+ "\t\t\tredirect_uri: REDIRECT_URI,\n"
+		+ "\t\t\tclient_id: CLIENT_ID,\n"
+		+ "\t\t\tclient_secret: CLIENT_SECRET,\n"
+		+ "\t\t});\n"
+		+ "\t\tif (pending.verifier !== undefined) {\n"
+		+ "\t\t\tbody.set(\"code_verifier\", pending.verifier);\n"
+		+ "\t\t}\n"
 		+ "\t\tconst response = await fetch(`${IDENTITY_BASE}/token`, {\n"
 		+ "\t\t\tmethod: \"POST\",\n"
 		+ "\t\t\theaders: { \"Content-Type\": \"application/x-www-form-urlencoded\" },\n"
-		+ "\t\t\tbody: new URLSearchParams({\n"
-		+ "\t\t\t\tgrant_type: \"authorization_code\",\n"
-		+ "\t\t\t\tcode: returnedCode,\n"
-		+ "\t\t\t\tredirect_uri: REDIRECT_URI,\n"
-		+ "\t\t\t\tclient_id: CLIENT_ID,\n"
-		+ "\t\t\t\tclient_secret: CLIENT_SECRET,\n"
-		+ "\t\t\t\tcode_verifier: pending.verifier,\n"
-		+ "\t\t\t}),\n"
+		+ "\t\t\tbody,\n"
 		+ "\t\t});\n"
 		+ "\t\ttokens = response.ok ? await response.json() : null;\n"
 		+ "\t}\n"
 		+ "\treturn tokens;\n"
 		+ "}";
 
-	/// <summary>The Node.js command-line variant of Authorization Code: a loopback listener on the registered fixed port that accepts one request.</summary>
+	/// <summary>The Node.js command-line variant of Authorization Code: a loopback listener on the registered fixed port that accepts the first request to the callback path.</summary>
 	public const string AUTHORIZATION_CODE_NODE_CLI_BLOCK =
 		"import http from \"node:http\";\n"
 		+ "\n"
@@ -194,23 +199,23 @@ internal static class JavaScriptRecommendationTemplates
 	/// <summary>Part 2 for Client Credentials: how the token is obtained and kept, in two variants that each state their precondition. Appended to every class's credential-provenance share for a Client Credentials finding.</summary>
 	public const string CLIENT_CREDENTIALS_TOKEN_ACQUISITION =
 		"**Where the token comes from.** Create an OAuth2 Client with Flow Grant Type set to Client Credentials (part 3 lists its settings), then send a form-encoded `POST` to `<host>/Relativity/Identity/connect/token` with `grant_type=client_credentials`, `client_id` and `client_secret`. The token endpoint is **documented** for this grant. The token is then sent as `Authorization: Bearer <token>`, with `X-CSRF-Header: -` on REST and Kepler calls. **The scope depends on what the integration needs, and no single scope is required.** Relativity's documentation shows `SystemUserInfo` and `UserInfoAccess` and no page says which is correct or what either grants; use the value the API you call documents, and confirm it. The text has two variants, by where the code runs, and each opens with the precondition it is for: read that sentence and discard the variant that does not apply.\n\n**Variant: a Node.js process acting as itself**\n\n**Precondition: this variant is for a Node.js job, service or script that does not act for a signed-in person.**\n\n"
-		+ _FENCE_JS_OPEN + CLIENT_CREDENTIALS_NODE_PROCESS_BLOCK + _FENCE_CLOSE + "\n\n**Cache the token and re-acquire it on expiry — do not refresh.** Client Credentials offers no refresh tokens: **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "** — the Allow Refresh Tokens control does not appear for this grant in the RelativityOne user interface. The recommended Access Token Lifetime is listed in part 3. The block uses the built-in `fetch` and no package. **The client secret** belongs in the process environment or a secret store, as " + SecretManagementPointer.PART_B_NAME + " describes, **never in source, in a tracked `.env` file or in a bundle**. A reset invalidates the previous secret immediately, so plan the cut-over before resetting it. **Before deploying, confirm the calling identity:** every call now runs as the OAuth2 Client's Context User, not as the user in the replaced credential, and a non-administrator Context User is NSerio's recommendation. Trusted IPs restrict where a token can be requested, not a token already issued.\n\n**Variant: browser code that does not act for a signed-in user**\n\n**Precondition: this variant is for browser code that calls RelativityOne with no person signed in to it, so no person's identity exists to preserve. If a person signs in, use Authorization Code, variant 1.**\n\nThe Relativity request moves behind a **server-side component** that holds the secret and performs the token exchange (the Node.js process variant above); the browser calls that component on its own origin. **The component must authenticate and authorize its own callers, and the OAuth2 Client's Context User must hold the minimum permissions the operation needs. Without both, the result is an unauthenticated relay into RelativityOne:** every caller reaching it acts with the Context User's full rights, which is strictly worse than the starting point. The relay returns results to the browser, **never the token** and never the secret. For browser code the credential has been public for as long as the code has shipped; the tool does not escalate it, so this text states the exposure and the rotation:\n\n"
-		+ _ROTATION_STATEMENT + "\n\n**When the code acts for a signed-in user.** Client Credentials is one service identity by construction. Code that asks a person for a password and sends it is the Authorization Code case, and moving to it means a new OAuth2 Client, because the flow is fixed when a client is created. The finding's flow note says when to make that choice.";
+		+ _FENCE_JS_OPEN + CLIENT_CREDENTIALS_NODE_PROCESS_BLOCK + _FENCE_CLOSE + "\n\n**Cache the token and re-acquire it on expiry — do not refresh.** Request a new token with the client secret shortly before the current one expires (the block uses a margin of 60 seconds), and once when a call is rejected for authentication. Client Credentials offers no refresh tokens: **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "** — the Allow Refresh Tokens control does not appear for this grant in the RelativityOne user interface. The recommended Access Token Lifetime is listed in part 3. The block uses the built-in `fetch` and no package. **The client secret** belongs in the process environment or a secret store, as " + SecretManagementPointer.PART_B_NAME + " describes, **never in source, in a tracked `.env` file or in a bundle**. A reset invalidates the previous secret immediately, so plan the cut-over before resetting it. **Before deploying, confirm the calling identity:** every call now runs as the OAuth2 Client's Context User, not as the user in the replaced credential, and a non-administrator Context User is NSerio's recommendation. Trusted IPs restrict where a token can be requested, not a token already issued.\n\n**Variant: browser code that does not act for a signed-in user**\n\n**Precondition: this variant is for browser code that calls RelativityOne with no person signed in to it, so no person's identity exists to preserve. If a person signs in, use Authorization Code, variant 1.**\n\nThe Relativity request moves behind a **server-side component** that holds the secret and performs the token exchange (the Node.js process variant above); the browser calls that component on its own origin. **The component must authenticate and authorize its own callers, and the OAuth2 Client's Context User must hold the minimum permissions the operation needs. Without both, the result is an unauthenticated relay into RelativityOne:** every caller reaching it acts with the Context User's full rights, which is strictly worse than the starting point. The relay returns results to the browser, **never the token** and never the secret. For browser code the credential has been public for as long as the code has shipped; the match is not escalated, so this text states the exposure and the rotation:\n\n"
+		+ _ROTATION_STATEMENT + "\n\n**When the code acts for a signed-in user.** Client Credentials is one service identity by construction. Code that asks a person for a password and sends it is the Authorization Code case, and moving to it means a new OAuth2 Client, because the flow is fixed when a client is created. Which of the two flows applies depends on who supplies the credential at run time.";
 
 	/// <summary>Part 2 for Authorization Code: the common part and the three variants that each state their precondition. Appended to every class's credential-provenance share for an Authorization Code finding.</summary>
 	public const string AUTHORIZATION_CODE_TOKEN_ACQUISITION =
-		"**Common to all three variants.** The text has a common part and **three variants by application type**, each opening with the precondition it is for: a browser with a server-side component, a Node.js server, and a Node.js command-line tool or desktop shell. Read the precondition of each and discard the variants that do not apply.\n\n**Sign in.** Replace the code that collected the person's credentials with a redirect to the authorize endpoint `<host>/Relativity/Identity/connect/authorize` (**" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**), which leads to RelativityOne's login page. The request carries the standard authorization-code parameters — `client_id`, `response_type=code`, the registered `redirect_uri`, `state` checked on return, and `code_challenge` with `code_challenge_method=S256` when PKCE is used; these are standard OAuth and Relativity documents none of them.\n\n**PKCE.** PKCE is required by Relativity's own documentation to obtain a refresh token and not otherwise: a Code request that does not ask for a refresh token works without it, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**. NSerio recommends `S256` (NSerio recommendation) and does not claim that Relativity accepts any particular method. `state` is generated, stored against the session and compared on return; `nonce` is not used, and Relativity does not document whether it enforces either.\n\n**The client secret is required.** Code does not work without a client secret: tested and rejected, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, which confirms Relativity's own statement. **Any secret shipped to a browser is public**, and bundling, minifying or obfuscating changes nothing, so the exchange runs where a secret can be kept.\n\n**Exchange the code.** A form-encoded `POST` to `<host>/Relativity/Identity/connect/token` with `grant_type=authorization_code`, the code, the same `redirect_uri`, the client ID and the secret, plus the `code_verifier` when PKCE is used (**" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**).\n\n**Redirect URL.** A server-side application registers **one exact HTTPS URL per environment, no wildcards**; the matching rules are not documented and no claim is made about them. A plain-HTTP loopback Redirect URL `http://127.0.0.1:<port>/<path>` on a **fixed registered port** is accepted, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, and is the desktop shape.\n\n**On expiry.** With Allow Refresh Tokens enabled and PKCE used, the code holds a refresh token and sends `grant_type=refresh_token` in place of the code exchange: *inferred* from the standard OAuth shape, not tested. Relativity does not document a refresh token's lifetime, rotation or revocation, nor what disabling the client does to tokens already issued. **A refresh token is a secret.** **Single sign-on:** sign-in happens on RelativityOne's own page, so the instance's single sign-on and two-factor rules apply unchanged (*inferred*). **The code stops collecting the password:** after this change nothing receives, stores or forwards the person's user name and password, and the code holds only tokens. Every call now runs as the person who signed in, so **the calling identity changes**. **Scope:** no scope set is prescribed for Code; `openid RelativityRequestOrigin UserInfo UserInfoAccess AuthenticationID RelativityWeb` works, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, as working and not as minimal.\n\n**Variant 1 — Browser with a server-side component**\n\n**Precondition: this variant is for code that runs in a web browser and signs a person in to RelativityOne. If your code runs in Node.js, use variant 2 or variant 3.**\n\nA browser cannot hold the secret the Code grant requires, so **the browser never calls RelativityOne**: it navigates to a route on **the application's own origin**, and a **server-side component** (variant 2's code) creates `state`, redirects to the authorize endpoint, receives the code at its registered HTTPS Redirect URL, exchanges it, keeps the tokens and gives the browser only its own session. **The browser holds a session identifier with that component and nothing from RelativityOne.** The authorize step is a **top-level navigation** (a full-window redirect, not a `fetch`).\n\n"
+		"**Common to all three variants.** The text has a common part and **three variants by application type**, each opening with the precondition it is for: a browser with a server-side component, a Node.js server, and a Node.js command-line tool or desktop shell. Read the precondition of each and discard the variants that do not apply.\n\n**Sign in.** Replace the code that collected the person's credentials with a redirect to the authorize endpoint `<host>/Relativity/Identity/connect/authorize` (**" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**), which leads to RelativityOne's login page. The request carries the standard authorization-code parameters — `client_id`, `response_type=code`, the registered `redirect_uri`, `state` checked on return, and `code_challenge` with `code_challenge_method=S256` when PKCE is used; these are standard OAuth and Relativity documents none of them.\n\n**PKCE.** PKCE is required by Relativity's own documentation to obtain a refresh token and not otherwise: a Code request that does not ask for a refresh token works without it, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**. NSerio recommends `S256` (NSerio recommendation) and does not claim that Relativity accepts any particular method. `state` is generated, stored against the session and compared on return; `nonce` is not used, and Relativity does not document whether it enforces either.\n\n**The client secret is required.** Code does not work without a client secret: tested and rejected, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, which confirms Relativity's own statement. **Any secret shipped to a browser is public**, and bundling, minifying or obfuscating changes nothing, so the exchange runs where a secret can be kept.\n\n**Exchange the code.** A form-encoded `POST` to `<host>/Relativity/Identity/connect/token` with `grant_type=authorization_code`, the code, the same `redirect_uri`, the client ID and the secret, plus the `code_verifier` when PKCE is used (**" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**).\n\n**Redirect URL.** A server-side application registers **one exact HTTPS URL per environment, no wildcards**; the matching rules are not documented and no claim is made about them. A plain-HTTP loopback Redirect URL `http://127.0.0.1:<port>/<path>` on a **fixed registered port** is accepted, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, and is the desktop shape.\n\n**On expiry.** With Allow Refresh Tokens enabled and PKCE used, the code holds a refresh token and sends `grant_type=refresh_token` in place of the code exchange: *inferred* from the standard OAuth shape, not tested. Relativity does not document a refresh token's lifetime, rotation or revocation, a revocation endpoint, or what disabling the client does to tokens already issued. **A refresh token is a secret.** **Single sign-on:** sign-in happens on RelativityOne's own page, so the instance's single sign-on and two-factor rules apply unchanged (*inferred*). **The code stops collecting the password:** after this change nothing receives, stores or forwards the person's user name and password, and the code holds only tokens. Every call now runs as the person who signed in, so **the calling identity changes**. **Scope:** no scope set is prescribed for Code; `openid RelativityRequestOrigin UserInfo UserInfoAccess AuthenticationID RelativityWeb` works, **" + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + "**, as working and not as minimal.\n\n**Variant 1 — Browser with a server-side component**\n\n**Precondition: this variant is for code that runs in a web browser and signs a person in to RelativityOne. If your code runs in Node.js, use variant 2 or variant 3.**\n\nA browser cannot hold the secret the Code grant requires, so **the browser never calls RelativityOne**: it navigates to a route on **the application's own origin**, and a **server-side component** (variant 2's code) creates `state`, redirects to the authorize endpoint, receives the code at its registered HTTPS Redirect URL, exchanges it, keeps the tokens and gives the browser only its own session. **The browser holds a session identifier with that component and nothing from RelativityOne.** The authorize step is a **top-level navigation** (a full-window redirect, not a `fetch`).\n\n"
 		+ _FENCE_JS_OPEN + AUTHORIZATION_CODE_BROWSER_BLOCK + _FENCE_CLOSE + "\n\nBoth calls go to the page's own origin. `credentials: \"include\"` is a cookie policy and is not recommended here, because the architecture needs no cross-origin call. **Cross-origin access, both ways, both not verified:** NSerio has not run a preflight against a live instance. *If RelativityOne serves CORS to browser callers*, the legacy browser Basic call could have worked from another origin, and a browser holding a Bearer token could in principle call it directly; **this text still does not recommend that**, because the only grant that yields a token for a person needs the secret the browser cannot hold. *If it does not*, the legacy call worked only from the same origin or through a proxy the client already runs. **The recommended architecture holds under either answer.** **The component keeps the tokens on the server**, never in browser storage, which any script on the page can read (a browser behaviour, unchecked); the recommended session cookie is `HttpOnly`, `Secure` and `SameSite` (NSerio recommendation; unchecked).\n\n**Variant 2 — Node.js server**\n\n**Precondition: this variant is for code that runs in Node.js as a web server and acts for people who sign in to it. It is not for browser code (variant 1) or a command-line tool (variant 3).**\n\nStandard server-side Code flow. A login route builds the authorize address with `state` (and the PKCE verifier where a refresh token is wanted), stores them against the visitor's session and redirects; RelativityOne redirects to the **callback route**, registered as an exact HTTPS URL; the callback checks `state` and exchanges the code with the secret. This is the component variant 1 relies on.\n\n"
-		+ _FENCE_JS_OPEN + AUTHORIZATION_CODE_NODE_SERVER_BLOCK + _FENCE_CLOSE + "\n\n`state` is consumed once and compared on return; a request with no pending entry or a different `state` gets no exchange. **The scope is not prescribed** (the sketch sends none). **Where the secret travels in the token request** (the body, as sketched, or HTTP Basic client authentication) is **not verified**. The sketch does not show the HTTP server, the session cookie or a session store that survives more than one process. **Tokens stay on the server**, in a session store that is not exposed to a request.\n\n**Variant 3 — Node.js command line or desktop**\n\n**Precondition: this variant is for code that runs on a person's own machine, as a command-line tool or a desktop shell, and signs that person in. It is not for a web server (variant 2) or browser code (variant 1).**\n\nThe process starts a listener from the built-in `node:http` module, bound to **`127.0.0.1` only**, on the **fixed registered port**, for **one request**; opens the system browser on the authorize address **and always prints the address too**, so a machine with no browser, an SSH session or a failed launch has a manual route; reads `code` and `state` from the one request, closes the listener, checks `state`, and exchanges the code as variant 2's `completeLogin` does.\n\n"
-		+ _FENCE_JS_OPEN + AUTHORIZATION_CODE_NODE_CLI_BLOCK + _FENCE_CLOSE + "\n\n**Rules for the listener:** bind to loopback only; accept one request; **check `state`** (another local process can connect to a fixed, advertised port); close the listener after the request; and handle a busy port (a second server on a port in use raises `EADDRINUSE`, so fall back to the printed address). **Opening the system browser:** Node.js core has no function for it; run the platform's own launcher with a fixed program and an argument array, never a shell string built from the address (unchecked on every system). **Where tokens are kept:** a file with restricted permissions or the operating system's keychain; on Windows the POSIX mode argument of Node.js did not restrict a file when it was tried (*checked by NSerio locally* on Node.js v24.11.1), so a restricted file there needs an access-control change by other means, and on Linux and macOS it is unchecked. **The client secret of a distributed tool is extractable:** a command-line tool or desktop shell shipped to people carries its client secret in a form anyone who holds the distribution can extract, and it protects nothing against the person running it. **A known issue:** Relativity documents no recommendation for a distributed client; this design is what NSerio verified works. **Compensating guidance** (NSerio recommendation, subject to your own security policy): Trusted IPs where the users' outbound addresses are known and stable (checked at token issuance; applicability to Code *inferred*); the recommended short Access Token Lifetime; refresh tokens only when needed; and **one OAuth2 Client per distribution**, so a leaked secret can be disabled and reset alone.";
+		+ _FENCE_JS_OPEN + AUTHORIZATION_CODE_NODE_SERVER_BLOCK + _FENCE_CLOSE + "\n\n`state` is consumed once and compared on return; a request with no pending entry or a different `state` gets no exchange. **The scope is not prescribed** (the sketch sends none). **Where the secret travels in the token request** (the body, as sketched, or HTTP Basic client authentication) is **not verified**. The sketch does not show the HTTP server, the session cookie or a session store that survives more than one process. **Tokens stay on the server**, in a session store that is not exposed to a request.\n\n**Variant 3 — Node.js command line or desktop**\n\n**Precondition: this variant is for code that runs on a person's own machine, as a command-line tool or a desktop shell, and signs that person in. It is not for a web server (variant 2) or browser code (variant 1).**\n\nThe process starts a listener from the built-in `node:http` module, bound to **`127.0.0.1` only**, on the **fixed registered port**, for **the first request to the callback path**; opens the system browser on the authorize address **and always prints the address too**, so a machine with no browser, an SSH session or a failed launch has a manual route; reads `code` and `state` from that request, closes the listener, checks `state`, and exchanges the code as variant 2's `completeLogin` does.\n\n"
+		+ _FENCE_JS_OPEN + AUTHORIZATION_CODE_NODE_CLI_BLOCK + _FENCE_CLOSE + "\n\n**Rules for the listener:** bind to loopback only; accept the first request to the callback path, answer any other path with 404 and keep listening; **check `state`** (another local process can connect to a fixed, advertised port); close the listener after that request; and handle a busy port (a second server on a port in use raises `EADDRINUSE`, so fall back to the printed address). **Opening the system browser:** Node.js core has no function for it; run the platform's own launcher with a fixed program and an argument array, never a shell string built from the address (unchecked on every system). **Where tokens are kept:** a file with restricted permissions or the operating system's keychain; on Windows the POSIX mode argument of Node.js did not restrict a file when it was tried (*checked by NSerio locally* on Node.js v24.11.1), so a restricted file there needs an access-control change by other means, and on Linux and macOS it is unchecked. **The client secret of a distributed tool is extractable:** a command-line tool or desktop shell shipped to people carries its client secret in a form anyone who holds the distribution can extract, and it protects nothing against the person running it. **A documentation gap:** Relativity documents no recommendation for a distributed client; this design is what NSerio verified works. **Compensating guidance** (NSerio recommendation, subject to your own security policy): Trusted IPs where the users' outbound addresses are known and stable (checked at token issuance; applicability to Code *inferred*); the recommended short Access Token Lifetime; refresh tokens only when needed; and **one OAuth2 Client per distribution**, so a leaked secret can be disabled and reset alone.";
 
 	/// <summary>The Client Credentials generic fallback prose for a `JavaScript` finding, with the secret-handling sentence naming the Part B pointer.</summary>
 	public const string JAVASCRIPT_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and this finding is informational (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified). The documented destination in JavaScript is a bearer `Authorization` header sent by an HTTP client such as `fetch`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant, from a server-side component or a Node.js process. The client ID and secret that obtain that token belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", and never in source, in a bundle or in browser code: a secret shipped to a browser is public. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location, but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and no migration to RelativityOne applies (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified). The documented destination in JavaScript is a bearer `Authorization` header sent by an HTTP client such as `fetch`, carrying a token obtained from the platform's identity endpoint with the client-credentials grant, from a server-side component or a Node.js process. The client ID and secret that obtain that token belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", and never in source, in a bundle or in browser code: a secret shipped to a browser is public. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>The Authorization Code generic fallback prose for a `JavaScript` finding.</summary>
 	public const string JAVASCRIPT_CODE_LANGUAGE_FALLBACK_TEXT =
-		"The tool reports Basic Authentication at this location but did not recognize the construct, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and this finding is informational (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified), and this finding is assigned the Authorization Code flow, in which the code sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. Code requires a client secret, so the exchange runs on a server-side component or a Node.js process and never in browser code: for code that runs in a browser the browser navigates to a route on the application's own origin and the server-side component performs the sign-in and keeps the tokens; for a Node.js server the callback route performs it; for a command-line tool or a desktop process a loopback listener on the registered fixed port receives the code. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", never in source or in a bundle. After the change the code no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
+		"Basic Authentication is found at this location, but the construct is not one that this text describes, so the change has not been characterized and no before-and-after form is offered here. If the destination is not RelativityOne, the migration is that service's own and no migration to RelativityOne applies (that Relativity's identity endpoint issues no tokens for another service is unverified). If the destination is RelativityOne, Relativity's documentation recommends bearer tokens and states that Basic Authentication is no longer supported for named APIs, with no date for its removal asserted (the platform's direction beyond that is NSerio's reading, unverified), and this match is assigned the Authorization Code flow, in which the code sends the person to RelativityOne to sign in, receives an authorization code at a Redirect URL registered on its OAuth2 Client, and exchanges the code for an access token that it sends as a Bearer token. Code requires a client secret, so the exchange runs on a server-side component or a Node.js process and never in browser code: for code that runs in a browser the browser navigates to a route on the application's own origin and the server-side component performs the sign-in and keeps the tokens; for a Node.js server the callback route performs it; for a command-line tool or a desktop process a loopback listener on the registered fixed port receives the code. The authorize endpoint is `<host>/Relativity/Identity/connect/authorize` and the code is exchanged at `<host>/Relativity/Identity/connect/token`; both are " + OAuth2ClientConfigurationBlocks.NSERIO_VERIFIED_LABEL + ". PKCE is required by Relativity's own documentation to obtain a refresh token, and not otherwise. The client ID and secret belong in the process environment or a secret store, per " + SecretManagementPointer.PART_B_NAME + ", never in source or in a bundle. After the change the code no longer collects or forwards the person's password. Beyond those facts this is a pointer and not an instruction: the migration must be designed from the code by whoever owns it, rather than applied from this text.";
 
 	/// <summary>JS-001 generic source form.</summary>
 	public const string JS_001_SOURCE_FORM =
@@ -229,7 +234,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-001 verification note.</summary>
 	public const string JS_001_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **The calling identity changes**; the token-acquisition part says to whom. **Other uses may not appear as findings**: an options object held in a variable and handed to a client elsewhere, and an alias of the client, are not read.\n\n"
+		"**Verification note.** " + _TOKEN_LIFETIME + " **The calling identity changes**; the token-acquisition part says to whom. **Other uses may not appear as matches**: an options object held in a variable and handed to a client elsewhere, and an alias of the client, are not read.\n\n"
 		+ _BROWSER_ROTATION;
 
 	/// <summary>JS-002 generic source form.</summary>
@@ -249,18 +254,18 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-002 verification note.</summary>
 	public const string JS_002_VERIFICATION_NOTE =
-		"**Verification note.** " + _TOKEN_LIFETIME + " **The calling identity changes.** **The scheme changes from `Basic` to `Bearer`**: a Bearer header is not read by this tool again.\n\n"
+		"**Verification note.** " + _TOKEN_LIFETIME + " **The calling identity changes.** **The scheme changes from `Basic` to `Bearer`**: a Bearer header is not matched again.\n\n"
 		+ _BROWSER_ROTATION;
 
 	/// <summary>JS-003 generic source form.</summary>
 	public const string JS_003_SOURCE_FORM =
 		"**Applies to:** Node.js (the userinfo is sent); browser (`fetch` throws).\n\n"
-		+ _FENCE_JS_OPEN + "http.get(\"https://exampleUser:exampleSecret@host.example/path\", handler);" + _FENCE_CLOSE;
+		+ _FENCE_JS_OPEN + "https.get(\"https://exampleUser:exampleSecret@host.example/path\", handler);" + _FENCE_CLOSE;
 
 	/// <summary>JS-003 target form under token authentication.</summary>
 	public const string JS_003_TARGET_FORM =
 		_DESTINATION_QUESTION + "\n\n"
-		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nhttps.get(\"https://host.example/path\", { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } }, handler);" + _FENCE_CLOSE + "\n\nRemove the userinfo from the URL. **Where the consumer is `fetch`, this call cannot have authenticated: it throws a `TypeError`** (*checked by NSerio locally* on Node.js v24.11.1: \"Request cannot be constructed from a URL that includes credentials\"), so this finding is a bug report as much as a migration item; do not look for a working Basic call to migrate.";
+		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nhttps.get(\"https://host.example/path\", { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } }, handler);" + _FENCE_CLOSE + "\n\nRemove the userinfo from the URL. **Where the consumer is `fetch`, this call cannot have authenticated: it throws a `TypeError`** (*checked by NSerio locally* on Node.js v24.11.1: \"Request cannot be constructed from a URL that includes credentials\"), so this match is a bug report as much as a migration item; do not look for a working Basic call to migrate. In a browser the call moves behind the server-side component.";
 
 	/// <summary>JS-003 class share of the credential provenance.</summary>
 	public const string JS_003_CREDENTIAL_PROVENANCE =
@@ -279,7 +284,8 @@ internal static class JavaScriptRecommendationTemplates
 	/// <summary>JS-004 target form under token authentication.</summary>
 	public const string JS_004_TARGET_FORM =
 		_DESTINATION_QUESTION + "\n\n*Node.js:*\n\n"
-		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nawait fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } });" + _FENCE_CLOSE + "\n\n*Browser:* the call moves behind the server-side component and the browser calls its own origin with no `Authorization` header, as above. Remove the code that encoded the user name and password.";
+		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nawait fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } });" + _FENCE_CLOSE + "\n\n*Browser:* the call moves behind the server-side component and the browser calls its own origin with no `Authorization` header:\n\n"
+		+ _FENCE_JS_OPEN + "await fetch(API_ROUTE, { credentials: \"same-origin\" });" + _FENCE_CLOSE + "\n\nRemove the code that encoded the user name and password.";
 
 	/// <summary>JS-004 class share of the credential provenance.</summary>
 	public const string JS_004_CREDENTIAL_PROVENANCE =
@@ -297,7 +303,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-005 target form under token authentication.</summary>
 	public const string JS_005_TARGET_FORM =
-		_DESTINATION_QUESTION + " **If the encoded pair is not a credential, this finding is a false positive and nothing changes.**\n\nRemove the pair, the encoding and the variable, and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`. In a browser the call moves behind the server-side component.";
+		_DESTINATION_QUESTION + " **If the encoded pair is not a credential, this match is a false positive and nothing changes.**\n\nRemove the pair, the encoding and the variable, and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`. In a browser the call moves behind the server-side component.";
 
 	/// <summary>JS-005 class share of the credential provenance.</summary>
 	public const string JS_005_CREDENTIAL_PROVENANCE =
@@ -305,7 +311,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-005 verification note.</summary>
 	public const string JS_005_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw a colon pair encoded with `btoa` and the word `Basic` or `Authorization` within a statement's distance**: follow the encoded value to every place it is sent and change those uses too. " + _TOKEN_LIFETIME + "\n\n"
+		"**Verification note.** **The rule matched a colon pair encoded with `btoa` and the word `Basic` or `Authorization` within 300 characters of the encoder**: follow the encoded value to every place it is sent and change those uses too. " + _TOKEN_LIFETIME + "\n\n"
 		+ _BROWSER_ROTATION;
 
 	/// <summary>JS-006 generic source form.</summary>
@@ -315,7 +321,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-006 target form under token authentication.</summary>
 	public const string JS_006_TARGET_FORM =
-		_DESTINATION_QUESTION + " **If the encoded pair is not a credential, this finding is a false positive and nothing changes.**\n\nRemove the pair and the encoding (including a legacy `new Buffer(…)`), and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`.";
+		_DESTINATION_QUESTION + " **If the encoded pair is not a credential, this match is a false positive and nothing changes.**\n\nRemove the pair and the encoding (including a legacy `new Buffer(…)`), and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`.";
 
 	/// <summary>JS-006 class share of the credential provenance.</summary>
 	public const string JS_006_CREDENTIAL_PROVENANCE =
@@ -323,7 +329,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-006 verification note.</summary>
 	public const string JS_006_VERIFICATION_NOTE =
-		"**Verification note.** **The tool read the colon pair and a following `.toString(\"base64\")`** (a `base64url` value is not Basic and is not read). " + _TOKEN_LIFETIME + "\n\n"
+		"**Verification note.** **The rule matched the colon pair and a following `.toString(\"base64\")`** (a `base64url` value is not Basic and is not read). " + _TOKEN_LIFETIME + "\n\n"
 		+ _BROWSER_ROTATION;
 
 	/// <summary>JS-008 generic source form.</summary>
@@ -351,7 +357,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-010 target form under token authentication.</summary>
 	public const string JS_010_TARGET_FORM =
-		_DESTINATION_QUESTION + "\n\nRemove the two assignments, and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`.";
+		_DESTINATION_QUESTION + "\n\nRemove the two assignments, and send the token: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`. In a browser the call moves behind the server-side component.";
 
 	/// <summary>JS-010 class share of the credential provenance.</summary>
 	public const string JS_010_CREDENTIAL_PROVENANCE =
@@ -370,7 +376,7 @@ internal static class JavaScriptRecommendationTemplates
 	/// <summary>JS-012 target form under token authentication.</summary>
 	public const string JS_012_TARGET_FORM =
 		_DESTINATION_QUESTION + "\n\n"
-		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nawait superagent.get(url).set(\"Authorization\", `Bearer ${accessToken}`).set(\"X-CSRF-Header\", CSRF_HEADER_VALUE);" + _FENCE_CLOSE;
+		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nawait superagent.get(url).set(\"Authorization\", `Bearer ${accessToken}`).set(\"X-CSRF-Header\", CSRF_HEADER_VALUE);" + _FENCE_CLOSE + "\n\nIn a browser the call moves behind the server-side component.";
 
 	/// <summary>JS-012 class share of the credential provenance.</summary>
 	public const string JS_012_CREDENTIAL_PROVENANCE =
@@ -378,7 +384,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-012 verification note.</summary>
 	public const string JS_012_VERIFICATION_NOTE =
-		"**Verification note.** **The tool saw a single-argument `.auth(` on a request chain, or a three-argument one whose options select `type: \"auto\"`.** The single-argument form defaults to Basic at the package version read; the `auto` form leaves the scheme to the user agent and does not fix it in the text, which is why both are reported at Medium. **A call that selects `bearer` is the migrated code and is not read.** " + _TOKEN_LIFETIME + "\n\n"
+		"**Verification note.** **The rule matched a single-argument `.auth(` on a request chain, or a three-argument one whose options select `type: \"auto\"`.** The single-argument form defaults to Basic at the package version read; the `auto` form leaves the scheme to the user agent and does not fix it in the text, which is why both are rated Medium. **A call that selects `bearer` is the migrated code and is not read.** " + _TOKEN_LIFETIME + "\n\n"
 		+ _BROWSER_ROTATION;
 
 	/// <summary>JS-013 generic source form.</summary>
@@ -389,7 +395,7 @@ internal static class JavaScriptRecommendationTemplates
 	/// <summary>JS-013 target form under token authentication.</summary>
 	public const string JS_013_TARGET_FORM =
 		_DESTINATION_QUESTION + "\n\n"
-		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nconst baseUrl = \"https://host.example/path\";\nawait axios.get(baseUrl, { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } });" + _FENCE_CLOSE + "\n\nRemove the userinfo, and send the token wherever the URL is used: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`.";
+		+ _FENCE_JS_OPEN + "const CSRF_HEADER_VALUE = \"-\";\nconst baseUrl = \"https://host.example/path\";\nawait axios.get(baseUrl, { headers: { Authorization: `Bearer ${accessToken}`, \"X-CSRF-Header\": CSRF_HEADER_VALUE } });" + _FENCE_CLOSE + "\n\nRemove the userinfo, and send the token wherever the URL is used: `Authorization: Bearer ${accessToken}` with `X-CSRF-Header: -`. In a browser the call moves behind the server-side component.";
 
 	/// <summary>JS-013 class share of the credential provenance.</summary>
 	public const string JS_013_CREDENTIAL_PROVENANCE =
@@ -397,7 +403,7 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-013 verification note.</summary>
 	public const string JS_013_VERIFICATION_NOTE =
-		"**Verification note.** **The tool read a URL with userinfo held in a declaration or a key; it did not see where the URL is used**: it may be a `git` remote or an unused constant, and a use elsewhere is not followed. " + _TOKEN_LIFETIME + "\n\n"
+		"**Verification note.** **The rule matched a URL with userinfo held in a declaration or a key; it does not follow where the URL is used**: it may be a `git` remote or an unused constant, and a use elsewhere is not followed. " + _TOKEN_LIFETIME + "\n\n"
 		+ _ROTATION_STATEMENT;
 
 	/// <summary>JS-015 generic source form.</summary>
@@ -434,12 +440,12 @@ internal static class JavaScriptRecommendationTemplates
 
 	/// <summary>JS-017 verification note.</summary>
 	public const string JS_017_VERIFICATION_NOTE =
-		"**Verification note.** **The tool resolved the header's variable to a scheme of `Basic` in this file** (one declaration, before the use); a variable it cannot resolve is not read. " + _TOKEN_LIFETIME + "\n\n"
+		"**Verification note.** **The rule resolved the header's variable to a scheme of `Basic` in this file** (one declaration, before the use); a variable it cannot resolve is not read. " + _TOKEN_LIFETIME + "\n\n"
 		+ _BROWSER_ROTATION;
 }
 
 /// <summary>
-/// The `JavaScript` analyzer's template provider and fallback texts: twelve classes resolve to their entry under either flow; the five Low classes, and any identifier the
+/// The `JavaScript` analyzer's template provider and fallback texts: twelve classes resolve to their entry under either flow; the seven Low classes (JS-007, JS-009, JS-011, JS-014, JS-016, JS-018 and JS-019), and any identifier the
 /// analyzer does not declare, resolve to null, which routes a Low finding to manual review and sends a High or Medium finding of an undeclared class to the language's
 /// fallback text.
 /// </summary>

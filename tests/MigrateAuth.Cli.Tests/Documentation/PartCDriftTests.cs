@@ -1,6 +1,8 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using MigrateAuth.Cli.Catalog;
 using MigrateAuth.Cli.Findings;
@@ -32,10 +34,17 @@ public abstract class PartCDriftTests
 	private const string _ATTRIBUTES_RULE = "docs/public/** text eol=lf";
 	private const string _CARRIAGE_RETURN = "\r";
 	private const string _FENCE_MARKER = "```";
+	private const string _SECTION_HEADING_PREFIX = "## ";
 	private const string _LOW_CONFIDENCE_SECTION = "## Judging a Low-confidence match";
 	private const int _MINIMUM_WORDS_IN_A_JUDGEMENT_PARAGRAPH = 30;
 	private const int _EXCERPT_CONTEXT_LENGTH = 40;
 	private const char _WORD_SEPARATOR = ' ';
+	private const string _PARAGRAPH_SEPARATOR = "\n\n";
+	private const char _LINE_BREAK = '\n';
+	private const string _LINE_BREAK_TEXT = "\n";
+	private const string _CLEAN_TEXT = "Clean text.";
+	private const string _SOURCE_FORM_LEAD = "Source form: x";
+	private const string _GENERATED_BLOCK_FORBIDDEN_PATTERN = @"\bfindings?\b|\bflow notes?\b";
 	private const string _REGENERATE_HINT = "Regenerate the blocks by running this test with the environment variable MIGRATE_AUTH_REGENERATE_PART_C=1.";
 
 	private static readonly string[] _lowCauseHeadings =
@@ -49,6 +58,23 @@ public abstract class PartCDriftTests
 	];
 
 	private static readonly string[] _fenceLabelsExemptFromTabs = [string.Empty, "bash", "text", "markdown"];
+
+	private static readonly (string Phrase, string Pattern)[] _forbiddenHandWrittenPhrases =
+	[
+		("the tool", @"(?<!\w)the tool(?!\w)"),
+		("migrate-auth", @"migrate-auth"),
+		(".migrate-auth.json", @"\.migrate-auth\.json"),
+		("defaultFlow", @"defaultFlow"),
+		("the report", @"(?<!\w)the report(?!\w)"),
+		("the scan", @"(?<!\w)the scan"),
+		("flow note", @"flow note"),
+		("Confirming the flow", @"Confirming the flow"),
+		("#confirming-the-flow", @"#confirming-the-flow")
+	];
+
+	private static readonly Regex _entryCountStatement = new(
+		@"Each of the (?<count>\d+) pattern classes that produce a recommendation",
+		RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 
 	/// <summary>The environment variable that makes the drift test rewrite Part C instead of only comparing.</summary>
 	public const string REGENERATE_ENVIRONMENT_VARIABLE = "MIGRATE_AUTH_REGENERATE_PART_C";
@@ -98,7 +124,7 @@ public abstract class PartCDriftTests
 		ILanguageAnalyzer analyzer = _language.Analyzer();
 
 		string[] expected = [.. PartCBlockComposition.ExpectedKeys(analyzer).Select(PartCBlockComposition.KeyText).Order(StringComparer.Ordinal)];
-		string[] actual = [.. GeneratedBlockMarkers.Blocks(partC).Select(block => block.Key).Order(StringComparer.Ordinal)];
+		string[] actual = [.. EntryBlocks(partC).Select(block => block.Key).Order(StringComparer.Ordinal)];
 
 		Assert.Equal(expected, actual);
 		Assert.Equal(
@@ -157,7 +183,7 @@ public abstract class PartCDriftTests
 
 		string[] problems =
 		[
-			.. GeneratedBlockMarkers.Blocks(partC).SelectMany(block =>
+			.. EntryBlocks(partC).SelectMany(block =>
 				PublicDocumentChecks.ItemTwoProblems(block, PartCBlockComposition.ParseKey(block.Key), _language))
 		];
 
@@ -174,6 +200,8 @@ public abstract class PartCDriftTests
 		string complete = PartCBlockComposition.ContentFor(_language, PartCBlockComposition.KeyText(key));
 		string withoutPkce = complete.Replace(PublicDocumentChecks.PKCE_MARKER, string.Empty, StringComparison.Ordinal);
 		string withoutPartB = complete.Replace(SecretManagementPointer.PART_B_NAME, string.Empty, StringComparison.Ordinal);
+		string withoutLink = complete.Replace(PartCBlockComposition.SectionLinkOf(key.Flow), string.Empty, StringComparison.Ordinal);
+		string withBlockRepeated = string.Concat(complete, _PARAGRAPH_SEPARATOR, OAuth2ClientConfigurationBlocks.For(key.Flow));
 
 		Assert.Empty(PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), complete), key, _language));
 		Assert.Contains(
@@ -182,6 +210,77 @@ public abstract class PartCDriftTests
 		Assert.Contains(
 			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutPartB), key, _language),
 			problem => problem.Contains("Part B pointer", StringComparison.Ordinal));
+		Assert.Contains(
+			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withoutLink), key, _language),
+			problem => problem.Contains("link to the OAuth2 Client section", StringComparison.Ordinal));
+		Assert.Contains(
+			PublicDocumentChecks.ItemTwoProblems(new GeneratedBlock(PartCBlockComposition.KeyText(key), withBlockRepeated), key, _language),
+			problem => problem.Contains("repeats the OAuth2 Client block", StringComparison.Ordinal));
+	}
+
+	/// <summary>Part C holds exactly one OAuth2 Client section per flow, each a heading and one block, and no more.</summary>
+	[Fact]
+	public void PartCHoldsExactlyOneOAuth2ClientSectionForEachFlow()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+		string[] sectionKeys = [.. GeneratedBlockMarkers.Blocks(partC).Select(block => block.Key).Where(PartCBlockComposition.IsOAuth2ClientKey).Order(StringComparer.Ordinal)];
+
+		Assert.Equal([.. PartCBlockComposition.OAuth2ClientKeys().Order(StringComparer.Ordinal)], sectionKeys);
+
+		foreach (CredentialFlow flow in PartCBlockComposition.Flows)
+		{
+			string heading = string.Concat(_SECTION_HEADING_PREFIX, PartCBlockComposition.SectionTitleOf(flow));
+			string? section = PublicDocumentChecks.SectionOf(partC, heading);
+
+			Assert.Equal(1, partC.Split(_LINE_BREAK).Count(line => line.TrimEnd() == heading));
+			Assert.True(section is not null, $"Part C has no section headed '{heading}'.");
+			Assert.Single(GeneratedBlockMarkers.Blocks(section!));
+			Assert.Equal(PartCBlockComposition.OAuth2ClientKeyOf(flow), GeneratedBlockMarkers.Blocks(section!)[0].Key);
+		}
+	}
+
+	/// <summary>The block of each OAuth2 Client section of Part C equals the engine-owned block of its flow, and nothing else.</summary>
+	[Fact]
+	public void EachOAuth2ClientSectionHoldsTheEngineOwnedBlockOfItsFlow()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+
+		foreach (CredentialFlow flow in PartCBlockComposition.Flows)
+		{
+			GeneratedBlock block = GeneratedBlockMarkers.Blocks(partC).Single(candidate => candidate.Key == PartCBlockComposition.OAuth2ClientKeyOf(flow));
+
+			Assert.Equal(OAuth2ClientConfigurationBlocks.For(flow), block.Content);
+		}
+	}
+
+	/// <summary>Every class entry and every generic block links to the OAuth2 Client section of its flow, once, and holds no copy of the block.</summary>
+	[Fact]
+	public void EveryEntryLinksToTheOAuth2ClientSectionOfItsFlowAndHoldsNoCopyOfTheBlock()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+
+		foreach (GeneratedBlock block in EntryBlocks(partC))
+		{
+			CredentialFlow flow = PartCBlockComposition.ParseKey(block.Key).Flow;
+			CredentialFlow otherFlow = flow == CredentialFlow.ClientCredentials ? CredentialFlow.AuthorizationCode : CredentialFlow.ClientCredentials;
+
+			Assert.Equal(1, CountOf(block.Content, PartCBlockComposition.SectionAnchorOf(flow)));
+			Assert.DoesNotContain(PartCBlockComposition.SectionAnchorOf(otherFlow), block.Content, StringComparison.Ordinal);
+			Assert.DoesNotContain(OAuth2ClientConfigurationBlocks.For(flow), block.Content, StringComparison.Ordinal);
+			Assert.DoesNotContain(OAuth2ClientConfigurationBlocks.For(otherFlow), block.Content, StringComparison.Ordinal);
+		}
+	}
+
+	/// <summary>The generator fails loudly where a composed entry does not hold the OAuth2 Client block it is to replace with a link.</summary>
+	[Fact]
+	public void TheGeneratorFailsWhereTheComposedEntryHoldsNoOAuth2ClientBlockToReplace()
+	{
+		string withBlock = string.Concat(_SOURCE_FORM_LEAD, _PARAGRAPH_SEPARATOR, PartCBlockComposition.OAuth2ClientPieceOf(CredentialFlow.ClientCredentials));
+
+		Assert.Equal(
+			string.Concat(_SOURCE_FORM_LEAD, _PARAGRAPH_SEPARATOR, PartCBlockComposition.SectionLinkOf(CredentialFlow.ClientCredentials)),
+			PartCBlockComposition.WithSectionLink("key", withBlock, CredentialFlow.ClientCredentials));
+		Assert.Throws<InvalidOperationException>(() => PartCBlockComposition.WithSectionLink("key", _SOURCE_FORM_LEAD, CredentialFlow.ClientCredentials));
 	}
 
 	/// <summary>Each generic block is the language's own generic text for its flow, composed on the generic route.</summary>
@@ -342,6 +441,65 @@ public abstract class PartCDriftTests
 		}
 	}
 
+	/// <summary>Part C stands alone: its hand-written text names neither the tool, its configuration, its report nor its flow notes.</summary>
+	[Fact]
+	public void TheHandWrittenTextOfPartCNamesNeitherTheToolNorItsConfigurationNorItsReport()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+
+		string[] problems = HandWrittenTextProblems(partC);
+
+		Assert.True(problems.Length == 0, string.Join(Environment.NewLine, problems));
+	}
+
+	/// <summary>Part C stands alone in its generated blocks too: they do not refer to a finding or to a flow note, which belong to the tool's report.</summary>
+	[Fact]
+	public void TheGeneratedBlocksOfPartCReferToNeitherFindingsNorFlowNotes()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+
+		string[] problems =
+		[
+			.. GeneratedBlockMarkers.Blocks(partC)
+				.Where(block => Regex.IsMatch(block.Content, _GENERATED_BLOCK_FORBIDDEN_PATTERN, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+				.Select(block => $"The generated block {block.Key} of Part C refers to a finding or a flow note, which belong to the tool's report.")
+		];
+
+		Assert.True(problems.Length == 0, string.Join(Environment.NewLine, problems));
+	}
+
+	/// <summary>The stand-alone check fails on each forbidden phrase in hand-written text and ignores the same phrase inside a generated block, shown on synthetic text.</summary>
+	[Fact]
+	public void TheStandAloneCheckReportsEachForbiddenPhraseOutsideTheGeneratedBlocksOnly()
+	{
+		string begin = GeneratedBlockMarkers.BeginMarker("A");
+		string end = GeneratedBlockMarkers.EndMarker("A");
+
+		foreach ((string phrase, _) in _forbiddenHandWrittenPhrases)
+		{
+			string insideOnly = string.Join(_LINE_BREAK_TEXT, _CLEAN_TEXT, begin, phrase, end, _CLEAN_TEXT);
+			string outside = string.Join(_LINE_BREAK_TEXT, _CLEAN_TEXT, begin, "x", end, $"See {phrase} here.");
+
+			Assert.Empty(HandWrittenTextProblems(insideOnly));
+			Assert.Contains(HandWrittenTextProblems(outside), problem => problem.Contains($"'{phrase}'", StringComparison.Ordinal));
+		}
+
+		Assert.Empty(HandWrittenTextProblems("Open the reported file and the tooling around it."));
+	}
+
+	/// <summary>Every statement of how many pattern classes produce a recommendation names the real number.</summary>
+	[Fact]
+	public void EveryEntryCountStatementInPartCNamesTheNumberOfClassesThatProduceAdvice()
+	{
+		string handWritten = GeneratedBlockMarkers.Rewrite(File.ReadAllText(_language.PartCPath()), _ => string.Empty);
+		int expected = PartCBlockComposition.ClassesThatProduceAdvice(_language.Analyzer()).Length;
+
+		MatchCollection statements = _entryCountStatement.Matches(handWritten);
+
+		Assert.NotEmpty(statements);
+		Assert.All(statements, statement => Assert.Equal(expected, int.Parse(statement.Groups["count"].Value, CultureInfo.InvariantCulture)));
+	}
+
 	/// <summary>The repository gives docs/public LF line endings, and neither committed document carries a carriage return.</summary>
 	[Fact]
 	public void PublicDocumentsAreCheckedOutWithLfEndingsAndCarryNoCarriageReturn()
@@ -366,9 +524,31 @@ public abstract class PartCDriftTests
 		Assert.Empty(violations);
 	}
 
+	private static string[] HandWrittenTextProblems(string partC)
+	{
+		string handWritten = GeneratedBlockMarkers.Rewrite(partC, _ => string.Empty);
+
+		return
+		[
+			.. _forbiddenHandWrittenPhrases
+				.Where(forbidden => Regex.IsMatch(handWritten, forbidden.Pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+				.Select(forbidden => $"The hand-written text of Part C contains '{forbidden.Phrase}', which belongs to the tool and not to a stand-alone guide.")
+		];
+	}
+
 	private string ExampleFence()
 	{
 		return string.Concat(_FENCE_MARKER, _language.ExampleFenceLabel);
+	}
+
+	private static ImmutableArray<GeneratedBlock> EntryBlocks(string partC)
+	{
+		return [.. GeneratedBlockMarkers.Blocks(partC).Where(block => !PartCBlockComposition.IsOAuth2ClientKey(block.Key))];
+	}
+
+	private static int CountOf(string text, string value)
+	{
+		return text.Split(value).Length - 1;
 	}
 
 	private IReadOnlyDictionary<string, DetectionRule> RegisteredRules()
@@ -381,6 +561,7 @@ public abstract class PartCDriftTests
 		return PartCBlockComposition
 			.ExpectedKeys(_language.Analyzer())
 			.Select(PartCBlockComposition.KeyText)
+			.Concat(PartCBlockComposition.OAuth2ClientKeys())
 			.ToFrozenDictionary(key => key, keyText => PartCBlockComposition.ContentFor(_language, keyText));
 	}
 

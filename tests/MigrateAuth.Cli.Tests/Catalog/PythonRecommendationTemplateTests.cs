@@ -35,7 +35,7 @@ public sealed class PythonRecommendationTemplateTests
 	private const string _CLIENT_CREDENTIALS_GRANT_FRAGMENT = "grant_type\": \"client_credentials";
 
 	/// <summary>The label of a fact NSerio verified and Relativity does not document, in the exact words the requirement writes it.</summary>
-	private const string _VERIFIED_LABEL = "verified by NSerio; not documented by Relativity";
+	private const string _VERIFIED_LABEL = "verified by NSerio against a live instance; not documented by Relativity";
 
 	private const int _MINIMUM_LABELLED_STATEMENTS = 4;
 
@@ -344,11 +344,11 @@ public sealed class PythonRecommendationTemplateTests
 		string codeFallback = PythonRenderedTexts.Analyzer().CandidateSelectionAndRecommendation.LanguageFallbackTextByFlow![CredentialFlow.AuthorizationCode];
 
 		Assert.True(Regex.Count(codeAcquisition, Regex.Escape(_VERIFIED_LABEL)) >= _MINIMUM_LABELLED_STATEMENTS);
-		Assert.Contains($"authorize endpoint `<host>/Relativity/Identity/connect/authorize` (***{_VERIFIED_LABEL}***", codeAcquisition, StringComparison.Ordinal);
-		Assert.Contains($"works without it, ***{_VERIFIED_LABEL}***", codeAcquisition, StringComparison.Ordinal);
-		Assert.Contains($"tested and rejected, ***{_VERIFIED_LABEL}***", codeAcquisition, StringComparison.Ordinal);
-		Assert.Contains($"on a **fixed registered port** is accepted, ***{_VERIFIED_LABEL}***", codeAcquisition, StringComparison.Ordinal);
-		Assert.Contains($"when PKCE is used (***{_VERIFIED_LABEL}***)", codeAcquisition, StringComparison.Ordinal);
+		Assert.Contains($"authorize endpoint `<host>/Relativity/Identity/connect/authorize` (**{_VERIFIED_LABEL}**", codeAcquisition, StringComparison.Ordinal);
+		Assert.Contains($"works without it, **{_VERIFIED_LABEL}**", codeAcquisition, StringComparison.Ordinal);
+		Assert.Contains($"tested and rejected, **{_VERIFIED_LABEL}**", codeAcquisition, StringComparison.Ordinal);
+		Assert.Contains($"on a **fixed registered port** is accepted, **{_VERIFIED_LABEL}**", codeAcquisition, StringComparison.Ordinal);
+		Assert.Contains($"when PKCE is used (**{_VERIFIED_LABEL}**)", codeAcquisition, StringComparison.Ordinal);
 		Assert.Contains($"both are {_VERIFIED_LABEL}", codeFallback, StringComparison.Ordinal);
 		Assert.Contains($"which is also {_VERIFIED_LABEL}", codeFallback, StringComparison.Ordinal);
 

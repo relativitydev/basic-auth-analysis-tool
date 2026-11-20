@@ -34,7 +34,7 @@ public sealed class JavaScriptAnalyzerTests
 	private const string _EXPECTED_SCHEME_TOKEN_BASIC = "Basic";
 	private const int _EXPECTED_CATALOG_MAJOR = 1;
 	private const int _EXPECTED_CATALOG_MINOR = 51;
-	private const int _EXPECTED_CATALOG_PATCH = 0;
+	private const int _EXPECTED_CATALOG_PATCH = 2;
 	private const int _FLOW_SIGNAL_COUNT = 16;
 
 	private static readonly ImmutableArray<string> _everyClass =

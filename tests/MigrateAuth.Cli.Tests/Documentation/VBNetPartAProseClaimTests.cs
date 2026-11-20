@@ -39,6 +39,9 @@ public sealed class VBNetPartAProseClaimTests
 	private const string _VB_012 = "VB-012";
 	private const string _VB_013 = "VB-013";
 	private const string _VB_014 = "VB-014";
+
+	/// <summary>Spaces between the declaration of a type of the same name and its use, more than the two thousand characters Part A gives as the distance within which the declaration counts.</summary>
+	private const int _OWN_TYPE_FARTHER_AWAY_PADDING_LENGTH = 2500;
 	private const string _VB_015 = "VB-015";
 	private const string _VB_016 = "VB-016";
 	private const string _VB_017 = "VB-017";
@@ -64,14 +67,14 @@ public sealed class VBNetPartAProseClaimTests
 	private static readonly Regex _readClaim = new(_READ_CLAIM_PATTERN, RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
 	/// <summary>One checkable sentence: the section it is in, the phrase that locates it, the input, and what the named class must do with it.</summary>
-	private sealed record ProseClaim(string Section, string Phrase, string PatternClass, bool IsRead, ConfidenceLevel Level, string Source);
+	private sealed record ProseClaim(string Section, string Phrase, string PatternClass, bool IsRead, ConfidenceLevel Level, string Source, string Description = "");
 
 	/// <summary>A clause no input can show, stated in the open so the guard does not pass over it silently.</summary>
 	private sealed record UncheckableClaim(string Section, string Phrase, string Reason);
 
-	private static ProseClaim Reads(string section, string phrase, ConfidenceLevel level, string source)
+	private static ProseClaim Reads(string section, string phrase, ConfidenceLevel level, string source, string description = "")
 	{
-		return new ProseClaim(section, phrase, section, true, level, source);
+		return new ProseClaim(section, phrase, section, true, level, source, description);
 	}
 
 	private static ProseClaim ReadsAs(string section, string phrase, string patternClass, ConfidenceLevel level, string source)
@@ -79,9 +82,9 @@ public sealed class VBNetPartAProseClaimTests
 		return new ProseClaim(section, phrase, patternClass, true, level, source);
 	}
 
-	private static ProseClaim DoesNotRead(string section, string phrase, string source)
+	private static ProseClaim DoesNotRead(string section, string phrase, string source, string description = "")
 	{
-		return new ProseClaim(section, phrase, section, false, ConfidenceLevel.Low, source);
+		return new ProseClaim(section, phrase, section, false, ConfidenceLevel.Low, source, description);
 	}
 
 	private static ProseClaim DoesNotReadAs(string section, string phrase, string patternClass, string source)
@@ -102,10 +105,13 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_001, "Arguments may be named in order", ConfidenceLevel.High, "Dim a = New UsernamePasswordCredentials(userName:=widgetUser, password:=widgetPwd)"),
 		Reads(_VB_001, "the call may be continued over several lines", ConfidenceLevel.High, "Dim a = New UsernamePasswordCredentials(userName, _\n\tpassword)"),
 		DoesNotRead(_VB_001, "A credential type of the same SDK that carries a bearer token does not match", "Dim a = New BearerTokenCredentials(accessToken)"),
-		ReadsAs(_VB_001, "VB-002 is reported instead of this class", _VB_002, ConfidenceLevel.High, "Dim a = New RSAPIClient(rsapiUri, New UsernamePasswordCredentials(userName, password))"),
-		DoesNotRead(_VB_001, "VB-002 is reported instead of this class", "Dim a = New RSAPIClient(rsapiUri, New UsernamePasswordCredentials(userName, password))"),
-		DoesNotRead(_VB_001, "is not reported when it is written without a namespace", "Class UsernamePasswordCredentials\nEnd Class\nDim a = New UsernamePasswordCredentials(userName, password)"),
-		Reads(_VB_001, "written with a namespace it is still read", ConfidenceLevel.High, "Class UsernamePasswordCredentials\nEnd Class\nDim a = New Vendor.UsernamePasswordCredentials(userName, password)"),
+		ReadsAs(_VB_001, "VB-002 applies instead of this class", _VB_002, ConfidenceLevel.High, "Dim a = New RSAPIClient(rsapiUri, New UsernamePasswordCredentials(userName, password))"),
+		DoesNotRead(_VB_001, "VB-002 applies instead of this class", "Dim a = New RSAPIClient(rsapiUri, New UsernamePasswordCredentials(userName, password))"),
+		DoesNotRead(_VB_001, "does not match when it is written without a namespace", "Class UsernamePasswordCredentials\nEnd Class\nDim a = New UsernamePasswordCredentials(userName, password)"),
+		Reads(_VB_001, "Written with a namespace it is still read", ConfidenceLevel.High, "Class UsernamePasswordCredentials\nEnd Class\nDim a = New Vendor.UsernamePasswordCredentials(userName, password)"),
+		// The one sentence "Declared farther away or in another file, it still matches" is pinned by its two halves, one per input: the first declares the type more than about two thousand characters before the use, the second does not declare it in the file at all.
+		Reads(_VB_001, "Declared farther away", ConfidenceLevel.High, $"Class UsernamePasswordCredentials\nEnd Class\n{new string(' ', _OWN_TYPE_FARTHER_AWAY_PADDING_LENGTH)}\nDim a = New UsernamePasswordCredentials(userName, password)"),
+		Reads(_VB_001, "or in another file, it still matches", ConfidenceLevel.High, "Dim a = New UsernamePasswordCredentials(userName, password)"),
 		DoesNotRead(_VB_001, "with an object initializer, or with `Activator.CreateInstance`, is not read", "Dim a = New UsernamePasswordCredentials With {.UserName = userName, .Password = password}"),
 		DoesNotRead(_VB_001, "with an object initializer, or with `Activator.CreateInstance`, is not read", "Dim a = Activator.CreateInstance(GetType(UsernamePasswordCredentials), userName, password)"),
 
@@ -119,10 +125,10 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_003, "The third argument may be a `New NetworkCredential(...)` construction, a call or a variable", ConfidenceLevel.High, "cache.Add(widgetUri, \"Basic\", BuildCredential())\ncache.Add(widgetUri, \"Basic\", credential)"),
 		Reads(_VB_003, "The scheme may be a quoted literal in any letter case", ConfidenceLevel.High, "cache.Add(widgetUri, \"BASIC\", credential)"),
 		Reads(_VB_003, "a bare constant that the file declares once as `\"Basic\"`", ConfidenceLevel.High, "Const SCHEME As String = \"Basic\"\ncache.Add(widgetUri, SCHEME, credential)"),
-		DoesNotRead(_VB_003, "A cache entry whose scheme is another one, such as `Digest` or `NTLM`, is not Basic and is not reported", "cache.Add(widgetUri, \"Digest\", credential)\ncache.Add(widgetUri, \"NTLM\", credential)"),
+		DoesNotRead(_VB_003, "A cache entry whose scheme is another one, such as `Digest` or `NTLM`, is not Basic and does not match", "cache.Add(widgetUri, \"Digest\", credential)\ncache.Add(widgetUri, \"NTLM\", credential)"),
 		ReadsAs(_VB_003, "The four-argument form that takes a host and a port is a mail-server entry and is VB-018", _VB_018, ConfidenceLevel.Low, "cache.Add(widgetHost, 25, \"Basic\", New NetworkCredential(userName, password))"),
 		DoesNotRead(_VB_003, "The four-argument form that takes a host and a port is a mail-server entry and is VB-018", "cache.Add(widgetHost, 25, \"Basic\", New NetworkCredential(userName, password))"),
-		Reads(_VB_003, "A scheme held in a constant that the tool cannot resolve", ConfidenceLevel.Medium, "cache.Add(widgetUri, SCHEME, credential)"),
+		Reads(_VB_003, "A scheme held in a constant that cannot be resolved", ConfidenceLevel.Medium, "cache.Add(widgetUri, SCHEME, credential)"),
 		DoesNotRead(_VB_003, "or no match for a qualified name", "cache.Add(widgetUri, Constants.SCHEME, credential)"),
 
 		// VB-004
@@ -144,8 +150,8 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_006, "a literal in any letter case or a constant that the file declares once", ConfidenceLevel.Medium, "Dim header = New AuthenticationHeaderValue(\"BASIC\", encodedCredentials)\nConst SCHEME As String = \"Basic\"\nDim other = New AuthenticationHeaderValue(SCHEME, encodedCredentials)"),
 		Reads(_VB_006, "inside a `With` block", ConfidenceLevel.Medium, "With request.Headers\n\t.Authorization = New AuthenticationHeaderValue(\"Basic\", encodedCredentials)\nEnd With"),
 		DoesNotRead(_VB_006, "A `TryParse`", "Dim header As AuthenticationHeaderValue = Nothing\nAuthenticationHeaderValue.TryParse(\"Basic \" & encodedCredentials, header)"),
-		DoesNotRead(_VB_006, "a `Parse` of a variable that the tool cannot see the scheme of", "Dim header = AuthenticationHeaderValue.Parse(headerText)"),
-		DoesNotRead(_VB_006, "A scheme that resolves to `Bearer` gives no finding", "Dim header = New AuthenticationHeaderValue(\"Bearer\", accessToken)"),
+		DoesNotRead(_VB_006, "a `Parse` of a variable whose scheme is not visible", "Dim header = AuthenticationHeaderValue.Parse(headerText)"),
+		DoesNotRead(_VB_006, "A scheme that resolves to `Bearer` does not match", "Dim header = New AuthenticationHeaderValue(\"Bearer\", accessToken)"),
 		Reads(_VB_006, "A file whose only construct is the header value", ConfidenceLevel.Medium, "Private Function BuildHeader(encoded As String) As AuthenticationHeaderValue\n\tReturn New AuthenticationHeaderValue(\"Basic\", encoded)\nEnd Function"),
 
 		// VB-007
@@ -164,10 +170,10 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_007, "a constant scheme joined to a credential", ConfidenceLevel.Medium, "Const SCHEME As String = \"Basic\"\nclient.Headers.Add(\"Authorization\", SCHEME & \" \" & encodedCredentials)"),
 		Reads(_VB_007, "a call to a function whose name carries the scheme word", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", BuildBasicValue(userName))"),
 		Reads(_VB_007, "each optionally through `.DefaultRequestHeaders`", ConfidenceLevel.Medium, "client.DefaultRequestHeaders.Add(\"Authorization\", \"Basic \" & encodedCredentials)"),
-		DoesNotRead(_VB_007, "a read of `Request.Headers(\"Authorization\")` is inbound authentication and is not reported", "Dim incoming = Request.Headers(\"Authorization\")"),
+		DoesNotRead(_VB_007, "a read of `Request.Headers(\"Authorization\")` is inbound authentication and does not match", "Dim incoming = Request.Headers(\"Authorization\")"),
 		DoesNotRead(_VB_007, "so `Proxy-Authorization` and `X-Authorization` do not match", "client.Headers.Add(\"Proxy-Authorization\", \"Basic \" & encodedCredentials)\nclient.Headers.Add(\"X-Authorization\", \"Basic \" & encodedCredentials)"),
 		Reads(_VB_007, "is read only where the name carries a credential word", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", widgetPassword)"),
-		DoesNotRead(_VB_007, "A name that carries the word `bearer` or `access_token` is read as a bearer value and is not reported", "client.Headers.Add(\"Authorization\", bearerPassword)\nclient.Headers.Add(\"Authorization\", access_token)"),
+		DoesNotRead(_VB_007, "A name that carries the word `bearer` or `access_token` is read as a bearer value and does not match", "client.Headers.Add(\"Authorization\", bearerPassword)\nclient.Headers.Add(\"Authorization\", access_token)"),
 		DoesNotRead(_VB_007, "A value held under a neutral name is not read", "client.Headers.Add(\"Authorization\", widgetValue)"),
 		Reads(_VB_007, "so `relayPassHeader` and `forward_pass_header` are read", ConfidenceLevel.Medium, "client.Headers.Add(\"Authorization\", relayPassHeader)\nclient.Headers.Add(\"Authorization\", forward_pass_header)"),
 		DoesNotRead(_VB_007, "while `Bypass`, `Compass` and `passport` are not", "client.Headers.Add(\"Authorization\", Bypass)\nclient.Headers.Add(\"Authorization\", Compass)\nclient.Headers.Add(\"Authorization\", passport)"),
@@ -182,7 +188,7 @@ public sealed class VBNetPartAProseClaimTests
 
 		// VB-009
 		Reads(_VB_009, "whose transport credential type is Basic", ConfidenceLevel.Medium, "binding.Security.Transport.ClientCredentialType = HttpClientCredentialType.Basic"),
-		Reads(_VB_009, "A binding whose credential lives in a configuration file is still a migration target and is still reported", ConfidenceLevel.Medium, "binding.Security.Transport.ClientCredentialType = HttpClientCredentialType.Basic\nfactory.Open()"),
+		Reads(_VB_009, "A binding whose credential lives in a configuration file is still a migration target and still matches", ConfidenceLevel.Medium, "binding.Security.Transport.ClientCredentialType = HttpClientCredentialType.Basic\nfactory.Open()"),
 		Reads(_VB_009, "The member may be written qualified or partly qualified", ConfidenceLevel.Medium, "binding.Security.Transport.ClientCredentialType = System.ServiceModel.HttpClientCredentialType.Basic\nbinding.Security.Transport.ClientCredentialType = ServiceModel.HttpClientCredentialType.Basic"),
 		Reads(_VB_009, "the leading-dot form inside `With binding.Security.Transport` is read", ConfidenceLevel.Medium, "With binding.Security.Transport\n\t.ClientCredentialType = HttpClientCredentialType.Basic\nEnd With"),
 		DoesNotRead(_VB_009, "A member reached through an `Imports` of the enumeration, without its name, is not read", "Imports System.ServiceModel.HttpClientCredentialType\nbinding.Security.Transport.ClientCredentialType = Basic"),
@@ -198,21 +204,21 @@ public sealed class VBNetPartAProseClaimTests
 		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(), webServiceUrl)"),
 		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(scope), webServiceUrl)"),
 		DoesNotRead(_VB_010, "neither is a call whose name carries `Token` and none of `password`, `secret` or `pwd`", "Dim importApi As New ImportAPI(sentinelLogin, Me.Tokens.FetchPlatformToken(), webServiceUrl)"),
-		Reads(_VB_010, "a call that also carries one of those words, such as `GetPasswordToken()`, is read", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, GetPasswordToken(), webServiceUrl)"),
+		Reads(_VB_010, "A call that also carries one of those words, such as `GetPasswordToken()`, is read", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, GetPasswordToken(), webServiceUrl)"),
 		DoesNotRead(_VB_010, "is not read when it is written without a namespace", $"{VBNetEntryPointFixtureSources.OWN_CLASS}{VBNetEntryPointFixtureSources.CONSTRUCTION}"),
 		DoesNotRead(_VB_010, "is not read when it is written without a namespace", $"{VBNetEntryPointFixtureSources.OWN_STRUCTURE}{VBNetEntryPointFixtureSources.CONSTRUCTION}"),
-		Reads(_VB_010, "written with a namespace it is read", ConfidenceLevel.High, $"{VBNetEntryPointFixtureSources.OWN_CLASS}{VBNetEntryPointFixtureSources.QUALIFIED_CONSTRUCTION}"),
+		Reads(_VB_010, "Written with a namespace it is read", ConfidenceLevel.High, $"{VBNetEntryPointFixtureSources.OWN_CLASS}{VBNetEntryPointFixtureSources.QUALIFIED_CONSTRUCTION}"),
 		Reads(_VB_010, "declared in another file or farther than", ConfidenceLevel.High, VBNetEntryPointFixtureSources.CONSTRUCTION),
 		Reads(_VB_010, "farther than about one thousand characters from the use", ConfidenceLevel.High, VBNetEntryPointFixtureSources.OwnClassFarBeforeTheUse()),
-		Reads(_VB_010, "from the use, is still reported here; dismiss such a finding on review", ConfidenceLevel.High, VBNetEntryPointFixtureSources.OwnClassFarAfterTheUse()),
-		Reads(_VB_010, "is still reported as a user-and-password pair", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(Resolve(scope)), webServiceUrl)"),
+		Reads(_VB_010, "from the use, still matches here; dismiss such a finding on review", ConfidenceLevel.High, VBNetEntryPointFixtureSources.OwnClassFarAfterTheUse()),
+		Reads(_VB_010, "still matches as a user-and-password pair", ConfidenceLevel.High, "Dim importApi As New ImportAPI(sentinelLogin, FetchPlatformToken(Resolve(scope)), webServiceUrl)"),
 
 		// VB-011
 		Reads(_VB_011, "written on a receiver", ConfidenceLevel.High, "settings.RelativityUsername = userName\nsettings.RelativityPassword = password"),
 		Reads(_VB_011, "as the leading-dot assignment inside a `With` block", ConfidenceLevel.High, "With importJob.Settings\n\t.RelativityUsername = userName\n\t.RelativityPassword = password\nEnd With"),
 		Reads(_VB_011, "or as an object initializer", ConfidenceLevel.High, "Dim settings As New ImportSettings With {.RelativityUsername = userName, .RelativityPassword = password}"),
 		Reads(_VB_011, "in either order", ConfidenceLevel.High, "settings.RelativityPassword = password\nsettings.RelativityUsername = userName"),
-		DoesNotRead(_VB_011, "A file that assigns only one of the two properties is not reported", "settings.RelativityUsername = userName"),
+		DoesNotRead(_VB_011, "A file that assigns only one of the two properties does not match", "settings.RelativityUsername = userName"),
 
 		// VB-012
 		Reads(_VB_012, "given to an HTTP type", ConfidenceLevel.Medium, "Dim handler As New HttpClientHandler With {.Credentials = New NetworkCredential(userName, password)}"),
@@ -226,7 +232,7 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_012, "a `CType`, `DirectCast` or `TryCast`", ConfidenceLevel.Medium, "Dim request = DirectCast(WebRequest.Create(widgetUri), HttpWebRequest)\nrequest.Credentials = New NetworkCredential(userName, password)"),
 		Reads(_VB_012, "a `With New T` or `With CType(..., T)` block", ConfidenceLevel.Medium, "With New WebClient()\n\t.Credentials = New NetworkCredential(userName, password)\nEnd With"),
 		Reads(_VB_012, "The credential may also be built with an object initializer that carries both halves", ConfidenceLevel.Medium, "Dim client As New WebClient()\nclient.Credentials = New NetworkCredential With {.UserName = userName, .Password = password}"),
-		DoesNotRead(_VB_012, "A credential that is `CredentialCache.DefaultCredentials`, or `UseDefaultCredentials = True`, is integrated Windows authentication and is not reported", "Dim client As New WebClient()\nclient.Credentials = CredentialCache.DefaultCredentials\nclient.UseDefaultCredentials = True"),
+		DoesNotRead(_VB_012, "A credential that is `CredentialCache.DefaultCredentials`, or `UseDefaultCredentials = True`, is integrated Windows authentication and does not match", "Dim client As New WebClient()\nclient.Credentials = CredentialCache.DefaultCredentials\nclient.UseDefaultCredentials = True"),
 		DoesNotRead(_VB_012, "A receiver whose type is not written in the five statements above is not read as HTTP", "widgetThing.Credentials = New NetworkCredential(userName, password)"),
 		ReadsAs(_VB_012, "and its credential falls to VB-013", _VB_013, ConfidenceLevel.Medium, "widgetThing.Credentials = New NetworkCredential(userName, password)"),
 		DoesNotRead(_VB_012, "A credential held in a variable and assigned later", "Dim credential = GetCredential()\nDim client As New WebClient()\nclient.Credentials = credential"),
@@ -241,8 +247,8 @@ public sealed class VBNetPartAProseClaimTests
 		DoesNotRead(_VB_013, "a credential that VB-003, VB-012, VB-016 or VB-018 already accounts for", "Dim mailer As New SmtpClient(host, port)\nmailer.Credentials = New NetworkCredential(userName, password)"),
 		DoesNotRead(_VB_013, "a credential that VB-003, VB-012, VB-016 or VB-018 already accounts for", "Dim client As New WebClient()\nclient.Credentials = New NetworkCredential(userName, password)"),
 		DoesNotRead(_VB_013, "a credential that VB-003, VB-012, VB-016 or VB-018 already accounts for", "My.Computer.Network.DownloadFile(address, destinationPath, New NetworkCredential(userName, password), False, 100000, True)"),
-		Reads(_VB_013, "a share, a mail server or a directory object whose type the tool does not list, is reported at Medium", ConfidenceLevel.Medium, "shareConnection.Connect(New NetworkCredential(userName, password))"),
-		Reads(_VB_013, "A credential used only as a local container is reported too", ConfidenceLevel.Medium, "Dim container = New NetworkCredential(userName, password)\nDim shown = container.UserName"),
+		Reads(_VB_013, "a share, a mail server or a directory object whose type is not listed, matches at Medium", ConfidenceLevel.Medium, "shareConnection.Connect(New NetworkCredential(userName, password))"),
+		Reads(_VB_013, "A credential used only as a local container matches too", ConfidenceLevel.Medium, "Dim container = New NetworkCredential(userName, password)\nDim shown = container.UserName"),
 
 		// VB-014
 		Reads(_VB_014, "A user name and a password joined by a colon and encoded to Base64", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password))"),
@@ -256,13 +262,15 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_014, "A half is a variable, a member access, a call or an index", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(settings.UserName & \":\" & GetPassword() & \"\"))"),
 		DoesNotRead(_VB_014, "a quoted literal is not a half, which is what separates this class from VB-015", "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(\"widget\" & \":\" & password))"),
 		DoesNotRead(_VB_014, "A half whose last member is `Port` is not a credential half", "Dim pair As String = userName.Port & \":\" & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		DoesNotRead(_VB_014, "and neither is a second half whose last member is `Length`, `Count` or `Size`", "Dim pair As String = userName & \":\" & password.Length\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		DoesNotRead(_VB_014, "and neither is a second half whose last member is `Length`, `Count` or `Size`", "Dim pair As String = String.Format(\"{0}:{1}\", userName, password.Length)\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		Reads(_VB_014, "the check is not applied to a first half ending in `Length`, `Count` or `Size` joined with `&` or `+`", ConfidenceLevel.Medium, "Dim pair As String = hostName.Length & \":\" & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		Reads(_VB_014, "the check is not applied to a first half ending in `Length`, `Count` or `Size` joined with `&` or `+`", ConfidenceLevel.Medium, "Dim pair As String = hostName.Length + \":\" + password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		Reads(_VB_014, "to a half followed by `.ToString()`", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & password.Length.ToString()\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		Reads(_VB_014, "to a second half ending in `Port` written inside the encoder call", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Port))"),
-		Reads(_VB_014, "or to a second half ending in `Length`, `Count` or `Size` written inside the encoder call with `&`, `+`, an interpolated string or `String.Concat`", ConfidenceLevel.Medium, "Dim a As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Length))\nDim b As String = Convert.ToBase64String(Encoding.ASCII.GetBytes($\"{userName}:{password.Length}\"))\nDim c As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Concat(userName, \":\", password.Count)))"),
+		DoesNotRead(_VB_014, "| `&` or `+`, in a statement above the encoder | `Port` | `Port`, `Length`, `Count` and `Size`, but not when `.ToString()` follows the half |", "Dim pair As String = userName & \":\" & password.Length\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))", "second half, Length, pair joined with & above the encoder"),
+		DoesNotRead(_VB_014, "| `String.Format`, an interpolated string, `String.Concat` or `String.Join`, in a statement above the encoder | `Port`, `Length`, `Count` and `Size` | `Port`, `Length`, `Count` and `Size` |", "Dim pair As String = String.Format(\"{0}:{1}\", userName, password.Length)\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))", "second half, Length, String.Format pair above the encoder"),
+		Reads(_VB_014, "| `&` or `+`, in a statement above the encoder | `Port` | `Port`, `Length`, `Count` and `Size`, but not when `.ToString()` follows the half |", ConfidenceLevel.Medium, "Dim pair As String = hostName.Length & \":\" & password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))", "first half, Length, pair joined with & above the encoder"),
+		Reads(_VB_014, "| `&` or `+`, in a statement above the encoder | `Port` | `Port`, `Length`, `Count` and `Size`, but not when `.ToString()` follows the half |", ConfidenceLevel.Medium, "Dim pair As String = hostName.Length + \":\" + password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))", "first half, Length, pair joined with + above the encoder"),
+		Reads(_VB_014, "but not when `.ToString()` follows the half", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & password.Length.ToString()\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_014, "| `&` or `+`, inside the encoder call | `Port` only | none |", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Port))", "second half, Port, pair joined with & inside the encoder call"),
+		Reads(_VB_014, "| `&` or `+`, inside the encoder call | `Port` only | none |", ConfidenceLevel.Medium, "Dim a As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.Length))", "second half, Length, pair joined with & inside the encoder call"),
+		Reads(_VB_014, "| An interpolated string, `String.Concat` or `String.Join`, inside the encoder call | `Port` only | `Port` only |", ConfidenceLevel.Medium, "Dim b As String = Convert.ToBase64String(Encoding.ASCII.GetBytes($\"{userName}:{password.Length}\"))", "second half, Length, interpolated string inside the encoder call"),
+		Reads(_VB_014, "| An interpolated string, `String.Concat` or `String.Join`, inside the encoder call | `Port` only | `Port` only |", ConfidenceLevel.Medium, "Dim c As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Concat(userName, \":\", password.Count)))", "second half, Count, String.Concat inside the encoder call"),
 		DoesNotRead(_VB_014, "so a pair encoded by your own helper is not read", "Dim encoded As String = WidgetEncoder.Encode(userName & \":\" & password)"),
 		Reads(_VB_014, "is read like a colon written as a string", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
 		DoesNotReadAs(_VB_014, "is read like a colon written as a string", _VB_015, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\"c & password))"),
@@ -272,7 +280,7 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_014, "so `txtPassword.Text` and `password.ToString()` are read", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(userName & \":\" & password.ToString))"),
 		DoesNotRead(_VB_014, "and `siteName` is not", "Dim pair As String = itemLabel & \":\" & siteName\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		DoesNotRead(_VB_014, "A pair whose second half carries no credential word is not read", "Dim pair As String = loginName & \":\" & pin\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
-		Reads(_VB_014, "such as a user name and a token expiry, can be reported", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & tokenExpiry\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
+		Reads(_VB_014, "such as a user name and a token expiry, can match", ConfidenceLevel.Medium, "Dim pair As String = userName & \":\" & tokenExpiry\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		DoesNotRead(_VB_014, "A pair assembled across several statements is not read", "Dim pair As String = userName\npair &= \":\"\npair &= password\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 
 		// VB-015
@@ -289,7 +297,7 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_015, "including `String.Format`, `String.Concat`, `String.Join` and interpolation", ConfidenceLevel.Medium, "Dim a = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Format(\"{0}:{1}\", \"\", accessToken)))\nDim b = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Concat(\"\", \":\", accessToken)))\nDim c = Convert.ToBase64String(Encoding.ASCII.GetBytes(String.Join(\":\", \"\", accessToken)))\nDim d = Convert.ToBase64String(Encoding.ASCII.GetBytes($\":{accessToken}\"))"),
 		DoesNotReadAs(_VB_015, "This class takes the place of VB-014 on the same encoder", _VB_014, "Dim pair As String = \"\" & \":\" & accessToken\nDim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(pair))"),
 		DoesNotRead(_VB_015, "An encoder called by your own helper is not read", "Dim encoded As String = WidgetEncoder.Encode(\"\" & \":\" & accessToken)"),
-		Reads(_VB_015, "A value of the same shape that is not a credential, such as a host and a port, can be reported", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(\":\" & endpointNumber))"),
+		Reads(_VB_015, "A value of the same shape that is not a credential, such as a host and a port, can match", ConfidenceLevel.Medium, "Dim encoded As String = Convert.ToBase64String(Encoding.ASCII.GetBytes(\":\" & endpointNumber))"),
 
 		// VB-016
 		Reads(_VB_016, "`My.Computer.Network.DownloadFile(address, destinationPath, userName, password)`", ConfidenceLevel.Medium, "My.Computer.Network.DownloadFile(address, destinationPath, userName, password, False, 100000, True)"),
@@ -297,8 +305,8 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_016, "the leading-dot call inside a `With My.Computer.Network` block", ConfidenceLevel.Medium, "With My.Computer.Network\n\t.DownloadFile(address, destinationPath, userName, password)\nEnd With"),
 		Reads(_VB_016, "with named arguments", ConfidenceLevel.Medium, "My.Computer.Network.DownloadFile(address:=widgetAddress, destinationFileName:=destinationPath, userName:=widgetUser, password:=widgetPwd)"),
 		Reads(_VB_016, "with an overload that takes a credential object", ConfidenceLevel.Medium, "My.Computer.Network.DownloadFile(address, destinationPath, New NetworkCredential(userName, password), False, 100000, True)\nMy.Computer.Network.UploadFile(sourcePath, address, networkCredential, False, 100000)"),
-		DoesNotRead(_VB_016, "A call to an `ftp://` address, written as a literal or held in a constant, is not reported", "My.Computer.Network.DownloadFile(\"ftp://example.invalid/widget\", destinationPath, userName, password)"),
-		DoesNotRead(_VB_016, "A call to an `ftp://` address, written as a literal or held in a constant, is not reported", "Const FEED As String = \"ftp://example.invalid/widget\"\nMy.Computer.Network.DownloadFile(FEED, destinationPath, userName, password)"),
+		DoesNotRead(_VB_016, "A call to an `ftp://` address, written as a literal or held in a constant, does not match", "My.Computer.Network.DownloadFile(\"ftp://example.invalid/widget\", destinationPath, userName, password)"),
+		DoesNotRead(_VB_016, "A call to an `ftp://` address, written as a literal or held in a constant, does not match", "Const FEED As String = \"ftp://example.invalid/widget\"\nMy.Computer.Network.DownloadFile(FEED, destinationPath, userName, password)"),
 		Reads(_VB_016, "or a variable whose name carries a credential word", ConfidenceLevel.Medium, "My.Computer.Network.DownloadFile(address, destinationPath, widgetCredential, False, 100000, True)"),
 		DoesNotRead(_VB_016, "the network class of the runtime library created directly are not read", "Dim transfer As New Microsoft.VisualBasic.Devices.Network()\ntransfer.DownloadFile(address, destinationPath, userName, password)"),
 
@@ -324,8 +332,8 @@ public sealed class VBNetPartAProseClaimTests
 		Reads(_VB_018, "a process started with a user name and a password (`ProcessStartInfo`, `Process.Start`)", ConfidenceLevel.Low, "Dim info As New ProcessStartInfo()\ninfo.UserName = userName\ninfo.Password = password"),
 		Reads(_VB_018, "a process started with a user name and a password (`ProcessStartInfo`, `Process.Start`)", ConfidenceLevel.Low, "Process.Start(fileName, userName, password, domainName)"),
 		Reads(_VB_018, "It also covers the credential-cache entry that carries a host and a port", ConfidenceLevel.Low, "cache.Add(widgetHost, 25, \"Basic\", New NetworkCredential(userName, password))"),
-		DoesNotRead(_VB_018, "A credential built across several statements and then given to a mail client produces no finding", "Dim mailer As New SmtpClient(host, port)\nDim credential = New NetworkCredential()\ncredential.UserName = userName\ncredential.Password = password\nmailer.Credentials = credential"),
-		ReadsAs(_VB_018, "A non-HTTP consumer outside this closed list yields a VB-013 finding at Medium", _VB_013, ConfidenceLevel.Medium, "shareConnection.Connect(New NetworkCredential(userName, password))"),
+		DoesNotRead(_VB_018, "A credential built across several statements and then given to a mail client does not match", "Dim mailer As New SmtpClient(host, port)\nDim credential = New NetworkCredential()\ncredential.UserName = userName\ncredential.Password = password\nmailer.Credentials = credential"),
+		ReadsAs(_VB_018, "A non-HTTP consumer outside this closed list matches VB-013 at Medium", _VB_013, ConfidenceLevel.Medium, "shareConnection.Connect(New NetworkCredential(userName, password))"),
 		DoesNotReadAs(_VB_018, "This class takes the place of VB-013 on the same credential", _VB_013, "Dim mailer As New SmtpClient(host, port)\nmailer.Credentials = New NetworkCredential(userName, password)"),
 
 		// VB-019
@@ -344,9 +352,9 @@ public sealed class VBNetPartAProseClaimTests
 		new(_VB_013, "or the BCL performs the exchange and no `Basic` and no Base64 appear in the file", "A description of what the consumer is, not of a form the rule reads or declines."),
 		new(_VB_015, "The defect is the scheme, not the token", "A statement about the defect, not a recognition outcome."),
 		new(_VB_015, "Some spellings of the empty half or of the assembly are not read", "A pointer to the declared unsupported coverage, whose entries the declared-coverage tests hold to the analyzer's own list."),
-		new(_VB_018, "The tool does not believe the credential is Basic Authentication towards RelativityOne", "A statement about the tool's judgement of the credential, checked as the class's Low level."),
-		new(_VB_019, "so a helper in a file with no other authentication word may not be reported", "Hedged with 'may', and file preselection is a step of the scan pipeline that the recognition harness does not apply."),
-		new(_VB_019, "note that its call sites do not appear as findings, because the helper hides them", "Advice to the reader, not a recognition outcome; the call itself is claimed not read above."),
+		new(_VB_018, "The credential is not taken for Basic Authentication towards RelativityOne", "A statement about the tool's judgement of the credential, checked as the class's Low level."),
+		new(_VB_019, "so a helper in a file with no other authentication word may not match", "Hedged with 'may', and file preselection is a step of the scan pipeline that the recognition harness does not apply."),
+		new(_VB_019, "note that its call sites do not match, because the helper hides them", "Advice to the reader, not a recognition outcome; the call itself is claimed not read above."),
 		new(_VB_019, "A helper that builds the header also matches the header classes, at another location", "A statement about two findings at two places; the header classes are claimed with their own forms.")
 	];
 
@@ -364,7 +372,8 @@ public sealed class VBNetPartAProseClaimTests
 			if (isRead != claim.IsRead)
 			{
 				string expectation = claim.IsRead ? $"read at {claim.Level}" : "not read";
-				failures.Add($"{claim.Section} says \"{claim.Phrase}\": {claim.PatternClass} should be {expectation} on [{claim.Source}]; got [{Describe(constructs)}]");
+				string description = claim.Description.Length == 0 ? string.Empty : $" ({claim.Description})";
+				failures.Add($"{claim.Section} says \"{claim.Phrase}\"{description}: {claim.PatternClass} should be {expectation} on [{claim.Source}]; got [{Describe(constructs)}]");
 			}
 		}
 

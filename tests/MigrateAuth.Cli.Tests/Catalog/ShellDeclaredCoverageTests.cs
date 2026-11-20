@@ -15,11 +15,11 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// The tests that read the catalog document itself are in `ShellDeclaredCoverageCatalogTests`; they fail when either side moves: the identifiers and the count of
 /// the declared set are the document's, and each identifier is bound to exactly one entry of the analyzer by a word that only that entry's construct carries.
 /// One entry is declared beyond the document's list (a dead branch and code after an exit, which the document states stay declared), so the analyzer's set is
-/// the document's plus that one. A form the catalog says is not supported must yield no finding, and the tests below write such a form.
+/// the document's plus that one. A second entry, a client called inside a wrapper function with variables, is declared by the analyzer and is in the document's list, added as built. A form the catalog says is not supported must yield no finding, and the tests below write such a form.
 /// </summary>
 public sealed class ShellDeclaredCoverageTests
 {
-	private const int _DECLARED_ENTRY_COUNT = 23;
+	private const int _DECLARED_ENTRY_COUNT = 24;
 
 	/// <summary>The identifier of every declared entry, with the words that only its construct carries.</summary>
 	internal static readonly ImmutableArray<(string Id, string Keyword)> DeclaredEntries =
@@ -31,11 +31,12 @@ public sealed class ShellDeclaredCoverageTests
 		("na:O5-4", "a file the script only reads"),
 		("unsupported:O5-6", "token or scheme supplied by another file"),
 		("na:O5-7", "signs in that is supplied from another file"),
-		("na:O5-8", "sign-in evidence the tool does not list"),
+		("na:O5-8", "sign-in evidence that is not listed"),
 		("na:O5-40", "environment variable first"),
 		("unsupported:O5-9", "passed to the client as a header file"),
 		("unsupported:O5-47", "a name reached by indirection"),
 		("unsupported:O5-17", "any other client"),
+		("unsupported:O5-50", "inside a wrapper function with variables"),
 		("cost:O5-31", "with a neutral name"),
 		("K-6", "dead branch"),
 		("K-5", "a call goes to RelativityOne"),
@@ -44,7 +45,7 @@ public sealed class ShellDeclaredCoverageTests
 		("na:O5-45", "quoted across a raw line feed"),
 		("na:O5-46", "command substitution that closes on the opening line"),
 		("K-1", "takes too long"),
-		("K-2", "findings cap"),
+		("K-2", "cap on matches"),
 		("K-7", "5,000 here-document openings"),
 		("K-8", "double parenthesis")
 	];

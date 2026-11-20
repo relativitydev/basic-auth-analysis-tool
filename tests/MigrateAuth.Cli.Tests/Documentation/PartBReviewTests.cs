@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Globalization;
 using System.Text.RegularExpressions;
 
 using MigrateAuth.Cli.Reporting;
@@ -9,12 +8,13 @@ using Xunit;
 namespace MigrateAuth.Cli.Tests.Documentation;
 
 /// <summary>
-/// PART B IS REACHED FROM THE PART A AND THE PART C OF EVERY LANGUAGE, AND WHAT IT SAYS OF THE SCAN-TIME WARNING IS WHAT THE TOOL PRINTS.
+/// PART B IS REACHED FROM THE PART A AND THE PART C OF EVERY LANGUAGE, ITS TITLE IS THE NAME THE TOOL PRINTS, AND IT STANDS ON ITS OWN.
 ///
 /// The check over the pointers reads every Part A and every Part C file that exists, so the files of a language join it the day they are written; it also
 /// requires the files of every documented language. A pointer resolves when the file it names exists beside the page and, when it names an anchor,
-/// when Part B has a heading for it. The check over the warning builds the sentence from the format the tool prints, with the same placeholders
-/// Part B shows, and holds Part B to it, so the page and the console cannot say different things about what the warning says and whom it points to.
+/// when Part B has a heading for it. The check over the title holds Part B's first line to the name the tool prints when it points a reader here.
+/// Part B is a security guide for a developer who does not run the tool, so the check over its text holds it to naming neither the tool, nor its
+/// configuration, nor its report; what the scan-time warning says is pinned where that warning is described, in the User Guide.
 /// </summary>
 public sealed class PartBReviewTests
 {
@@ -24,11 +24,6 @@ public sealed class PartBReviewTests
 	private const string _LINK_PATTERN = "\\]\\((?<target>[^)\\s]*part-b-secret-management\\.md)(?:#(?<anchor>[^)\\s]+))?\\)";
 	private const string _HEADING_PATTERN = "^#{1,6}\\s+(?<text>.+?)\\s*#*\\s*$";
 	private const string _SLUG_REMOVED_CHARACTERS_PATTERN = "[^\\p{L}\\p{N}\\p{M} _-]";
-	private const string _PLACEHOLDER_PATTERN = "\\{\\d+\\}";
-	private const string _FINDING_IDENTIFIER_PLACEHOLDER = "<finding-identifier>";
-	private const string _LOCATION_PLACEHOLDER = "<path>:<line>";
-	private const string _PATTERN_CLASS_PLACEHOLDER = "<pattern-class>";
-	private const string _STILL_APPEARS_PHRASE = "its warning still appears";
 	private const string _TITLE_PREFIX = "# ";
 	private const string _HYPHEN = "-";
 	private const string _SPACE = " ";
@@ -36,12 +31,10 @@ public sealed class PartBReviewTests
 	private const string _LF = "\n";
 	private const char _LINE_BREAK = '\n';
 	private const char _CARRIAGE_RETURN = '\r';
-	private const int _EXPECTED_PLACEHOLDER_COUNT = 3;
 
 	private static readonly Regex _link = new(_LINK_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 	private static readonly Regex _heading = new(_HEADING_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 	private static readonly Regex _slugRemovedCharacters = new(_SLUG_REMOVED_CHARACTERS_PATTERN, RegexOptions.CultureInvariant);
-	private static readonly Regex _placeholder = new(_PLACEHOLDER_PATTERN, RegexOptions.CultureInvariant);
 
 	/// <summary>Every Part A and every Part C that exists points at Part B, and each pointer resolves; a Part A or Part C written later is read the same way.</summary>
 	[Fact]
@@ -73,32 +66,29 @@ public sealed class PartBReviewTests
 		Assert.NotEmpty(PointerProblemsIn("file.md", "See [Part B](missing/part-b-secret-management.md).", folder, partB));
 	}
 
-	/// <summary>Part B shows the warning the tool prints while it analyzes, word for word, with the same three placeholders, and its title is the name the warning points to.</summary>
+	/// <summary>Part B's title is the name the tool prints when it points a reader to Part B.</summary>
 	[Fact]
-	public void PartBShowsTheShippedScanTimeWarningWordForWord()
+	public void PartBTitleIsTheNameTheToolPointsTo()
 	{
 		string partB = File.ReadAllText(PartBPath()).Replace(_CRLF, _LF, StringComparison.Ordinal);
-		string shipped = string.Format(
-			CultureInfo.InvariantCulture,
-			AnalyzeConsoleReport.LITERAL_CREDENTIAL_WARNING_MESSAGE_FORMAT,
-			_FINDING_IDENTIFIER_PLACEHOLDER,
-			_LOCATION_PLACEHOLDER,
-			_PATTERN_CLASS_PLACEHOLDER);
-		int distinctPlaceholders = _placeholder.Matches(AnalyzeConsoleReport.LITERAL_CREDENTIAL_WARNING_MESSAGE_FORMAT).Select(match => match.Value).Distinct().Count();
 
-		Assert.Contains(shipped, partB, StringComparison.Ordinal);
-		Assert.StartsWith($"{_TITLE_PREFIX}{SecretManagementPointer.PART_B_NAME}", partB, StringComparison.Ordinal);
-		Assert.Equal(_EXPECTED_PLACEHOLDER_COUNT, distinctPlaceholders);
+		Assert.StartsWith($"{_TITLE_PREFIX}{SecretManagementPointer.PART_B_NAME}{_LF}", partB, StringComparison.Ordinal);
 	}
 
-	/// <summary>Part B says that a warning for a finding below the configured threshold still appears and says so, and the tool appends exactly that to such a warning.</summary>
-	[Fact]
-	public void PartBSaysWhatTheShippedWarningDoesForAFindingBelowTheThreshold()
+	/// <summary>Part B names neither the tool, nor its configuration, nor its report, and it does not describe the scan-time warning.</summary>
+	[Theory]
+	[InlineData("migrate-auth")]
+	[InlineData("defaultFlow")]
+	[InlineData("the tool")]
+	[InlineData("the analysis")]
+	[InlineData("the report")]
+	[InlineData("the scan")]
+	[InlineData("appears to be written into the source code")]
+	public void PartBNamesNeitherTheToolNorItsConfigurationNorItsReport(string forbiddenText)
 	{
 		string partB = File.ReadAllText(PartBPath());
-		string expectedStatement = $"{_STILL_APPEARS_PHRASE}, followed by `{AnalyzeConsoleReport.BELOW_REPORTING_THRESHOLD_SUFFIX.Trim()}`";
 
-		Assert.Contains(expectedStatement, partB, StringComparison.Ordinal);
+		Assert.DoesNotContain(forbiddenText, partB, StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static string PartBPath()

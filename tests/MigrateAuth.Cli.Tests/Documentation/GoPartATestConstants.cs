@@ -8,6 +8,7 @@ internal static class GoPartATestConstants
 	internal const string ENVIRONMENT_CLASS = "GO-012";
 	internal const string HELPER_CALL_CLASS = "GO-013";
 	internal const int REGISTERED_CLASS_COUNT = 13;
+	internal const int HIGH_OR_MEDIUM_CLASS_COUNT = 10;
 	internal const int INTERACTIVE_SIGNAL_COUNT = 6;
 	internal const int FIXED_SIGNAL_COUNT = 5;
 

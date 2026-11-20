@@ -97,7 +97,7 @@ public static class OAuth2ClientConfigurationBlocks
 	private const string _FIELD_FORMAT = "{0}: {1}";
 
 	private const string _INTRODUCTION =
-		"Create or confirm this OAuth2 Client in RelativityOne (" + NSERIO_OBSERVATION_LABEL + ": the menu path is Home > Authentication > OAuth2 Client Manager, as Relativity's REST API authentication page names it). This tool never connects to RelativityOne and never creates or changes the OAuth2 Client; the settings below are guidance.";
+		"Create or confirm this OAuth2 Client in RelativityOne (" + NSERIO_OBSERVATION_LABEL + ": the menu path is Home > Authentication > OAuth2 Client Manager, as Relativity's REST API authentication page names it). These settings are guidance; create or change the OAuth2 Client in RelativityOne yourself.";
 
 	private const string _NAME_VALUE_CLIENT_CREDENTIALS =
 		"a descriptive name identifying the integration it serves. Use one OAuth2 Client per integration and do not share it across integrations.";
@@ -107,7 +107,7 @@ public static class OAuth2ClientConfigurationBlocks
 
 	private const string _CONTEXT_USER_VALUE =
 		NSERIO_RECOMMENDATION_LABEL + ": a dedicated integration user with the minimum permissions the integration needs, "
-		+ "and not a personal account and not an administrator, because every call runs with that user's permissions "
+		+ "and not a personal account and not an administrator unless a specific API the integration calls requires it, because every call runs with that user's permissions "
 		+ "and an administrator Context User gives the integration an administrator's reach. "
 		+ RELATIVITY_DOCUMENTATION_LABEL + " (REST API authentication page): describes the Context User as usually a member of the Relativity Administrators group, "
 		+ "though it could differ depending on the API or operation invoked; NSerio recommends against that default for an integration.";

@@ -32,7 +32,7 @@ public sealed class GenericRecommendationTests
 	private const string _CLIENT_CREDENTIALS_GRANT = "client-credentials grant";
 	private const string _PROCESS_ENVIRONMENT_OR_SECRET_STORE = "process environment or a secret store";
 	private const string _NEVER_IN_SOURCE = "never in source";
-	private const string _DID_NOT_RECOGNIZE = "did not recognize this construct";
+	private const string _DID_NOT_RECOGNIZE = "this construct is not one that this text describes";
 	private const string _NOT_CHARACTERIZED = "has not been characterized";
 
 	[Theory]

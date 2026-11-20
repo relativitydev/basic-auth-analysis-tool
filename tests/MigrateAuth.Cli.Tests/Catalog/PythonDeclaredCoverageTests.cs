@@ -26,7 +26,7 @@ public sealed class PythonDeclaredCoverageTests
 		"python2 with a minor version",
 		"syntax that exists only in Python 2",
 		"format specification in an f-string",
-		"stopped reading at such a form",
+		"whose reading stopped at such a form",
 		"comment written with no space",
 		"another language written inside a string",
 		"held in a variable, module or argument",
@@ -34,7 +34,7 @@ public sealed class PythonDeclaredCoverageTests
 		"built by a project function",
 		"assembled through a t-string",
 		"implicit use of a .netrc",
-		"HTTP clients the tool does not document",
+		"HTTP clients that are not documented",
 		"socket, a TLS stream",
 		"reflection or text",
 		"non-HTTP protocols of the standard library",
@@ -42,11 +42,11 @@ public sealed class PythonDeclaredCoverageTests
 		"confirmation that a call goes to RelativityOne",
 		"neutral name and no marker",
 		"product file named like a test",
-		"sign-in evidence the tool does not list",
+		"sign-in evidence that is not listed",
 		"sign-in evidence written in a form",
 		"opens a browser to a help page",
 		"takes too long",
-		"findings cap",
+		"cap on matches",
 		"triple-quoted string"
 	];
 

@@ -50,11 +50,15 @@ internal static class PublicDocumentChecks
 
 	private const string _FENCE_MARKER = "```";
 	private const string _CODE_SPAN_DELIMITER = "`";
+
 	private const string _LABEL_TERMINATOR = ":";
+
+
 	private const string _SECTION_END_PREFIX_LEVEL_ONE = "# ";
 	private const string _SECTION_END_PREFIX_LEVEL_TWO = "## ";
 	private const string _SECTION_END_PREFIX_LEVEL_THREE = "### ";
 	private const string _LINE_BREAK = "\n";
+	private const string _BULLET_PREFIX = "- ";
 	private const string _WHITESPACE_RUN = "\\s+";
 	private const string _SINGLE_SPACE = " ";
 
@@ -168,7 +172,9 @@ internal static class PublicDocumentChecks
 
 		foreach (DeclaredUnsupportedCoverage entry in declared)
 		{
-			if (!normalizedSection.Contains(NormalizeWhitespace(entry.Construct.Replace(_CODE_SPAN_DELIMITER, string.Empty, StringComparison.Ordinal)), StringComparison.OrdinalIgnoreCase))
+			string construct = entry.Construct.Replace(_CODE_SPAN_DELIMITER, string.Empty, StringComparison.Ordinal);
+
+			if (!normalizedSection.Contains(NormalizeWhitespace(construct), StringComparison.OrdinalIgnoreCase))
 			{
 				problems.Add($"Part A does not list the unsupported construct: {entry.Construct}");
 			}
@@ -204,7 +210,10 @@ internal static class PublicDocumentChecks
 		return problems.ToImmutable();
 	}
 
-	/// <summary>Each analyzer signal is listed in Part A under the heading of its own kind, and not under the other.</summary>
+	/// <summary>
+	/// Part A lists the analyzer's signals under the heading of their own kind, one bullet for each, and does not name them: the number of bullets under each
+	/// heading is the number of signals of that kind.
+	/// </summary>
 	public static ImmutableArray<string> FlowSignalProblems(string partA, IEnumerable<FlowSignal> signals)
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
@@ -217,37 +226,49 @@ internal static class PublicDocumentChecks
 			problems.Add($"The flow signals section does not state the cross-file limit ('{CROSS_FILE_LIMIT_PHRASE}').");
 		}
 
-		foreach (FlowSignal signal in signals)
-		{
-			bool isInteractive = signal.Kind == FlowSignalKind.InteractiveUser;
-			string owner = isInteractive ? interactive : fixedCredential;
-			string other = isInteractive ? fixedCredential : interactive;
+		FlowSignal[] signalList = [.. signals];
 
-			if (!owner.Contains($"`{signal.Name}`", StringComparison.Ordinal) || other.Contains($"`{signal.Name}`", StringComparison.Ordinal))
+		foreach ((FlowSignalKind kind, string section) in new[] { (FlowSignalKind.InteractiveUser, interactive), (FlowSignalKind.FixedCredential, fixedCredential) })
+		{
+			int registered = signalList.Count(signal => signal.Kind == kind);
+			int listed = BulletCountOf(section);
+
+			if (listed != registered)
 			{
-				problems.Add($"The signal {signal.Name} is not listed under its own kind, {signal.Kind}, alone.");
+				problems.Add($"Part A lists {listed} signals of the kind {kind}, and the analyzer has {registered}.");
 			}
 		}
 
 		return problems.ToImmutable();
 	}
 
+	/// <summary>The number of bullet lines in <paramref name="section"/>.</summary>
+	public static int BulletCountOf(string section)
+	{
+		return section.Split(_LINE_BREAK).Count(line => line.StartsWith(_BULLET_PREFIX, StringComparison.Ordinal));
+	}
+
 	/// <summary>
 	/// The markers of Part C item 2 in one class entry: before, after, token caching and expiry,
-	/// how to confirm the flow, the OAuth2 Client settings and the Part B pointer; and for a Code entry
+	/// which flow the entry is for, the link to the OAuth2 Client section of its flow, no copy of the OAuth2
+	/// Client block, and the Part B pointer; and for a Code entry
 	/// also refresh-token handling, PKCE and both variants, named as the language's templates label them.
 	/// </summary>
 	public static ImmutableArray<string> ItemTwoProblems(GeneratedBlock block, PartCBlockKey key, DocumentedLanguage language)
 	{
 		ImmutableArray<string>.Builder problems = ImmutableArray.CreateBuilder<string>();
-		string oauth2Client = OAuth2ClientConfigurationBlocks.For(key.Flow);
 
 		foreach ((string element, string marker) in CommonElementMarkers(key, language))
 		{
 			AddIfMissing(problems, block, element, marker);
 		}
 
-		AddIfMissing(problems, block, "the OAuth2 Client settings of the flow", oauth2Client);
+		AddIfMissing(problems, block, "the link to the OAuth2 Client section of the flow", PartCBlockComposition.SectionLinkOf(key.Flow));
+
+		if (block.Content.Contains(OAuth2ClientConfigurationBlocks.For(key.Flow), StringComparison.Ordinal))
+		{
+			problems.Add($"The entry '{block.Key}' repeats the OAuth2 Client block of {key.Flow}, which Part C holds once in its own section.");
+		}
 
 		if (key.Flow == CredentialFlow.AuthorizationCode && !key.IsGeneric)
 		{
@@ -265,7 +286,7 @@ internal static class PublicDocumentChecks
 
 	private static IEnumerable<(string Element, string Marker)> CommonElementMarkers(PartCBlockKey key, DocumentedLanguage language)
 	{
-		yield return ("how to confirm the flow and the default", PartCBlockComposition.CONFIRMING_THE_FLOW_MARKER);
+		yield return ("the flow the entry is for", PartCBlockComposition.FLOW_LEAD_MARKER);
 		yield return ("the OAuth2 Client label", RecommendationComposer.OAUTH2_CLIENT_LABEL + _LABEL_TERMINATOR);
 		yield return ("the Part B pointer", SecretManagementPointer.PART_B_NAME);
 

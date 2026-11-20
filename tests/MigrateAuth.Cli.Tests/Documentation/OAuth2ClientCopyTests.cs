@@ -14,17 +14,18 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 ///
 /// The copy check has three legs: the committed row 5 equals a fresh composition through
 /// <see cref="RecommendationComposer"/> (byte for byte inside the markers); the block equals the engine-owned
-/// <see cref="OAuth2ClientConfigurationBlocks"/> text for the flow; and every block of Part C carries the
-/// same text for its flow, so the guide, Part C and the report cannot say different things about a field.
+/// <see cref="OAuth2ClientConfigurationBlocks"/> text for the flow; and the OAuth2 Client section of each flow in
+/// each of the eight Part C files carries the same text, so the guide, Part C and the report cannot say different things about a field.
 /// </summary>
 public sealed class OAuth2ClientCopyTests
 {
-	private const string _NEVER_CREATES_STATEMENT = "never creates or changes the OAuth2 Client";
+	private const string _CREATE_IT_YOURSELF_STATEMENT = "create or change the OAuth2 Client in RelativityOne yourself";
 	private const string _ALTERED_FIELD_TEXT = "an altered field description";
 	private const string _MISSING_BLOCK_MESSAGE = "Row 5 has no generated block for the flow {0}.";
 	private const string _BULLET_PREFIX = "- ";
 	private const char _LINE_BREAK = '\n';
 	private const int _FIRST_FIELD_LINE_INDEX = 1;
+	private const int _DOCUMENTED_LANGUAGE_COUNT = 8;
 
 	private static readonly ImmutableArray<CredentialFlow> _flows = PartCBlockComposition.Flows;
 
@@ -68,46 +69,28 @@ public sealed class OAuth2ClientCopyTests
 
 			Assert.Equal(OAuth2ClientConfigurationBlocks.For(flow), block);
 			Assert.All(fieldLines, line => Assert.Contains(line, block, StringComparison.Ordinal));
-			Assert.Contains(_NEVER_CREATES_STATEMENT, block, StringComparison.Ordinal);
+			Assert.Contains(_CREATE_IT_YOURSELF_STATEMENT, block, StringComparison.Ordinal);
 		}
 	}
 
-	/// <summary>Every generated block of the Part C of the C# documentation carries the same field list as row 5 for its flow.</summary>
+	/// <summary>In the Part C of each of the eight languages, the OAuth2 Client section of each flow carries the same field list as row 5, so the guide, Part C and the report cannot say different things about a field.</summary>
 	[Fact]
-	public void EveryPartCBlockCarriesTheSameFieldListAsRowFive()
+	public void EveryPartCOAuth2ClientSectionCarriesTheSameFieldListAsRowFive()
 	{
-		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(PublicDocuments.PartCPath());
-	}
+		Assert.Equal(_DOCUMENTED_LANGUAGE_COUNT, DocumentedLanguage.All.Length);
 
-	/// <summary>Every generated block of the Part C of Python carries the same field list as row 5 for its flow, so the guide, Part C of Python and the report cannot say different things about a field.</summary>
-	[Fact]
-	public void EveryPartCBlockOfPythonCarriesTheSameFieldListAsRowFive()
-	{
-		string partCPath = DocumentedLanguage.Python.PartCPath();
-
-		Assert.NotEmpty(GeneratedBlockMarkers.Blocks(File.ReadAllText(partCPath)));
-		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(partCPath);
-	}
-
-	/// <summary>Every generated block of the Part C of Go carries the same field list as row 5 for its flow, so the guide, Part C of Go and the report cannot say different things about a field.</summary>
-	[Fact]
-	public void EveryPartCBlockOfGoCarriesTheSameFieldListAsRowFive()
-	{
-		string partCPath = DocumentedLanguage.Go.PartCPath();
-
-		Assert.NotEmpty(GeneratedBlockMarkers.Blocks(File.ReadAllText(partCPath)));
-		AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(partCPath);
-	}
-
-	private static void AssertEveryBlockOfPartCCarriesTheFieldListOfItsFlow(string partCPath)
-	{
-		string partC = File.ReadAllText(partCPath);
-
-		foreach (GeneratedBlock block in GeneratedBlockMarkers.Blocks(partC))
+		foreach (DocumentedLanguage language in DocumentedLanguage.All)
 		{
-			CredentialFlow flow = PartCBlockComposition.ParseKey(block.Key).Flow;
+			ImmutableArray<GeneratedBlock> blocks = GeneratedBlockMarkers.Blocks(File.ReadAllText(language.PartCPath()));
 
-			Assert.Contains(UserGuideBlockComposition.OAuth2ClientBlockOf(flow), block.Content, StringComparison.Ordinal);
+			foreach (CredentialFlow flow in _flows)
+			{
+				GeneratedBlock section = blocks.Single(block => block.Key == PartCBlockComposition.OAuth2ClientKeyOf(flow));
+				string[] fieldLines = [.. UserGuideBlockComposition.OAuth2ClientBlockOf(flow).Split(_LINE_BREAK).Where(line => line.StartsWith(_BULLET_PREFIX, StringComparison.Ordinal))];
+
+				Assert.Equal(UserGuideBlockComposition.OAuth2ClientBlockOf(flow), section.Content);
+				Assert.All(fieldLines, line => Assert.Contains(line, section.Content, StringComparison.Ordinal));
+			}
 		}
 	}
 

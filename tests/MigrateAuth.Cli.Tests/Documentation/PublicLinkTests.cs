@@ -86,7 +86,7 @@ public sealed class PublicLinkTests
 		Assert.All(PublicDocuments.UserGuidePaths(), path => Assert.True(File.Exists(path), $"{path} is missing."));
 		Assert.Equal(PublicDocuments.UserGuideRowCount() + 1, PublicDocuments.UserGuidePaths().Length);
 		Assert.Contains("user-guide/index.md", readme, StringComparison.Ordinal);
-		Assert.Contains("migration/part-a-csharp.md", readme, StringComparison.Ordinal);
+		Assert.Contains("migration/README.md", readme, StringComparison.Ordinal);
 	}
 
 	/// <summary>Every internal link of every Markdown file of the public set, the Migration Documentation included, resolves.</summary>

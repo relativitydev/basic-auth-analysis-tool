@@ -14,17 +14,17 @@ namespace MigrateAuth.Cli.Tests.Catalog;
 /// <summary>
 /// THE DECLARED UNSUPPORTED COVERAGE OF THE SHIPPED `JavaScript` ANALYZER, and the report section that lists it.
 ///
-/// Forty-seven entries are declared: the forty-three the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
+/// Forty-nine entries are declared: the forty-five the catalog lists and its four internal limits. Each identifier below is bound to exactly one entry of the analyzer by a
 /// word that only that entry's construct carries, so a dropped, duplicated or merged entry fails here. A form the catalog says is not supported must yield no finding, and the
 /// tests below write such a form. Every script is invented, with placeholder names.
 /// </summary>
 public sealed class JavaScriptDeclaredCoverageTests
 {
-	private const int _DECLARED_ENTRY_COUNT = 47;
-	private const int _ENTRIES_OF_THE_CATALOG_LIST = 43;
+	private const int _DECLARED_ENTRY_COUNT = 49;
+	private const int _ENTRIES_OF_THE_CATALOG_LIST = 45;
 	private const int _INTERNAL_LIMIT_COUNT = 4;
 	private const int _UNSUPPORTED_ENTRY_COUNT = 22;
-	private const int _COST_ENTRY_COUNT = 13;
+	private const int _COST_ENTRY_COUNT = 15;
 	private const int _NOT_APPLICABLE_ENTRY_COUNT = 7;
 	private const string _LANGUAGE_NAME = "JavaScript";
 	private const int _NESTED_TEMPLATE_DEPTH_BEYOND_THE_BOUND = 9;
@@ -58,7 +58,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 		("cost:O5-25", "written after a closing parenthesis"),
 		("cost:O5-26", "nested more than eight deep"),
 		("na:O5-27", "embedded in other files"),
-		("na:O5-28", "sign-in evidence the tool does not list"),
+		("na:O5-28", "sign-in evidence that is not listed"),
 		("cost:O5-29", "with a neutral name"),
 		("cost:O5-30", "built and never sent"),
 		("cost:O5-31", "a flow misread"),
@@ -75,14 +75,16 @@ public sealed class JavaScriptDeclaredCoverageTests
 		("unsupported:O5-42", "the project's own encoder function"),
 		("unsupported:O5-43", "chosen by a selector"),
 		("cost:O5-44", "separated from the Basic literal"),
+		("cost:O5-45", "a tight comparison chain or a Flow explicit type argument"),
+		("cost:O5-46", "a header-object match lost on a Basic literal"),
 		("K-1", "takes too long"),
-		("K-2", "findings cap"),
+		("K-2", "cap on matches"),
 		("K-3", "a call goes to RelativityOne"),
 		("K-4", "split across statements")
 	];
 
 	[Fact]
-	public void TheAnalyzerDeclaresTheFortyThreeEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
+	public void TheAnalyzerDeclaresTheFortyFiveEntriesOfTheCatalogAndItsFourLimitsAndEveryEntryHasAReasonAndNoInternalTerm()
 	{
 		ImmutableArray<DeclaredUnsupportedCoverage> declared = [.. JavaScriptRegisteredExpressions.Analyzer.LanguageIdentification.DeclaredUnsupportedCoverage];
 
@@ -112,7 +114,7 @@ public sealed class JavaScriptDeclaredCoverageTests
 	}
 
 	[Fact]
-	public void TheIdentifiersAreUniqueAndTheGroupsHoldTwentyTwoUnsupportedThirteenCostAndSevenNotApplicableEntries()
+	public void TheIdentifiersAreUniqueAndTheGroupsHoldTwentyTwoUnsupportedFifteenCostAndSevenNotApplicableEntries()
 	{
 		Assert.Equal(DeclaredEntries.Length, DeclaredEntries.Select(entry => entry.Id).Distinct(StringComparer.Ordinal).Count());
 		Assert.Equal(_UNSUPPORTED_ENTRY_COUNT, DeclaredEntries.Count(entry => entry.Id.StartsWith("unsupported:", StringComparison.Ordinal)));
