@@ -1,5 +1,44 @@
 # Migration Suggestions for VB.NET (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [VB-018 · NonHttpCredentialSink](#vb-018--nonhttpcredentialsink)
+	- [VB-019 · AuthenticationHelperDefinition](#vb-019--authenticationhelperdefinition)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [VB-001 · SdkUserNamePasswordCredentials](#vb-001--sdkusernamepasswordcredentials)
+	- [VB-002 · SdkLegacyRsapiCredentials](#vb-002--sdklegacyrsapicredentials)
+	- [VB-003 · CredentialCacheBasicScheme](#vb-003--credentialcachebasicscheme)
+	- [VB-004 · ThirdPartyBasicAuthenticatorType](#vb-004--thirdpartybasicauthenticatortype)
+	- [VB-005 · SchemeNamingExtensionMethod](#vb-005--schemenamingextensionmethod)
+	- [VB-006 · AuthorizationHeaderValueScheme](#vb-006--authorizationheadervaluescheme)
+	- [VB-007 · AuthorizationHeaderWrite](#vb-007--authorizationheaderwrite)
+	- [VB-008 · HttpRequestHeaderEnumAuthorization](#vb-008--httprequestheaderenumauthorization)
+	- [VB-009 · WcfBasicTransportCredential](#vb-009--wcfbasictransportcredential)
+	- [VB-010 · SdkConstructorWithUserAndPassword](#vb-010--sdkconstructorwithuserandpassword)
+	- [VB-011 · SdkSettingsCredentialProperties](#vb-011--sdksettingscredentialproperties)
+	- [VB-012 · NetworkCredentialOnHttpType](#vb-012--networkcredentialonhttptype)
+	- [VB-013 · NetworkCredentialConstruction](#vb-013--networkcredentialconstruction)
+	- [VB-014 · Base64UserPasswordPair](#vb-014--base64userpasswordpair)
+	- [VB-015 · TokenCarriedUnderBasicScheme](#vb-015--tokencarriedunderbasicscheme)
+	- [VB-016 · NetworkTransferWithCredentials](#vb-016--networktransferwithcredentials)
+	- [VB-017 · LateBoundHttpObjectCredentials](#vb-017--lateboundhttpobjectcredentials)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-17)
+	- [Authorization Code](#authorization-code-17)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their VB.NET code with [Part A](part-a-vbnet.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:
@@ -15,7 +54,7 @@ The two flows are the only ones recommended here:
 - **Client Credentials** is the flow when no person signs in. The application sends its client ID and client secret to the token endpoint and receives an access token. No user is involved, and every call runs as the OAuth2 Client's Context User.
 - **Authorization Code** is called "Code" in RelativityOne's OAuth2 Client form. The application redirects a signed-in user to RelativityOne, receives an authorization code at a registered Redirect URL, and exchanges it for a token that carries that user's permissions.
 
-VB.NET runs on .NET Framework and on .NET, and where they differ an entry says so. The code in the entries is VB.NET and was compiled before it was written here. The token-acquisition code was run against a local mock server only, not against a live RelativityOne instance.
+VB.NET runs on .NET Framework and on .NET, and where they differ an entry says so. The code in the entries is VB.NET and was compiled. The token-acquisition code has been run against a local mock server only, not against a live RelativityOne instance.
 
 **Choosing the flow.** The "Which flow" paragraph of each class in Part A says when a match belongs to each flow. If your RelativityOne instance already has an OAuth2 Client for this integration, use the flow of that client. The flow is fixed when an OAuth2 Client is created and cannot be changed when the client is edited ([Relativity's OAuth2 clients help page](https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm)), so moving an integration from one flow to the other means creating a new OAuth2 Client.
 

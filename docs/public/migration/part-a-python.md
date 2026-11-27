@@ -1,5 +1,34 @@
 # Rule Patterns for Python (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [PY-001 · BasicAuthHelperConstruction](#py-001--basicauthhelperconstruction)
+	- [PY-002 · NamedClientAuthTuple](#py-002--namedclientauthtuple)
+	- [PY-003 · AuthorizationHeaderBasicScheme](#py-003--authorizationheaderbasicscheme)
+	- [PY-004 · UrllibBasicAuthHandlerConstruction](#py-004--urllibbasicauthhandlerconstruction)
+	- [PY-005 · Urllib3MakeHeadersBasicAuth](#py-005--urllib3makeheadersbasicauth)
+	- [PY-006 · UnnamedAuthTuple](#py-006--unnamedauthtuple)
+	- [PY-007 · Base64UserPasswordPair](#py-007--base64userpasswordpair)
+	- [PY-008 · AiohttpEncodeBasicAuth](#py-008--aiohttpencodebasicauth)
+	- [PY-009 · PasswordManagerAddPassword](#py-009--passwordmanageraddpassword)
+	- [PY-010 · HttpxNetrcAuth](#py-010--httpxnetrcauth)
+	- [PY-011 · CredentialsInRequestUrl](#py-011--credentialsinrequesturl)
+	- [PY-012 · UrlUserinfoHeldLiteral](#py-012--urluserinfoheldliteral)
+	- [PY-013 · AuthorizationHeaderValueHeldInVariable](#py-013--authorizationheadervalueheldinvariable)
+	- [PY-014 · BasicLiteralInAuthorizationMapping](#py-014--basicliteralinauthorizationmapping)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Limits of the reading](#limits-of-the-reading)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+	- [What the declared list does not say](#what-the-declared-list-does-not-say)
+
 Part A describes how to find each Basic Authentication pattern in Python code, so that you can find them in your own source. Each pattern class has an identifier, such as `PY-003`, which is the rule's own name, and a confidence level.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own Python code. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for Python](part-c-python.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).
@@ -523,6 +552,6 @@ Some entries below describe limits that apply only to an automated scan, such as
 
 ### What the declared list does not say
 
-One class is supported at Low only, `PY-014`: it is matched and goes to manual review, so it is not in the list above. Part A does not describe the interpreter that runs your code, and a statement here about what a client does rests on that client's documentation at the version read; check a client's argument against the version you use.
+One class is supported at Low only, `PY-014`: it is matched and goes to manual review, so it is not in the list above. Part A does not describe the interpreter that runs your code, and a statement here about what a client does rests on that client's documentation and may differ in other versions; check a client's argument against the version you use.
 
-**What was not run.** The behaviour of the third-party clients (`requests`, `httpx`, `aiohttp` and `urllib3`) rests on their documentation at the version read, and is unchecked for any other version. No third-party client was installed or executed. Read the findings with that in mind.
+**Limits of these statements.** The behaviour of the third-party clients (`requests`, `httpx`, `aiohttp` and `urllib3`) rests on their documentation and may differ in other versions. No third-party client was installed or executed. Read the findings with that in mind.

@@ -1,5 +1,16 @@
 # Migration Documentation
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [The three parts and the order to use them](#the-three-parts-and-the-order-to-use-them)
+- [The eight languages](#the-eight-languages)
+- [How to work through it by hand](#how-to-work-through-it-by-hand)
+- [How to choose the flow by hand](#how-to-choose-the-flow-by-hand)
+- [What High, Medium and Low mean](#what-high-medium-and-low-mean)
+- [What the patterns do not cover](#what-the-patterns-do-not-cover)
+
 The Migration Documentation tells you how to find Basic Authentication in your own source code and how to move it to OAuth 2.0 for RelativityOne. It is written for developers and operators who own an integration that signs in to RelativityOne with a user name and a password. You need no program to use it: you search your code with the expressions it gives, judge each match, and apply the change it describes. Everything is plain text that you read and a search command that you run yourself.
 
 ## The three parts and the order to use them

@@ -20,34 +20,28 @@ internal sealed record DocumentLink(string Target);
 /// runs offline, but it is required to point at a Relativity documentation host, so that nothing else is
 /// linked from the guide by accident. Nothing in the public set may link into <c>docs</c> internal folders or any file the public set leaves out: the public set is <c>docs/public/</c> only.
 ///
-/// Anchors follow GitHub's rule for a heading: lower-case, punctuation other than hyphens and underscores
-/// removed, spaces to hyphens, and a numeric suffix for a heading that repeats. An explicit
-/// <c>&lt;a id="..."&gt;</c> is an anchor too.
+/// Anchors follow GitHub's rule for a heading, computed by <see cref="MarkdownAnchors"/>, the class the
+/// generator of the tables of contents of Part C also uses.
 /// </summary>
 public sealed class PublicLinkTests
 {
 	private const string _INLINE_LINK_PATTERN = "(?<!\\!)\\[[^\\]\\n]*\\]\\((?<target>[^)\\s]+)(?:\\s+\"[^\"]*\")?\\)";
 	private const string _REFERENCE_DEFINITION_PATTERN = "^\\[[^\\]\\n]+\\]:\\s*(?<target>\\S+)";
-	private const string _HEADING_PATTERN = "^#{1,6}\\s+(?<text>.+?)\\s*#*\\s*$";
-	private const string _EXPLICIT_ANCHOR_PATTERN = "<a\\s+id=\"(?<id>[^\"]+)\"";
-	private const string _SLUG_REMOVED_CHARACTERS_PATTERN = "[^\\p{L}\\p{N}\\p{M} _-]";
-	private const string _FENCE_MARKER = "```";
 	private const string _EXTERNAL_PREFIX_HTTP = "http://";
 	private const string _EXTERNAL_PREFIX_HTTPS = "https://";
 	private const string _MAIL_PREFIX = "mailto:";
 	private const char _FRAGMENT_SEPARATOR = '#';
 	private const string _MARKDOWN_EXTENSION = ".md";
-	private const string _HYPHEN = "-";
-	private const string _SPACE = " ";
 	private const string _PARENT_PREFIX = "..";
 	private const char _WINDOWS_SEPARATOR = '\\';
 	private const char _URL_SEPARATOR = '/';
-	private const char _LINE_BREAK = '\n';
 	private const string _NOT_PUBLIC_PATH_MESSAGE = "{0}: the link '{1}' leaves docs/public.";
 	private const string _NO_FILE_MESSAGE = "{0}: the link '{1}' names no file.";
 	private const string _NO_ANCHOR_MESSAGE = "{0}: the link '{1}' names an anchor that does not exist in {2}.";
 	private const string _EXTERNAL_HOST_MESSAGE = "{0}: the external link '{1}' is not on a Relativity documentation host.";
 	private const string _SELF_CHECK_SOURCE_NAME = "synthetic.md";
+	private const string _SYNTHETIC_FOLDER_LINK = "migration/README.md#nowhere";
+	private const string _LINE_JOIN = "\n";
 	private const string _SELF_CHECK_TEXT =
 		"# Title\n\n## Second heading, with punctuation\n\n[ok](#second-heading-with-punctuation) [bad](#nowhere) [gone](missing.md) [out](../../v1/prd.md)\n\n```text\n[ignored](missing.md)\n```\n";
 
@@ -56,9 +50,6 @@ public sealed class PublicLinkTests
 
 	private static readonly Regex _inlineLink = new(_INLINE_LINK_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 	private static readonly Regex _referenceDefinition = new(_REFERENCE_DEFINITION_PATTERN, RegexOptions.CultureInvariant | RegexOptions.Multiline | RegexOptions.ExplicitCapture);
-	private static readonly Regex _heading = new(_HEADING_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
-	private static readonly Regex _explicitAnchor = new(_EXPLICIT_ANCHOR_PATTERN, RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
-	private static readonly Regex _slugRemovedCharacters = new(_SLUG_REMOVED_CHARACTERS_PATTERN, RegexOptions.CultureInvariant);
 
 	/// <summary>Every link of the README resolves inside the public set.</summary>
 	[Fact]
@@ -112,6 +103,38 @@ public sealed class PublicLinkTests
 		Assert.Contains(problems, problem => problem.Contains("../../v1/prd.md", StringComparison.Ordinal));
 	}
 
+	/// <summary>The link check reports a broken file, a broken anchor, an anchor of another file and a repeated-heading suffix that does not exist, and honours fences, heading links and explicit anchors.</summary>
+	[Fact]
+	public void TheLinkCheckFollowsGitHubAnchorRulesOnSyntheticText()
+	{
+		string sourcePath = Path.Combine(PublicDocuments.PublicFolder(), _SELF_CHECK_SOURCE_NAME);
+		string text = string.Join(
+			_LINE_JOIN,
+			"# Doc",
+			"## Same",
+			"## Same",
+			"### With [a link](https://example.com/page) inside ###",
+			"```text",
+			"## Fenced heading",
+			"[ignored](missing.md)",
+			"```",
+			"~~~text",
+			"## Tilde heading",
+			"~~~",
+			"<a id=\"explicit\"></a> <a name=\"named\"></a>",
+			"[a](#same) [b](#same-1) [c](#same-2) [d](#fenced-heading) [e](#tilde-heading) [f](#with-a-link-inside) [g](#explicit) [h](#named) [i](gone.md)",
+			$"[j]({_SYNTHETIC_FOLDER_LINK}) [k](migration/README.md)");
+
+		string[] problems = [.. InternalProblemsIn(sourcePath, text)];
+
+		Assert.Equal(5, problems.Length);
+		Assert.Contains(problems, problem => problem.Contains("'#same-2'", StringComparison.Ordinal));
+		Assert.Contains(problems, problem => problem.Contains("'#fenced-heading'", StringComparison.Ordinal));
+		Assert.Contains(problems, problem => problem.Contains("'#tilde-heading'", StringComparison.Ordinal));
+		Assert.Contains(problems, problem => problem.Contains("'gone.md'", StringComparison.Ordinal) && problem.Contains("names no file", StringComparison.Ordinal));
+		Assert.Contains(problems, problem => problem.Contains(_SYNTHETIC_FOLDER_LINK, StringComparison.Ordinal) && problem.Contains("in README.md", StringComparison.Ordinal));
+	}
+
 	private static string[] ProblemsOf(string path)
 	{
 		string text = File.ReadAllText(path);
@@ -160,7 +183,7 @@ public sealed class PublicLinkTests
 		{
 			problem = string.Format(CultureInfo.InvariantCulture, _NO_FILE_MESSAGE, sourceName, link.Target);
 		}
-		else if (fragment.Length > 0 && !AnchorsOf(pathPart.Length == 0 ? sourceText : File.ReadAllText(targetPath)).Contains(fragment))
+		else if (fragment.Length > 0 && !MarkdownAnchors.AnchorsOf(pathPart.Length == 0 ? sourceText : File.ReadAllText(targetPath)).Contains(fragment))
 		{
 			problem = string.Format(CultureInfo.InvariantCulture, _NO_ANCHOR_MESSAGE, sourceName, link.Target, Path.GetFileName(targetPath));
 		}
@@ -185,7 +208,8 @@ public sealed class PublicLinkTests
 		return problem;
 	}
 
-	private static bool IsExternal(string target)
+	/// <summary>Whether a link target is an absolute <c>http</c>, <c>https</c> or <c>mailto</c> link, which the checks do not follow.</summary>
+	internal static bool IsExternal(string target)
 	{
 		return target.StartsWith(_EXTERNAL_PREFIX_HTTP, StringComparison.OrdinalIgnoreCase)
 			|| target.StartsWith(_EXTERNAL_PREFIX_HTTPS, StringComparison.OrdinalIgnoreCase)
@@ -200,9 +224,9 @@ public sealed class PublicLinkTests
 	}
 
 	/// <summary>The links of a document outside its fenced blocks: inline links and reference definitions.</summary>
-	private static ImmutableArray<DocumentLink> LinksOf(string text)
+	internal static ImmutableArray<DocumentLink> LinksOf(string text)
 	{
-		string outsideFences = OutsideFences(text);
+		string outsideFences = MarkdownAnchors.OutsideFences(text);
 
 		return
 		[
@@ -211,61 +235,4 @@ public sealed class PublicLinkTests
 		];
 	}
 
-	private static string OutsideFences(string text)
-	{
-		List<string> kept = [];
-		bool insideFence = false;
-
-		foreach (string line in text.Split(_LINE_BREAK))
-		{
-			if (line.TrimStart().StartsWith(_FENCE_MARKER, StringComparison.Ordinal))
-			{
-				insideFence = !insideFence;
-			}
-			else if (!insideFence)
-			{
-				kept.Add(line);
-			}
-		}
-
-		return string.Join(_LINE_BREAK, kept);
-	}
-
-	private static HashSet<string> AnchorsOf(string text)
-	{
-		HashSet<string> anchors = [];
-		Dictionary<string, int> repeats = [];
-
-		foreach (string line in OutsideFences(text).Split(_LINE_BREAK))
-		{
-			Match heading = _heading.Match(line);
-
-			if (heading.Success)
-			{
-				anchors.Add(UniqueSlug(Slug(heading.Groups["text"].Value), repeats));
-			}
-
-			foreach (Match anchor in _explicitAnchor.Matches(line))
-			{
-				anchors.Add(anchor.Groups["id"].Value);
-			}
-		}
-
-		return anchors;
-	}
-
-	private static string Slug(string headingText)
-	{
-		string withoutMarkup = _slugRemovedCharacters.Replace(headingText.ToLowerInvariant(), string.Empty);
-
-		return withoutMarkup.Replace(_SPACE, _HYPHEN, StringComparison.Ordinal);
-	}
-
-	private static string UniqueSlug(string slug, Dictionary<string, int> repeats)
-	{
-		repeats.TryGetValue(slug, out int seen);
-		repeats[slug] = seen + 1;
-
-		return seen == 0 ? slug : $"{slug}{_HYPHEN}{seen}";
-	}
 }

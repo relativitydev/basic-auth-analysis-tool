@@ -22,10 +22,10 @@ namespace MigrateAuth.Cli.Tests.AcceptanceHarness;
 public sealed class LaunchInformationTests
 {
 	/// <summary>
-	/// The alpha label written out, not read from <see cref="ToolVersion.CURRENT"/>: a comparison of
-	/// the constant against itself passes for any value, so the literal is what pins the label.
+	/// The release version written out, not read from <see cref="ToolVersion.CURRENT"/>: a comparison of
+	/// the constant against itself passes for any value, so the literal is what pins the version.
 	/// </summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.9.2-alpha";
+	private const string _EXPECTED_VERSION = "1.0.0";
 
 	private const string _EXPECTED_OUTPUT_FOLDER_DEFAULT_TEXT =
 		"Defaults to the outputPath in the user profile's configuration file, then to the working directory.";
@@ -105,19 +105,19 @@ public sealed class LaunchInformationTests
 	}
 
 	[Fact]
-	public void VersionPrintsTheAlphaLabelledVersionLiteral()
+	public void VersionPrintsTheReleaseVersionLiteral()
 	{
 		CliProcessOutcome outcome = CliProcessHarness.RunWithArguments([CommandLineParser.VERSION_OPTION]);
 
 		Assert.Equal((int)ExitCode.Success, outcome.ExitCode);
 		Assert.Contains(
-			$"{CommandLineParser.PRODUCT_NAME} {_EXPECTED_ALPHA_VERSION} (catalog ",
+			$"{CommandLineParser.PRODUCT_NAME} {_EXPECTED_VERSION} (catalog",
 			outcome.StandardOutput,
 			StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public void TheSessionBannerCarriesTheAlphaLabelledVersionLiteral()
+	public void TheSessionBannerCarriesTheReleaseVersionLiteral()
 	{
 		using RepositoryFixture repository = RepositoryFixture.CreateEmpty();
 		using TemporaryFolder destination = TemporaryFolder.Create();
@@ -129,7 +129,7 @@ public sealed class LaunchInformationTests
 
 		Assert.Equal((int)ExitCode.Success, outcome.ExitCode);
 		Assert.Contains(
-			$"Basic Authentication assessment CLI {_EXPECTED_ALPHA_VERSION} (catalog ",
+			$"Basic Authentication assessment CLI {_EXPECTED_VERSION} (catalog",
 			outcome.StandardOutput,
 			StringComparison.Ordinal);
 	}

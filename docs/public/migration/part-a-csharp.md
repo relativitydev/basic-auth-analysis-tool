@@ -1,5 +1,37 @@
 # Rule Patterns for C# (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [CS-001 · SdkUserNamePasswordCredentials](#cs-001--sdkusernamepasswordcredentials)
+	- [CS-002 · SdkLegacyRsapiCredentials](#cs-002--sdklegacyrsapicredentials)
+	- [CS-003 · CredentialCacheBasicScheme](#cs-003--credentialcachebasicscheme)
+	- [CS-004 · ThirdPartyBasicAuthenticatorType](#cs-004--thirdpartybasicauthenticatortype)
+	- [CS-005 · AuthorizationHeaderValueScheme](#cs-005--authorizationheadervaluescheme)
+	- [CS-006 · AuthorizationHeaderStringLiteral](#cs-006--authorizationheaderstringliteral)
+	- [CS-007 · NetworkCredentialOnHttpHandler](#cs-007--networkcredentialonhttphandler)
+	- [CS-008 · NetworkCredentialConstruction](#cs-008--networkcredentialconstruction)
+	- [CS-009 · Base64UserPasswordPair](#cs-009--base64userpasswordpair)
+	- [CS-011 · AuthenticationHelperDefinition](#cs-011--authenticationhelperdefinition)
+	- [CS-012 · HttpRequestHeaderEnumAuthorization](#cs-012--httprequestheaderenumauthorization)
+	- [CS-013 · WcfBasicTransportCredential](#cs-013--wcfbasictransportcredential)
+	- [CS-014 · SchemeNamingExtensionMethod](#cs-014--schemenamingextensionmethod)
+	- [CS-015 · SdkConstructorWithUserAndPassword](#cs-015--sdkconstructorwithuserandpassword)
+	- [CS-016 · CredentialAssembledAcrossStatements](#cs-016--credentialassembledacrossstatements)
+	- [CS-017 · SdkSettingsCredentialProperties](#cs-017--sdksettingscredentialproperties)
+	- [CS-018 · TokenCarriedUnderBasicScheme](#cs-018--tokencarriedunderbasicscheme)
+	- [CS-019 · NonHttpCredentialSink](#cs-019--nonhttpcredentialsink)
+	- [CS-020 · SdkProxyFactoryWithUserAndPassword](#cs-020--sdkproxyfactorywithuserandpassword)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+
 Part A describes how to find the Basic Authentication patterns in your own C# code. Each pattern class has an identifier, such as `CS-005`, that names its rule throughout the Migration Documentation, so a match you find by any means can be tied to the rule that describes it.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own C# code. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for C#](part-c-csharp.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).

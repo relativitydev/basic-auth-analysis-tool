@@ -1,5 +1,42 @@
 # Migration Suggestions for Python (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Choosing the variant for your application](#choosing-the-variant-for-your-application)
+	- [Client Credentials: one variant](#client-credentials-one-variant)
+	- [Authorization Code: two variants](#authorization-code-two-variants)
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [PY-014 · BasicLiteralInAuthorizationMapping](#py-014--basicliteralinauthorizationmapping)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [PY-001 · BasicAuthHelperConstruction](#py-001--basicauthhelperconstruction)
+	- [PY-002 · NamedClientAuthTuple](#py-002--namedclientauthtuple)
+	- [PY-003 · AuthorizationHeaderBasicScheme](#py-003--authorizationheaderbasicscheme)
+	- [PY-004 · UrllibBasicAuthHandlerConstruction](#py-004--urllibbasicauthhandlerconstruction)
+	- [PY-005 · Urllib3MakeHeadersBasicAuth](#py-005--urllib3makeheadersbasicauth)
+	- [PY-006 · UnnamedAuthTuple](#py-006--unnamedauthtuple)
+	- [PY-007 · Base64UserPasswordPair](#py-007--base64userpasswordpair)
+	- [PY-008 · AiohttpEncodeBasicAuth](#py-008--aiohttpencodebasicauth)
+	- [PY-009 · PasswordManagerAddPassword](#py-009--passwordmanageraddpassword)
+	- [PY-010 · HttpxNetrcAuth](#py-010--httpxnetrcauth)
+	- [PY-011 · CredentialsInRequestUrl](#py-011--credentialsinrequesturl)
+	- [PY-012 · UrlUserinfoHeldLiteral](#py-012--urluserinfoheldliteral)
+	- [PY-013 · AuthorizationHeaderValueHeldInVariable](#py-013--authorizationheadervalueheldinvariable)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-13)
+	- [Authorization Code](#authorization-code-13)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their Python code with [Part A](part-a-python.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:
@@ -17,7 +54,7 @@ The two flows are the only ones recommended here:
 
 These entries assume that Python reaches RelativityOne through its REST endpoints with an HTTP client, because they rely on no Relativity-published Python client or package. The text uses the standard library and the four HTTP clients `requests`, `httpx`, `aiohttp` and `urllib3`, and names no web framework in code. Where the entries show code, the blocks are fenced `python`, and a token is sent as `Authorization: Bearer`, with `X-CSRF-Header: -` on REST and Kepler calls. **Every entry asks first whether the destination is RelativityOne**, because the code does not show which host a call goes to: a Basic credential sent to another service is a real exposure, and the correct migration for that service is its own.
 
-**What was run and what was not.** The code blocks of the entries are examples and are unchecked: unless an entry marks a behaviour as checked, nothing in them was run, and none of it was run against RelativityOne. What each client does is described from its documentation at the version read and is unchecked for any other version. The framework text (Flask, Django and FastAPI) is not code in the entries and is not verified.
+**Status of the examples.** The code blocks of the entries are examples and are unchecked: unless an entry marks a behaviour as checked, they have not been run, and none has been run against RelativityOne. What each client does is described from its documentation and is unchecked for versions other than the one documented. The framework text (Flask, Django and FastAPI) is not code in the entries and is not verified.
 
 **Choosing the flow.** The "Which flow" paragraph of each class in Part A says when a match belongs to each flow. If your RelativityOne instance already has an OAuth2 Client for this integration, use the flow of that client. The flow is fixed when an OAuth2 Client is created and cannot be changed when the client is edited ([Relativity's OAuth2 clients help page](https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm)), so moving an integration from one flow to the other means creating a new OAuth2 Client.
 

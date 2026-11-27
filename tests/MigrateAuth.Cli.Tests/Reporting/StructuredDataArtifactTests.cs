@@ -31,17 +31,17 @@ public sealed class StructuredDataArtifactTests
 {
 	private static readonly DateOnly _artifactDate = new(2026, 9, 18);
 
-	/// <summary>The alpha label written out, so the assertion does not compare the constant with itself.</summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.9.2-alpha";
+	/// <summary>The release version written out, so the assertion does not compare the constant with itself.</summary>
+	private const string _EXPECTED_VERSION = "1.0.0";
 
 	[Fact]
-	public void TheProvenanceCarriesTheAlphaLabelledToolVersionLiteral()
+	public void TheProvenanceCarriesTheReleaseToolVersionLiteral()
 	{
 		ArtifactDocument document = RenderAndRead(ReportHarness.EmptyContent(
 			ReportHarness.CatalogWithCSharpOnly(),
 			ReportHarness.ConfigurationWith(ConfidenceLevel.Low)));
 
-		Assert.Equal(_EXPECTED_ALPHA_VERSION, document.Provenance.ToolVersion);
+		Assert.Equal(_EXPECTED_VERSION, document.Provenance.ToolVersion);
 	}
 
 	[Fact]

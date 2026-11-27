@@ -44,6 +44,9 @@ internal static class PartCBlockComposition
 	public const string AUTHORIZATION_CODE_SECTION_TITLE = "OAuth2 Client for Authorization Code";
 	public const string CLASS_ANCHOR_PREFIX = "#";
 
+	/// <summary>The key of the block that holds the table of contents of Part C: every level 2 and level 3 heading, computed from the finished document.</summary>
+	public const string TABLE_OF_CONTENTS_KEY = "table-of-contents";
+
 	private const char _KEY_SEPARATOR = ' ';
 	private const string _FLOW_LEAD_FORMAT = "{0} This entry is for {1}.{2}";
 	private const string _CLASS_CLAUSE_FORMAT = " The \"Which flow\" paragraph of {0} in [Part A]({1}{2}) says when a match belongs to this flow.";
@@ -133,6 +136,12 @@ internal static class PartCBlockComposition
 	public static string OAuth2ClientKeyOf(CredentialFlow flow)
 	{
 		return string.Concat(OAUTH2_CLIENT_KEY_PREFIX, _KEY_SEPARATOR, SlugOf(flow));
+	}
+
+	/// <summary>Whether a block key names the table of contents and not a recommendation or an OAuth2 Client section.</summary>
+	public static bool IsTableOfContentsKey(string keyText)
+	{
+		return keyText == TABLE_OF_CONTENTS_KEY;
 	}
 
 	/// <summary>Whether a block key names an OAuth2 Client section and not a class or generic entry.</summary>

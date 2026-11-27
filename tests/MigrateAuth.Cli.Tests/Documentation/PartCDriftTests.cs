@@ -45,6 +45,7 @@ public abstract class PartCDriftTests
 	private const string _CLEAN_TEXT = "Clean text.";
 	private const string _SOURCE_FORM_LEAD = "Source form: x";
 	private const string _GENERATED_BLOCK_FORBIDDEN_PATTERN = @"\bfindings?\b|\bflow notes?\b";
+	private const string _SYNTHETIC_DOCUMENT_BEGIN = "# Title";
 	private const string _REGENERATE_HINT = "Regenerate the blocks by running this test with the environment variable MIGRATE_AUTH_REGENERATE_PART_C=1.";
 
 	private static readonly string[] _lowCauseHeadings =
@@ -159,7 +160,7 @@ public abstract class PartCDriftTests
 		string path = _language.PartCPath();
 		string committed = File.ReadAllText(path);
 		FrozenDictionary<string, string> composedByKey = ComposedContentByKey();
-		string fresh = GeneratedBlockMarkers.Rewrite(committed, key => ComposedContentOrFail(composedByKey, key));
+		string fresh = FreshText(committed, key => ComposedContentOrFail(composedByKey, key));
 
 		if (Environment.GetEnvironmentVariable(REGENERATE_ENVIRONMENT_VARIABLE) == _REGENERATE_ENABLED_VALUE && fresh != committed)
 		{
@@ -173,6 +174,50 @@ public abstract class PartCDriftTests
 			differingBlocks.Length == 0,
 			$"Part C differs from a fresh composition in: {string.Join(", ", differingBlocks)}. {_REGENERATE_HINT}");
 		Assert.Equal(fresh, committed);
+	}
+
+	/// <summary>Part C carries exactly one table of contents block, balanced, and it lists every level 2 and level 3 heading.</summary>
+	[Fact]
+	public void PartCCarriesOneTableOfContentsThatListsEveryLevelTwoAndLevelThreeHeading()
+	{
+		string partC = File.ReadAllText(_language.PartCPath());
+		ImmutableArray<GeneratedBlock> blocks = [.. GeneratedBlockMarkers.Blocks(partC).Where(block => PartCBlockComposition.IsTableOfContentsKey(block.Key))];
+		ImmutableArray<MarkdownHeading> headings = [.. MarkdownAnchors.HeadingsOf(partC).Where(heading => heading.Level is >= MarkdownAnchors.TABLE_OF_CONTENTS_TOP_LEVEL and <= MarkdownAnchors.TABLE_OF_CONTENTS_BOTTOM_LEVEL)];
+
+		Assert.Empty(GeneratedBlockMarkers.BalanceProblems(partC));
+		Assert.Single(blocks);
+		Assert.Equal(headings.Length, blocks[0].Content.Split(_LINE_BREAK).Length);
+		Assert.All(headings, heading => Assert.Contains($"[{heading.Text}](#{heading.Anchor})", blocks[0].Content, StringComparison.Ordinal));
+	}
+
+	/// <summary>The generator lists level 2 and level 3 headings with GitHub anchors, repeated headings suffixed, skips level 4, and ignores a heading line inside a fence, shown on synthetic text; a drifted committed table is detected.</summary>
+	[Fact]
+	public void TheTableOfContentsGeneratorListsTheHeadingsAndADriftedTableIsDetected()
+	{
+		string begin = GeneratedBlockMarkers.BeginMarker(PartCBlockComposition.TABLE_OF_CONTENTS_KEY);
+		string end = GeneratedBlockMarkers.EndMarker(PartCBlockComposition.TABLE_OF_CONTENTS_KEY);
+		string sample = string.Join(
+			_LINE_BREAK_TEXT,
+			_SYNTHETIC_DOCUMENT_BEGIN,
+			begin,
+			end,
+			"## Same",
+			"### Same",
+			"#### Deep",
+			"```text",
+			"# not a heading",
+			"```",
+			"## Same",
+			"## C#");
+
+		string fresh = FreshText(sample, _ => string.Empty);
+		string drifted = fresh.Replace("(#same-1)", "(#same)", StringComparison.Ordinal);
+		string[] expected = ["- [Same](#same)", "\t- [Same](#same-1)", "- [Same](#same-2)", "- [C#](#c)"];
+
+		Assert.Equal(expected, GeneratedBlockMarkers.Blocks(fresh).Single().Content.Split(_LINE_BREAK));
+		Assert.Equal(fresh, FreshText(fresh, _ => string.Empty));
+		Assert.NotEqual(fresh, drifted);
+		Assert.Equal([PartCBlockComposition.TABLE_OF_CONTENTS_KEY], DifferingBlockKeys(drifted, fresh).Select(difference => difference.Split(_WORD_SEPARATOR)[0]));
 	}
 
 	/// <summary>Every class entry carries a marker for each item 2 element of Part C, and the generic block carries the shared ones.</summary>
@@ -461,7 +506,8 @@ public abstract class PartCDriftTests
 		string[] problems =
 		[
 			.. GeneratedBlockMarkers.Blocks(partC)
-				.Where(block => Regex.IsMatch(block.Content, _GENERATED_BLOCK_FORBIDDEN_PATTERN, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+				.Where(block => !PartCBlockComposition.IsTableOfContentsKey(block.Key))
+					.Where(block => Regex.IsMatch(block.Content, _GENERATED_BLOCK_FORBIDDEN_PATTERN, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
 				.Select(block => $"The generated block {block.Key} of Part C refers to a finding or a flow note, which belong to the tool's report.")
 		];
 
@@ -543,7 +589,7 @@ public abstract class PartCDriftTests
 
 	private static ImmutableArray<GeneratedBlock> EntryBlocks(string partC)
 	{
-		return [.. GeneratedBlockMarkers.Blocks(partC).Where(block => !PartCBlockComposition.IsOAuth2ClientKey(block.Key))];
+		return [.. GeneratedBlockMarkers.Blocks(partC).Where(block => !PartCBlockComposition.IsOAuth2ClientKey(block.Key) && !PartCBlockComposition.IsTableOfContentsKey(block.Key))];
 	}
 
 	private static int CountOf(string text, string value)
@@ -570,6 +616,27 @@ public abstract class PartCDriftTests
 		return composedByKey.TryGetValue(key, out string? content)
 			? content
 			: throw new InvalidOperationException($"Part C holds a block '{key}' that no composition produces.");
+	}
+
+	/// <summary>
+	/// The document as the generator writes it: every block but the table of contents composed by
+	/// <paramref name="contentForKey"/>, then the table of contents computed from that finished text.
+	/// </summary>
+	private static string FreshText(string committed, Func<string, string> contentForKey)
+	{
+		string withoutTableOfContents = GeneratedBlockMarkers.Rewrite(
+			committed,
+			key => PartCBlockComposition.IsTableOfContentsKey(key) ? string.Empty : contentForKey(key));
+		string tableOfContents = MarkdownAnchors.TableOfContentsOf(withoutTableOfContents);
+
+		return GeneratedBlockMarkers.Rewrite(
+			withoutTableOfContents,
+			key => PartCBlockComposition.IsTableOfContentsKey(key) ? tableOfContents : BlockContentOf(withoutTableOfContents, key));
+	}
+
+	private static string BlockContentOf(string text, string key)
+	{
+		return GeneratedBlockMarkers.Blocks(text).Single(block => block.Key == key).Content;
 	}
 
 	private static string[] DifferingBlockKeys(string committed, string fresh)

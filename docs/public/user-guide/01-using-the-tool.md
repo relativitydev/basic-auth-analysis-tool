@@ -1,6 +1,52 @@
 # Using the tool (User Guide, section 1 of 8)
 
-This section explains how to install and run `migrate-auth`, how to configure it, and how to read what it writes. The Migration Documentation explains the patterns the tool looks for and what to do about each one: Part A describes each pattern and how to search for it, Part C gives the migration suggestion for each pattern and each OAuth 2.0 flow, and [Part B](../migration/part-b-secret-management.md), Secret Management, says where the new secrets go. The Migration Documentation also serves readers who do not run the tool: it can be followed by hand to find and migrate Basic Authentication, starting from its [overview](../migration/README.md). The pages for each language are listed in the overview.
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [What the tool does and does not do](#what-the-tool-does-and-does-not-do)
+- [Setting up](#setting-up)
+	- [Supported operating systems](#supported-operating-systems)
+	- [Verifying the checksum](#verifying-the-checksum)
+- [First run](#first-run)
+	- [First run on Windows](#first-run-on-windows)
+	- [First run on Linux](#first-run-on-linux)
+	- [First run on macOS](#first-run-on-macos)
+	- [Checking that the tool starts](#checking-that-the-tool-starts)
+- [Starting a session](#starting-a-session)
+- [The workflow](#the-workflow)
+	- [What the scan reads and what it leaves out](#what-the-scan-reads-and-what-it-leaves-out)
+	- [Progress and large repositories](#progress-and-large-repositories)
+- [The ai-assist command](#the-ai-assist-command)
+	- [Running it](#running-it)
+	- [The three environments](#the-three-environments)
+	- [What the pack contains](#what-the-pack-contains)
+	- [What the report gets](#what-the-report-gets)
+	- [Generate only, or launch](#generate-only-or-launch)
+	- [The notices before a launch](#the-notices-before-a-launch)
+	- [What leaves your machine](#what-leaves-your-machine)
+	- [Choosing a stricter mode before you launch](#choosing-a-stricter-mode-before-you-launch)
+	- [The launch](#the-launch)
+	- [When a launch is not offered](#when-a-launch-is-not-offered)
+	- [A tool the search does not find](#a-tool-the-search-does-not-find)
+	- [What this guide could not confirm](#what-this-guide-could-not-confirm)
+- [The commands](#the-commands)
+- [The configuration file](#the-configuration-file)
+- [Reading the report](#reading-the-report)
+	- [Findings summary](#findings-summary)
+	- [Coverage](#coverage)
+	- [Scan summary](#scan-summary)
+	- [Skipped items](#skipped-items)
+	- [Findings](#findings)
+	- [Findings limits](#findings-limits)
+	- [Provenance](#provenance)
+	- [Values of the JSON fields](#values-of-the-json-fields)
+- [Choosing and confirming the flow](#choosing-and-confirming-the-flow)
+- [Where the outputs go](#where-the-outputs-go)
+- [Exit codes](#exit-codes)
+- [Where to go next](#where-to-go-next)
+
+This section explains how to set up and run `migrate-auth`, how to configure it, and how to read what it writes. The Migration Documentation explains the patterns the tool looks for and what to do about each one: Part A describes each pattern and how to search for it, Part C gives the migration suggestion for each pattern and each OAuth 2.0 flow, and [Part B](../migration/part-b-secret-management.md), Secret Management, says where the new secrets go. The Migration Documentation also serves readers who do not run the tool: it can be followed by hand to find and migrate Basic Authentication, starting from its [overview](../migration/README.md). The pages for each language are listed in the overview.
 
 The other sections of this guide are listed in the [index](index.md).
 
@@ -14,24 +60,24 @@ The other sections of this guide are listed in the [index](index.md).
 - **It reports what its catalog searches for.** A construct the catalog does not cover, or a language this release does not analyze, produces no finding. An empty result is not proof that no Basic Authentication exists. See [Limits of the tool](03-limits.md).
 - **This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go only, and includes the optional `ai-assist` command.** This guide covers those eight languages and `ai-assist`. C# files are those ending in `.cs`, and VB.NET files are those ending in `.vb`. PowerShell files are those ending in `.ps1` or `.psm1`; a `.psd1` file is a data file that is counted but not analyzed. Shell files are those ending in `.sh`, `.bash`, `.zsh` or `.ksh`, and files with no extension whose first line names `bash`, `sh`, `zsh` or `ksh` as the interpreter. Go files are those ending in `.go`; a file with no extension is not read as Go. Python files are those ending in `.py` or `.pyw`, and files with no extension whose first line names `python`, `python2`, `python3` or `python3.<digits>` as the interpreter. JavaScript files are those ending in `.js`, `.mjs`, `.cjs` or `.jsx`, and files with no extension whose first line is a shebang that names `node` or `nodejs`. TypeScript files are those ending in `.ts`, `.tsx`, `.mts` or `.cts`, and declaration files (`.d.ts`, `.d.mts` and `.d.cts`), which are reported at Low. Files in other languages are counted and are not analyzed. See the [release notes](02-release-notes.md).
 
-## Installing
+## Setting up
 
 A release consists of one file for each platform and a `SHA256SUMS` file that lists the SHA-256 checksum of every file. There is no installer: you download the file for your platform, check its checksum, and run it.
 
 | Platform | File you download | What to do after checking the checksum |
 | --- | --- | --- |
-| Windows (x64) | the `win-x64` binary, `migrate-auth-0.9.2-alpha-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
-| Linux (x64) | the `linux-x64` binary, `migrate-auth-0.9.2-alpha-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
-| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-0.9.2-alpha-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
-| macOS on Intel | the `osx-x64` binary, `migrate-auth-0.9.2-alpha-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| Windows (x64) | the `win-x64` binary, `migrate-auth-1.0.0-win-x64.exe` | Put it in a folder of your choice. See [First run on Windows](#first-run-on-windows). |
+| Linux (x64) | the `linux-x64` binary, `migrate-auth-1.0.0-linux-x64` | Make it executable. See [First run on Linux](#first-run-on-linux). |
+| macOS on Apple silicon | the `osx-arm64` binary, `migrate-auth-1.0.0-osx-arm64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
+| macOS on Intel | the `osx-x64` binary, `migrate-auth-1.0.0-osx-x64` | Make it executable, and allow it in Gatekeeper. See [First run on macOS](#first-run-on-macos). |
 
-In this release the macOS binaries are plain binaries, like the Linux one. They are not signed with an Apple Developer ID certificate and not notarized by Apple, so the checksum is the only check that your download is intact. Both macOS binaries of this release were run on macOS 15. To find which binary your Mac needs, run `uname -m` in Terminal: it prints `arm64` on Apple silicon and `x86_64` on Intel.
+In this release the macOS binaries are plain binaries, like the Linux one. They are not signed with an Apple Developer ID certificate and not notarized by Apple, so the checksum is the only check that your download is intact. To find which binary your Mac needs, run `uname -m` in Terminal: it prints `arm64` on Apple silicon and `x86_64` on Intel.
 
-Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-0.9.2-alpha-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
+Download the file for your platform and `SHA256SUMS` from the same release page, into the same folder. The file name carries the version and the platform. You can run the file under that name, or rename it to `migrate-auth` (`migrate-auth.exe` on Windows) to match the commands in this guide. In PowerShell, and in a Linux or macOS shell, a program in the current folder is started with the `.\` or `./` prefix, for example `.\migrate-auth-1.0.0-win-x64.exe`, unless its folder is in your `PATH`; the commands below show the name without the prefix, and you add it.
 
 ### Supported operating systems
 
-Each binary is self-contained: it does not need .NET or any other runtime installed. The tool is built with .NET 10 and compiled ahead of time to native code, so the operating systems it supports are the ones Microsoft lists for .NET 10, narrowed where the way a binary of this release was built requires a newer system. The last column says where each binary was run for this release.
+Each binary is self-contained: it does not need .NET or any other runtime installed. The tool is built with .NET 10 and compiled ahead of time to native code, so the operating systems it supports are the ones Microsoft lists for .NET 10, narrowed where a binary of this release needs a newer system. The last column says where each binary was run for this release.
 
 | Platform | Minimum supported version | Run for this release |
 | --- | --- | --- |
@@ -40,11 +86,11 @@ Each binary is self-contained: it does not need .NET or any other runtime instal
 | macOS on Apple silicon (`osx-arm64`) | macOS 15 | macOS 15 (Apple silicon) |
 | macOS on Intel (`osx-x64`) | macOS 15 | macOS 15.8.3 |
 
-- **Linux.** .NET 10 itself supports glibc 2.27 and later on x64, but a native binary built on Linux runs only on the same or a newer Linux version than the one it was built on. The Linux binary of this release was built on Ubuntu 22.04, whose glibc is 2.35, so a distribution with an older glibc is not supported even where .NET 10 lists it. Distributions based on musl rather than glibc, such as Alpine Linux, are not supported: the `linux-x64` binary needs glibc.
+- **Linux.** .NET 10 itself supports glibc 2.27 and later on x64, but a native binary built on Linux runs only on the same or a newer Linux version than the one it was built on. The Linux binary needs glibc 2.35 or later, so a distribution with an older glibc is not supported even where .NET 10 lists it. Distributions based on musl rather than glibc, such as Alpine Linux, are not supported: the `linux-x64` binary needs glibc.
 - **macOS.** .NET 10 supports macOS 15, 26 and 27. macOS 13 and macOS 14 are older than the versions .NET 10 supports, so they are not supported, whether or not the binary happens to start on them. Use macOS 15 or later.
 - **Other versions.** A version older than the minimum in the table may happen to run the tool, and it is not supported. A supported version not named in the last column has not been run for this release.
 
-**Where these versions come from.** The versions follow ".NET 10.0 - Supported OS versions" in the .NET release notes (`https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md`, last updated 2026-09-28). That a native binary built on Linux runs only on the same or a newer Linux version is stated in "Native AOT deployment overview" (`https://learn.microsoft.com/dotnet/core/deploying/native-aot/`), and that `linux-x64` is the binary for glibc distributions while musl distributions such as Alpine Linux use another one is stated in ".NET Runtime Identifier (RID) catalog" (`https://learn.microsoft.com/dotnet/core/rid-catalog`). The addresses are given as text rather than as links, because this guide links only to Relativity documentation.
+**Where these versions come from.** The versions follow ".NET 10.0 - Supported OS versions" in the .NET release notes (`https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md`, last updated 2026-09-28). That a native binary built on Linux runs only on the same or a newer Linux version is stated in "Native AOT deployment overview" (`https://learn.microsoft.com/dotnet/core/deploying/native-aot/`), and that `linux-x64` is the binary for glibc distributions while musl distributions such as Alpine Linux use another one is stated in ".NET Runtime Identifier (RID) catalog" (`https://learn.microsoft.com/dotnet/core/rid-catalog`). The addresses are given as text rather than as links.
 
 ### Verifying the checksum
 
@@ -69,11 +115,11 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 The command checks every file named in `SHA256SUMS` that is present in the current folder, and prints `OK` beside a file whose checksum matches.
 
-**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-0.9.2-alpha-osx-x64`.
+**macOS (Terminal).** The example checks the Apple silicon binary; on Intel, use `migrate-auth-1.0.0-osx-x64`.
 
 ```bash
-shasum -a 256 migrate-auth-0.9.2-alpha-osx-arm64
-grep migrate-auth-0.9.2-alpha-osx-arm64 SHA256SUMS
+shasum -a 256 migrate-auth-1.0.0-osx-arm64
+grep migrate-auth-1.0.0-osx-arm64 SHA256SUMS
 ```
 
 The first command prints the checksum of your download and the second prints the line of `SHA256SUMS` that names the file. The two hexadecimal values must be identical. Check the checksum before you make the file executable or allow it in Gatekeeper: the macOS binaries are not signed or notarized, so macOS cannot vouch for them, and the checksum is the integrity check.
@@ -87,7 +133,7 @@ The Windows binary is not signed. When you start a file you downloaded with a br
 1. In the SmartScreen window, choose **More info**.
 2. Choose **Run anyway**.
 
-If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-0.9.2-alpha-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
+If you start the tool from a terminal and Windows blocks it without showing that window, open the file's **Properties**, tick **Unblock** at the bottom of the General tab, and choose **OK**; or run `Unblock-File .\migrate-auth-1.0.0-win-x64.exe` in PowerShell. Both do the same thing, and you need to do it once per downloaded copy.
 
 The first launch of a freshly downloaded copy can take longer than later launches. See the [release notes](02-release-notes.md#known-issues).
 
@@ -96,24 +142,24 @@ The first launch of a freshly downloaded copy can take longer than later launche
 Linux does not show a reputation check for a downloaded binary. Make the file executable, then run it:
 
 ```bash
-chmod +x ./migrate-auth-0.9.2-alpha-linux-x64
-./migrate-auth-0.9.2-alpha-linux-x64 --version
+chmod +x ./migrate-auth-1.0.0-linux-x64
+./migrate-auth-1.0.0-linux-x64 --version
 ```
 
 ### First run on macOS
 
 The macOS binaries of this release are **not signed with an Apple Developer ID certificate and not notarized by Apple**. macOS therefore cannot tell you who made the file or whether it was changed after it was built, and the checksum you verified above is the only integrity check. Do not continue unless the checksum matches.
 
-1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-0.9.2-alpha-osx-x64`.
+1. Make the file executable. The commands use the Apple silicon binary; on Intel, use `migrate-auth-1.0.0-osx-x64`.
 
 	```bash
-	chmod +x ./migrate-auth-0.9.2-alpha-osx-arm64
+	chmod +x ./migrate-auth-1.0.0-osx-arm64
 	```
 
 2. Run it once:
 
 	```bash
-	./migrate-auth-0.9.2-alpha-osx-arm64 --version
+	./migrate-auth-1.0.0-osx-arm64 --version
 	```
 
 	If you downloaded the file with a web browser, macOS Gatekeeper blocks this first run and shows a warning that Apple cannot check the file for malicious software. This is expected for this release. Close the warning with **Done**; do not choose **Move to Trash**.
@@ -124,21 +170,21 @@ The macOS binaries of this release are **not signed with an Apple Developer ID c
 	- **In Terminal.** Remove the quarantine attribute that macOS attaches to a downloaded file, then run the command again:
 
 		```bash
-		xattr -d com.apple.quarantine ./migrate-auth-0.9.2-alpha-osx-arm64
+		xattr -d com.apple.quarantine ./migrate-auth-1.0.0-osx-arm64
 		```
 
 		If the file does not carry the attribute, the command reports that there is no such attribute and changes nothing.
 
 If your Mac is managed by your organization, its device management can prevent you from overriding Gatekeeper; ask your administrator.
 
-**Where these steps come from.** The System Settings steps and the warning follow two pages of Apple Support: "Open a Mac app from an unknown developer" (`https://support.apple.com/guide/mac-help/mh40616/mac`) and "Safely open apps on your Mac" (`https://support.apple.com/en-us/102445`). How Gatekeeper checks downloaded software, and that an organization can restrict overriding it, is described in "Gatekeeper and runtime protection" in Apple Platform Security (`https://support.apple.com/guide/security/sec5599b66df/web`). The addresses are given as text rather than as links, because this guide links only to Relativity documentation. Those pages describe apps. Apple does not document how Gatekeeper presents a command-line binary started from Terminal, so the warning you see may be worded differently from the one Apple shows. Apple's support documentation also does not describe removing the quarantine attribute; the `xattr` command and its `-d` option are described in the `xattr` manual page on your Mac (`man xattr`).
+**Where these steps come from.** The System Settings steps and the warning follow two pages of Apple Support: "Open a Mac app from an unknown developer" (`https://support.apple.com/guide/mac-help/mh40616/mac`) and "Safely open apps on your Mac" (`https://support.apple.com/en-us/102445`). How Gatekeeper checks downloaded software, and that an organization can restrict overriding it, is described in "Gatekeeper and runtime protection" in Apple Platform Security (`https://support.apple.com/guide/security/sec5599b66df/web`). The addresses are given as text rather than as links. Those pages describe apps. Apple does not document how Gatekeeper presents a command-line binary started from Terminal, so the warning you see may be worded differently from the one Apple shows. Apple's support documentation also does not describe removing the quarantine attribute; the `xattr` command and its `-d` option are described in the `xattr` manual page on your Mac (`man xattr`).
 
 ### Checking that the tool starts
 
-Run the tool with `--version` (on Windows, `.\migrate-auth-0.9.2-alpha-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
+Run the tool with `--version` (on Windows, `.\migrate-auth-1.0.0-win-x64.exe --version`). It prints one line with the tool version and the version of the detection catalog, and exits:
 
 ```text
-migrate-auth 0.9.2-alpha (catalog 1.51.2)
+migrate-auth 1.0.0 (catalog 1.51.2)
 ```
 
 `--help` (or `-h`) prints the usage, the two options described below, and the list of commands, and exits.
@@ -498,7 +544,7 @@ The agent it starts has the same search path with every entry inside the reposit
 
 ### What this guide could not confirm
 
-The launch was run with the three real tools, each signed in to an account, on Windows, Linux and macOS on Intel, and each completed a review. The tools change between versions, so with the version you run the points below can differ from what this guide describes. The tool is built so that none of them can change what it does to your files:
+The launch completes a review with each of the three tools, each signed in to an account, on Windows, Linux and macOS on Intel. The tools change between versions, so with the version you run the points below can differ from what this guide describes. The tool is built so that none of them can change what it does to your files:
 
 - The code each tool returns when it ends from an interactive session. The Linux and macOS reading of codes as signals is a heuristic.
 - Whether OpenAI Codex and GitHub Copilot CLI are installed on Windows as a program or as a script wrapper. The tool handles both.
@@ -528,7 +574,7 @@ The tool reads settings from a file named `.migrate-auth.json`. It looks in two 
 
 **Where the user profile file is.** It is a file named `.migrate-auth.json` directly in your user profile folder, the folder the .NET runtime reports as the user profile. On Windows that is `%USERPROFILE%\.migrate-auth.json`, for example `C:\Users\<you>\.migrate-auth.json`. On Linux, and on macOS, it is `$HOME/.migrate-auth.json`; when `HOME` is not set, the runtime falls back to the home folder recorded for your account. No other folder is searched, the tool never creates the file, and if the runtime reports no user profile folder at all the profile file is treated as absent, without a message.
 
-**What a relative path is relative to.** A relative `outputPath`, like a relative `--documentationDestinationFolderPath`, is resolved against the folder you started the tool from (its working directory). It is not resolved against the repository or against the profile folder. **A leading `~` in the `outputPath` of the user profile file is expanded first:** `~`, `~/` and `~\` mean your home folder, on Windows, Linux and macOS, and `~/reports` is the folder `reports` in it. A `~` is never read as a folder name. If the tool cannot determine your home folder, or the path starts with `~` and a name (`~name`, the home folder of another user), it says so and does not start the session, with exit code 4. The tool does not expand a `~` in `--documentationDestinationFolderPath`, because your shell does that when you type it, and it does not expand `--repositoryFolderPath`. The expansion has been tested on Windows and on Linux and has not been measured on macOS.
+**What a relative path is relative to.** A relative `outputPath`, like a relative `--documentationDestinationFolderPath`, is resolved against the folder you started the tool from (its working directory). It is not resolved against the repository or against the profile folder. **A leading `~` in the `outputPath` of the user profile file is expanded first:** `~`, `~/` and `~\` mean your home folder, on Windows, Linux and macOS, and `~/reports` is the folder `reports` in it. A `~` is never read as a folder name. If the tool cannot determine your home folder, or the path starts with `~` and a name (`~name`, the home folder of another user), it says so and does not start the session, with exit code 4. The tool does not expand a `~` in `--documentationDestinationFolderPath`, because your shell does that when you type it, and it does not expand `--repositoryFolderPath`. The expansion is not verified on macOS.
 
 The file is a JSON object. This example uses every key:
 
@@ -642,7 +688,7 @@ Each finding has a heading of the form `<id> - <file>:<line> - <language> - <pat
 
 #### The flow, the decision and the note
 
-Every High and Medium finding is given one of two OAuth 2.0 flows, and the report says how it chose. These three fields are extensions of the data contract that the tool adds to each finding.
+Every High and Medium finding is given one of two OAuth 2.0 flows, and the report says how it chose. These three fields are part of each finding that carries a flow.
 
 - **`flow`** is `ClientCredentials` (the application authenticates as itself, with no user present) or `AuthorizationCode` (the application acts for a signed-in user). See [OAuth 2.0 essentials](04-oauth2-essentials.md) for how to choose.
 - **`flowDecision`** is how the flow was chosen:

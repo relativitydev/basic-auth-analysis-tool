@@ -227,17 +227,17 @@ public sealed class MarkdownReportTests
 		Assert.Contains(MarkdownReportRenderer.NO_DECLARED_UNSUPPORTED_CONSTRUCTS, report, StringComparison.Ordinal);
 	}
 
-	/// <summary>The alpha label written out, so the assertion does not compare the constant with itself.</summary>
-	private const string _EXPECTED_ALPHA_VERSION = "0.9.2-alpha";
+	/// <summary>The release version written out, so the assertion does not compare the constant with itself.</summary>
+	private const string _EXPECTED_VERSION = "1.0.0";
 
 	[Fact]
-	public void TheProvenanceCarriesTheAlphaLabelledToolVersionLiteral()
+	public void TheProvenanceCarriesTheReleaseToolVersionLiteral()
 	{
 		string report = Render(ReportHarness.EmptyContent(
 			ReportHarness.CatalogWithCSharpOnly(),
 			ReportHarness.ConfigurationWith(ConfidenceLevel.Medium)));
 
-		Assert.Contains(_EXPECTED_ALPHA_VERSION, report, StringComparison.Ordinal);
+		Assert.Contains(_EXPECTED_VERSION, report, StringComparison.Ordinal);
 	}
 
 	/// <summary>

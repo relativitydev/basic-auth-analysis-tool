@@ -1,5 +1,50 @@
 # Migration Suggestions for Shell (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [SH-011 · WgetChallengeDependentCredentials](#sh-011--wgetchallengedependentcredentials)
+	- [SH-012 · AuthenticationHelperDefinition](#sh-012--authenticationhelperdefinition)
+	- [SH-015 · ChallengeDependentClientCredentials](#sh-015--challengedependentclientcredentials)
+	- [SH-017 · WgetExecuteCredentialsChallengeDependent](#sh-017--wgetexecutecredentialschallengedependent)
+	- [SH-020 · WgetConfigurationWrittenByScript](#sh-020--wgetconfigurationwrittenbyscript)
+	- [SH-022 · WgetViaSameFileAliasOrVariable](#sh-022--wgetviasamefilealiasorvariable)
+	- [SH-023 · CurlAnyauthWithUser](#sh-023--curlanyauthwithuser)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [SH-001 · CurlUserPassword](#sh-001--curluserpassword)
+	- [SH-002 · CurlUserWithoutPassword](#sh-002--curluserwithoutpassword)
+	- [SH-003 · AuthorizationHeaderBasic](#sh-003--authorizationheaderbasic)
+	- [SH-004 · WgetPreemptiveCredentials](#sh-004--wgetpreemptivecredentials)
+	- [SH-005 · CurlUrlUserinfo](#sh-005--curlurluserinfo)
+	- [SH-006 · CurlNetrcOption](#sh-006--curlnetrcoption)
+	- [SH-007 · EncodedCredentialPair](#sh-007--encodedcredentialpair)
+	- [SH-008 · BasicTokenInVariable](#sh-008--basictokeninvariable)
+	- [SH-009 · ArgumentArrayCredentials](#sh-009--argumentarraycredentials)
+	- [SH-010 · UrlUserinfoAssignment](#sh-010--urluserinfoassignment)
+	- [SH-013 · HttpieAuthentication](#sh-013--httpieauthentication)
+	- [SH-014 · Aria2cCredentials](#sh-014--aria2ccredentials)
+	- [SH-016 · WgetExecuteCredentialsPreemptive](#sh-016--wgetexecutecredentialspreemptive)
+	- [SH-018 · HandBuiltBasicRequest](#sh-018--handbuiltbasicrequest)
+	- [SH-019 · CurlConfigurationWrittenByScript](#sh-019--curlconfigurationwrittenbyscript)
+	- [SH-021 · CurlViaSameFileAliasOrVariable](#sh-021--curlviasamefilealiasorvariable)
+	- [SH-024 · EncodedPairHeldInVariable](#sh-024--encodedpairheldinvariable)
+	- [SH-025 · OptionsHeldInStringVariable](#sh-025--optionsheldinstringvariable)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-18)
+	- [Authorization Code](#authorization-code-18)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their Shell scripts with [Part A](part-a-shell.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:

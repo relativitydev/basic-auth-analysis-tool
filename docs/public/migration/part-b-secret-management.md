@@ -1,5 +1,42 @@
 # Secret Management (Part B of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Who this is for and what it covers](#who-this-is-for-and-what-it-covers)
+- [Rotating client secrets](#rotating-client-secrets)
+	- [What Relativity documents](#what-relativity-documents)
+	- [What Relativity does not document](#what-relativity-does-not-document)
+	- [Procedure: rotate with a reset (short downtime)](#procedure-rotate-with-a-reset-short-downtime)
+	- [Procedure: the two-client cut-over (inferred, not documented by Relativity)](#procedure-the-two-client-cut-over-inferred-not-documented-by-relativity)
+- [Reading secrets from a vault at runtime](#reading-secrets-from-a-vault-at-runtime)
+	- [Azure Key Vault](#azure-key-vault)
+	- [AWS Secrets Manager](#aws-secrets-manager)
+	- [HashiCorp Vault](#hashicorp-vault)
+	- [PowerShell: SecretManagement, stored credential files and SecureString](#powershell-secretmanagement-stored-credential-files-and-securestring)
+	- [VB.NET: configuration files, My.Settings and protected data](#vbnet-configuration-files-mysettings-and-protected-data)
+	- [C#: the same .NET facilities](#c-the-same-net-facilities)
+	- [Shell: the command line, secret files and the keychain](#shell-the-command-line-secret-files-and-the-keychain)
+	- [JavaScript: bundles, browser storage and the server](#javascript-bundles-browser-storage-and-the-server)
+	- [TypeScript: environment files, types and the server](#typescript-environment-files-types-and-the-server)
+	- [Python: the environment, credential stores and the command line](#python-the-environment-credential-stores-and-the-command-line)
+	- [Go: the environment, build-time values and the command line](#go-the-environment-build-time-values-and-the-command-line)
+	- [Relativity Secret Store](#relativity-secret-store)
+- [Hardcoded credentials](#hardcoded-credentials)
+	- [Finding hardcoded credentials](#finding-hardcoded-credentials)
+	- [Keeping credentials out of source](#keeping-credentials-out-of-source)
+- [Choosing a least-privilege Context User](#choosing-a-least-privilege-context-user)
+	- [What Relativity documents](#what-relativity-documents-1)
+	- [Guidance](#guidance)
+- [Storing and revoking refresh tokens](#storing-and-revoking-refresh-tokens)
+	- [What Relativity documents](#what-relativity-documents-2)
+	- [What Relativity does not document](#what-relativity-does-not-document-1)
+	- [Storing refresh tokens](#storing-refresh-tokens)
+	- [Desktop and command-line applications](#desktop-and-command-line-applications)
+	- [If a refresh token or client secret is compromised](#if-a-refresh-token-or-client-secret-is-compromised)
+- [Sources](#sources)
+
 ## Who this is for and what it covers
 
 This document is for developers and operators who are moving an application from Basic Authentication to OAuth 2.0 against RelativityOne, and who need to know where the new credentials live and how to look after them. It stands on its own: you need nothing else to follow it. It covers how to store, rotate and revoke the credentials, how to keep them out of source code, and how to choose a least-privilege Context User, and it has a section for each of the eight languages the migration guidance covers: C#, VB.NET, JavaScript, TypeScript, Python, Go, PowerShell and Shell.

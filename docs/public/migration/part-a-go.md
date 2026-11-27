@@ -1,5 +1,33 @@
 # Rule Patterns for Go (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [GO-001 · RequestSetBasicAuth](#go-001--requestsetbasicauth)
+	- [GO-002 · AuthorizationHeaderBasicScheme](#go-002--authorizationheaderbasicscheme)
+	- [GO-003 · HeaderLiteralBasicScheme](#go-003--headerliteralbasicscheme)
+	- [GO-004 · MapLiteralBasicScheme](#go-004--mapliteralbasicscheme)
+	- [GO-005 · URLUserinfoInRequestCall](#go-005--urluserinfoinrequestcall)
+	- [GO-006 · Base64UserPasswordPair](#go-006--base64userpasswordpair)
+	- [GO-007 · UserinfoUserPassword](#go-007--userinfouserpassword)
+	- [GO-008 · URLUserinfoHeldLiteral](#go-008--urluserinfoheldliteral)
+	- [GO-009 · AuthorizationHeaderValueHeldInVariable](#go-009--authorizationheadervalueheldinvariable)
+	- [GO-010 · RoundTripperBasicAuthDefinition](#go-010--roundtripperbasicauthdefinition)
+	- [GO-011 · AuthenticationHelperDefinition](#go-011--authenticationhelperdefinition)
+	- [GO-012 · AuthorizationHeaderValueFromEnvironment](#go-012--authorizationheadervaluefromenvironment)
+	- [GO-013 · AuthorizationHeaderValueFromLocalHelper](#go-013--authorizationheadervaluefromlocalhelper)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Limits of the reading](#limits-of-the-reading)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+	- [What the declared list does not say](#what-the-declared-list-does-not-say)
+
 Part A describes how to find each Basic Authentication pattern in Go code, so that you can find them in your own source. Each pattern class has an identifier, such as `GO-002`, which is the rule's own name, and a confidence level.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own Go code. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for Go](part-c-go.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).
@@ -522,6 +550,6 @@ Some entries below describe limits that apply only to an automated scan, such as
 
 ### What the declared list does not say
 
-Three classes are supported at Low only, `GO-010`, `GO-011` and `GO-012`: they are matched and go to manual review, so they are not in the list above. Part A does not describe the Go toolchain that builds your code, and a statement here about what the standard library does rests on its documentation at the version read; check a function's behaviour against the version you use.
+Three classes are supported at Low only, `GO-010`, `GO-011` and `GO-012`: they are matched and go to manual review, so they are not in the list above. Part A does not describe the Go toolchain that builds your code, and a statement here about what the standard library does rests on its documentation and may differ in other versions; check a function's behaviour against the version you use.
 
-**What was not run.** The behaviour of the standard library's HTTP client rests on its documentation at the version read, and on a short execution against a local test server for the user information of an address. No third-party client was installed or executed, and no Go program was run against RelativityOne. Read the findings with that in mind.
+**Limits of these statements.** The behaviour of the standard library's HTTP client rests on its documentation, and the handling of user information in an address is confirmed only against a local test server. No third-party client was installed or executed, and no Go program was run against RelativityOne. Read the findings with that in mind.

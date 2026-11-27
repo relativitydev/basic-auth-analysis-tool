@@ -1,5 +1,50 @@
 # Migration Suggestions for TypeScript (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Choosing the variant for your application](#choosing-the-variant-for-your-application)
+	- [Client Credentials: two variants](#client-credentials-two-variants)
+	- [Authorization Code: three variants](#authorization-code-three-variants)
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Declaration files](#declaration-files)
+	- [Deployment folders](#deployment-folders)
+	- [JS-007 · AuthenticationHelperDefinition](#js-007--authenticationhelperdefinition)
+	- [JS-009 · XhrOpenCredentials](#js-009--xhropencredentials)
+	- [JS-011 · NonHttpAuthObject](#js-011--nonhttpauthobject)
+	- [JS-014 · JqueryAjaxCredentials](#js-014--jqueryajaxcredentials)
+	- [JS-016 · RequestChallengeDependentAuth](#js-016--requestchallengedependentauth)
+	- [JS-018 · AuthorizationHeaderValueFromEnvironment](#js-018--authorizationheadervaluefromenvironment)
+	- [JS-019 · AuthorizationHeaderValueFromSettingsProperty](#js-019--authorizationheadervaluefromsettingsproperty)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [TS-001 · TypedBasicCredentialAnnotation](#ts-001--typedbasiccredentialannotation)
+	- [TS-003 · NestHttpServiceAuthObject](#ts-003--nesthttpserviceauthobject)
+	- [JS-001 · ClientAuthCredentialObject](#js-001--clientauthcredentialobject)
+	- [JS-002 · ClientAuthMethodCall](#js-002--clientauthmethodcall)
+	- [JS-003 · CredentialsInRequestUrl](#js-003--credentialsinrequesturl)
+	- [JS-004 · AuthorizationHeaderScheme](#js-004--authorizationheaderscheme)
+	- [JS-005 · Base64UserPasswordPair](#js-005--base64userpasswordpair)
+	- [JS-006 · NodeBufferBase64Pair](#js-006--nodebufferbase64pair)
+	- [JS-008 · NodeCoreAuthString](#js-008--nodecoreauthstring)
+	- [JS-010 · UrlCredentialAssignment](#js-010--urlcredentialassignment)
+	- [JS-012 · ClientAuthMethodSingleArgument](#js-012--clientauthmethodsingleargument)
+	- [JS-013 · UrlUserinfoHeldLiteral](#js-013--urluserinfoheldliteral)
+	- [JS-015 · GotCredentialOptions](#js-015--gotcredentialoptions)
+	- [JS-017 · AuthorizationHeaderValueHeldInVariable](#js-017--authorizationheadervalueheldinvariable)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-14)
+	- [Authorization Code](#authorization-code-14)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their TypeScript code with [Part A](part-a-typescript.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:
@@ -15,9 +60,9 @@ The two flows are the only ones recommended here:
 - **Client Credentials** is the flow when no person signs in. The code sends its client ID and client secret to the token endpoint and receives an access token. No user is involved, and every call runs as the OAuth2 Client's Context User.
 - **Authorization Code** is the flow that the RelativityOne OAuth2 Client form names Code. The code sends a signed-in user to RelativityOne, receives an authorization code at a registered Redirect URL, and exchanges it for a token that carries that user's permissions.
 
-These entries assume that TypeScript reaches RelativityOne through its REST endpoints with an HTTP client such as `fetch`, because they rely on no Relativity-published server-side TypeScript client or type package, and what Relativity publishes for browser extension scripts is not covered by these entries. Where the entries show code, the blocks are fenced `typescript`, and a token is sent as `Authorization: Bearer`, with `X-CSRF-Header: -` on REST and Kepler calls. That header requirement is carried from the Shell migration guidance and has not been re-verified for TypeScript or against your instance. **Every entry asks first whether the destination is RelativityOne**, because the code does not show which host a call goes to: a Basic credential sent to another service is a real exposure, and the correct migration for that service is its own.
+These entries assume that TypeScript reaches RelativityOne through its REST endpoints with an HTTP client such as `fetch`, because they rely on no Relativity-published server-side TypeScript client or type package, and what Relativity publishes for browser extension scripts is not covered by these entries. Where the entries show code, the blocks are fenced `typescript`, and a token is sent as `Authorization: Bearer`, with `X-CSRF-Header: -` on REST and Kepler calls. That header requirement has not been verified for TypeScript or against your instance. **Every entry asks first whether the destination is RelativityOne**, because the code does not show which host a call goes to: a Basic credential sent to another service is a real exposure, and the correct migration for that service is its own.
 
-**How the code in the entries is written.** The token acquisition is written in erasable TypeScript, the subset that Node.js can run by stripping the types without transforming them: an interface describes each response, and an `as` assertion on a parsed response validates nothing at run time, so a real component checks the shape it needs before it keeps a token. The Angular and NestJS pieces are thin callers of those functions; they use decorators and parameter properties that type stripping does not run, they were reviewed for syntax only, and every Angular and NestJS name in them is not verified against that framework's documentation.
+**How the code in the entries is written.** The token acquisition is written in erasable TypeScript, the subset that Node.js can run by stripping the types without transforming them: an interface describes each response, and an `as` assertion on a parsed response validates nothing at run time, so a real component checks the shape it needs before it keeps a token. The Angular and NestJS pieces are thin callers of those functions; they use decorators and parameter properties that type stripping does not run, they have not been checked beyond their syntax, and the Angular and NestJS names in them have not been checked against that framework's documentation.
 
 **Choosing the flow.** The "Which flow" paragraph of each class in Part A says when a match belongs to each flow. If your RelativityOne instance already has an OAuth2 Client for this integration, use the flow of that client. The flow is fixed when an OAuth2 Client is created and cannot be changed when the client is edited ([Relativity's OAuth2 clients help page](https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm)), so moving an integration from one flow to the other means creating a new OAuth2 Client.
 
@@ -33,7 +78,7 @@ A file alone does not show whether it runs in a browser (an Angular application,
 ### Authorization Code: three variants
 
 - **Variant 1: a browser with a server-side component.** For code that runs in a web browser and signs a person in to RelativityOne. A browser cannot hold the client secret that the Code grant requires, so **the browser never calls RelativityOne**: it navigates to a route on the application's own origin, and a server-side component creates the `state` value, redirects to the authorize endpoint, receives the code at its registered HTTPS Redirect URL, exchanges it, keeps the tokens and gives the browser only its own session. The authorize step is a top-level navigation, not a `fetch`. Whether RelativityOne serves cross-origin requests to browser callers has **not been verified**; the recommended architecture holds either way, and the recommendation states both cases. The tokens stay on the server, never in browser storage, which any script on the page can read. **For an Angular application the entry adds a thin shell:** a service whose method calls the page's own origin, with no `Authorization` header and no credential. An Angular HTTP interceptor that adds a Basic header is removed, not rewritten to add a Bearer header, because a browser never holds a RelativityOne token.
-- **Variant 2: a Node.js server.** For code that runs in Node.js as a web server and acts for people who sign in to it. A login route builds the authorize address with `state` (and the PKCE verifier where a refresh token is wanted), stores them against the visitor's session and redirects; the callback route, registered as one exact HTTPS URL, checks `state` and exchanges the code with the secret. This is the component that variant 1 relies on. **For a NestJS server the entry adds a thin shell:** a controller whose login route redirects to the address the first function builds and whose callback route passes the code and the state to the second. The shell was reviewed for syntax only.
+- **Variant 2: a Node.js server.** For code that runs in Node.js as a web server and acts for people who sign in to it. A login route builds the authorize address with `state` (and the PKCE verifier where a refresh token is wanted), stores them against the visitor's session and redirects; the callback route, registered as one exact HTTPS URL, checks `state` and exchanges the code with the secret. This is the component that variant 1 relies on. **For a NestJS server the entry adds a thin shell:** a controller whose login route redirects to the address the first function builds and whose callback route passes the code and the state to the second. The shell has not been checked beyond its syntax.
 - **Variant 3: a Node.js command line or desktop.** For code that runs on a person's own machine and signs that person in. The process starts a listener from the built-in `node:http` module, bound to `127.0.0.1` only, on the fixed registered port, for the first request to the callback path, and answers any other path with 404 and keeps listening; it opens the system browser on the authorize address **and always prints the address too**; it reads `code` and `state` from that request, closes the listener, checks `state`, and exchanges the code. A client secret shipped inside a distributed command-line tool can be extracted by anyone who holds the distribution, so the recommendation adds compensating guidance. Opening the system browser is done with the platform's own launcher, and that step is unchecked on every system. Where tokens are kept, a file with restricted permissions or the operating system's keychain: on Windows the POSIX mode argument of Node.js did not restrict a file when it was tried (checked by NSerio locally on one Node.js version), so a restricted file there needs an access-control change by other means, and on Linux and macOS it is unchecked.
 
 **Common to all of them.** No variant places a client secret or a RelativityOne token in browser code, and a secret shipped to a browser is public whatever bundling, minifying or obfuscating is applied. **For browser code the credential has been public for as long as the code has shipped.** The recommendation states the exposure and the rotation:
@@ -86,7 +131,7 @@ A function that builds the credential or the authentication header for the code 
 
 <a id="js-009-judging"></a>
 
-An `XMLHttpRequest` `open` call that is given a user name and a password as its fourth and fifth arguments, or an address with user information. It is rated Low because, as the web platform's specification for the request is written, the credentials given this way are sent only after the server answers with a Basic challenge, and RelativityOne does not challenge with Basic (this rests on a single RelativityOne instance observed for the earlier languages, is not documented by Relativity, and was not probed on Relativity Server), so as written the call does not send Basic to it. This reading rests on the text of the specification and has not been run in a browser, so what a given browser does is not verified. Confirm where the call points. If it points at RelativityOne, the call already fails to authenticate with that credential, and you should look for the header write or the other construct the code also uses, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. A credential written literally into the call is still a secret to remove, and in browser code it has been public for as long as the code has shipped.
+An `XMLHttpRequest` `open` call that is given a user name and a password as its fourth and fifth arguments, or an address with user information. It is rated Low because, as the web platform's specification for the request is written, the credentials given this way are sent only after the server answers with a Basic challenge, and RelativityOne does not challenge with Basic (this rests on observation of a single RelativityOne instance, is not documented by Relativity, and was not probed on Relativity Server), so as written the call does not send Basic to it. This reading rests on the text of the specification and has not been run in a browser, so what a given browser does is not verified. Confirm where the call points. If it points at RelativityOne, the call already fails to authenticate with that credential, and you should look for the header write or the other construct the code also uses, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. A credential written literally into the call is still a secret to remove, and in browser code it has been public for as long as the code has shipped.
 
 ### JS-011 · NonHttpAuthObject
 
@@ -98,13 +143,13 @@ An `auth` object with a user name and a password that is not given to an HTTP cl
 
 <a id="js-014-judging"></a>
 
-A jQuery `ajax` or `ajaxSetup` call with `username` and `password` settings. A jQuery request goes through `XMLHttpRequest`, and the library's documentation describes the two settings as credentials for answering an authentication challenge, so the call is rated Low for the reason of `JS-009`: as written it sends Basic only to a server that challenges with Basic, and RelativityOne does not challenge with Basic (this rests on a single RelativityOne instance observed for the earlier languages, is not documented by Relativity, and was not probed on Relativity Server), so it does not send Basic to it. Confirm where the call points. If it points at RelativityOne, the call does not authenticate with that credential; look for the `beforeSend` function that sets a header, or the header written in the `headers` setting, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. A credential written literally into the call is still a secret to remove, and it is public if the page ships it.
+A jQuery `ajax` or `ajaxSetup` call with `username` and `password` settings. A jQuery request goes through `XMLHttpRequest`, and the library's documentation describes the two settings as credentials for answering an authentication challenge, so the call is rated Low for the reason of `JS-009`: as written it sends Basic only to a server that challenges with Basic, and RelativityOne does not challenge with Basic (this rests on observation of a single RelativityOne instance, is not documented by Relativity, and was not probed on Relativity Server), so it does not send Basic to it. Confirm where the call points. If it points at RelativityOne, the call does not authenticate with that credential; look for the `beforeSend` function that sets a header, or the header written in the `headers` setting, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. A credential written literally into the call is still a secret to remove, and it is public if the page ships it.
 
 ### JS-016 · RequestChallengeDependentAuth
 
 <a id="js-016-judging"></a>
 
-A `request` call whose `auth` option or method has the immediate send turned off (`sendImmediately` false). With it off, the client sends Basic only after it receives a 401 answer, and RelativityOne does not challenge with Basic (this rests on a single RelativityOne instance observed for the earlier languages, is not documented by Relativity, and was not probed on Relativity Server), so as written the call does not send Basic to it. Confirm where the call points. If it points at RelativityOne, the call does not authenticate with that credential, and you should look for the header write or the `auth` option with the immediate send on that the code also uses, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. The `request` package has been deprecated since 2020, so a repository that still uses it should plan to replace it, and the replacement is a good place to apply the Bearer form. A credential written literally into the call is still a secret to remove.
+A `request` call whose `auth` option or method has the immediate send turned off (`sendImmediately` false). With it off, the client sends Basic only after it receives a 401 answer, and RelativityOne does not challenge with Basic (this rests on observation of a single RelativityOne instance, is not documented by Relativity, and was not probed on Relativity Server), so as written the call does not send Basic to it. Confirm where the call points. If it points at RelativityOne, the call does not authenticate with that credential, and you should look for the header write or the `auth` option with the immediate send on that the code also uses, which matches its own class, and migrate that. If it points at another server that asks for Basic, the call is that service's own authentication and needs no migration to RelativityOne. The `request` package has been deprecated since 2020, so a repository that still uses it should plan to replace it, and the replacement is a good place to apply the Bearer form. A credential written literally into the call is still a secret to remove.
 
 ### JS-018 · AuthorizationHeaderValueFromEnvironment
 

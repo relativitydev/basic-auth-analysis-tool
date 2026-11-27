@@ -10,7 +10,7 @@ namespace MigrateAuth.Cli.Tests.Documentation;
 ///
 /// With every analyzer registered, a page that still says a language is not in this release, is pending, or that enabling it changes
 /// nothing yet states something the tool no longer does. The pages read are the README, the User Guide and the current sections of the
-/// release notes: the first section after the introduction, and What's next. A section of an earlier version is history, states
+/// release notes: the first section after the introduction. A section of an earlier version is history, states
 /// the languages of its own release and is not rewritten, so it is not read here. The search is over what the page says, not over the
 /// source of the tool: the text the tool prints for a language with no analyzer is a state that no language is in at present.
 /// </summary>
@@ -18,14 +18,13 @@ public sealed class CurrentPagesLanguageStatementTests
 {
 	private const string _SECTION_HEADING_PREFIX = "## ";
 	private const int _FIRST_SECTION_COUNT = 1;
-	private const string _WHATS_NEXT_HEADING = "## What's next";
 	private const char _LINE_BREAK = '\n';
 	private const string _GO_WORD_PATTERN = "(?<![A-Za-z0-9.])Go(?![A-Za-z0-9])";
 	private const string _SHELL_WORD_PATTERN = "(?<![A-Za-z0-9.])Shell(?![A-Za-z0-9])";
 	private const string _GO_AFTER_PYTHON_PATTERN = "Python(, | and )Go";
 	private const string _SYNTHETIC_STALE_TEXT = "Go is not in this release. Enabling `Go` changes nothing yet.";
 	private const string _SYNTHETIC_CLEAN_TEXT = "This release analyzes C#, PowerShell, VB.NET, Shell, JavaScript, TypeScript, Python and Go.";
-	private const string _SYNTHETIC_NOTES = "# Notes\n\nIntro.\n\n## Current\n\nGo is analyzed.\n\n## Version 0.1.0-alpha\n\nGo is not in this release.\n\n## What's next\n\nNothing.\n";
+	private const string _SYNTHETIC_NOTES = "# Notes\n\nIntro.\n\n## Current\n\nGo is analyzed.\n\n## Version 0.1.0-alpha\n\nGo is not in this release.\n";
 
 	private static readonly string[] _undeliveredStatements =
 	[
@@ -89,7 +88,6 @@ public sealed class CurrentPagesLanguageStatementTests
 		Assert.NotEmpty(UndeliveredStatementProblems("stale", _SYNTHETIC_STALE_TEXT));
 		Assert.Empty(UndeliveredStatementProblems("clean", _SYNTHETIC_CLEAN_TEXT));
 		Assert.Contains("Go is analyzed.", current, StringComparison.Ordinal);
-		Assert.Contains("Nothing.", current, StringComparison.Ordinal);
 		Assert.DoesNotContain("is not in this release", current, StringComparison.Ordinal);
 		Assert.Matches(_goWord, _SYNTHETIC_CLEAN_TEXT);
 	}
@@ -111,7 +109,7 @@ public sealed class CurrentPagesLanguageStatementTests
 		return pages.ToImmutable();
 	}
 
-	/// <summary>The first section after the introduction and the What's next section: what the release notes say of the current release.</summary>
+	/// <summary>The first section after the introduction: what the release notes say of the current release.</summary>
 	private static string CurrentReleaseNotesText(string notes)
 	{
 		string[] lines = notes.Split(_LINE_BREAK);
@@ -124,7 +122,7 @@ public sealed class CurrentPagesLanguageStatementTests
 			if (line.StartsWith(_SECTION_HEADING_PREFIX, StringComparison.Ordinal))
 			{
 				sectionsSeen++;
-				inCurrent = sectionsSeen == _FIRST_SECTION_COUNT || line.StartsWith(_WHATS_NEXT_HEADING, StringComparison.Ordinal);
+				inCurrent = sectionsSeen == _FIRST_SECTION_COUNT;
 			}
 
 			if (inCurrent)

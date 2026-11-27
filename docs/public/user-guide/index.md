@@ -1,12 +1,16 @@
 # User Guide
 
-This guide explains how to install and run `migrate-auth`, how to read what it writes, and the OAuth 2.0 background you need to act on it. It has eight sections, one file each. The tool is an alpha release: see the [release notes](02-release-notes.md).
+This guide explains how to set up and run `migrate-auth`, how to read what it writes, and the OAuth 2.0 background you need to act on it. It has eight sections, one file each. For what changed in each release, see the [release notes](02-release-notes.md).
+
+[Documentation index](../README.md#documentation)
+
+**Contents**
 
 | Section | What it covers |
 | --- | --- |
-| [1. Using the tool](01-using-the-tool.md) | What the tool does and does not do, installing and verifying it, the session, the commands, the configuration file, reading the report, choosing and confirming the flow, where outputs go, and exit codes. |
-| [2. Release notes and What's next](02-release-notes.md) | What changed in this release, what it supports, known issues, how to report an issue, and the next milestones. |
-| [3. Limits of the tool](03-limits.md) | Languages delivered, what is not covered, the accuracy figures, and what a result does and does not mean. |
+| [1. Using the tool](01-using-the-tool.md) | What the tool does and does not do, setting it up and verifying it, the session, the commands, the configuration file, reading the report, choosing and confirming the flow, where outputs go, and exit codes. |
+| [2. Release notes](02-release-notes.md) | What changed in this release, what it supports, known issues, and how to report an issue. |
+| [3. Limits of the tool](03-limits.md) | Supported languages, what is not covered, the accuracy figures, and what a result does and does not mean. |
 | [4. OAuth 2.0 essentials](04-oauth2-essentials.md) | Why Basic Authentication is being replaced, Bearer tokens, and the two flows. |
 | [5. Configuring the OAuth2 Client](05-configuring-the-oauth2-client.md) | The OAuth2 Client fields for each flow. |
 | [6. Secrets](06-secrets.md) | What the new secrets are and the basic rules. |

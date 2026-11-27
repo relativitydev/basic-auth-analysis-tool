@@ -1,5 +1,38 @@
 # Rule Patterns for JavaScript (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [JS-001 · ClientAuthCredentialObject](#js-001--clientauthcredentialobject)
+	- [JS-002 · ClientAuthMethodCall](#js-002--clientauthmethodcall)
+	- [JS-003 · CredentialsInRequestUrl](#js-003--credentialsinrequesturl)
+	- [JS-004 · AuthorizationHeaderScheme](#js-004--authorizationheaderscheme)
+	- [JS-005 · Base64UserPasswordPair](#js-005--base64userpasswordpair)
+	- [JS-006 · NodeBufferBase64Pair](#js-006--nodebufferbase64pair)
+	- [JS-007 · AuthenticationHelperDefinition](#js-007--authenticationhelperdefinition)
+	- [JS-008 · NodeCoreAuthString](#js-008--nodecoreauthstring)
+	- [JS-009 · XhrOpenCredentials](#js-009--xhropencredentials)
+	- [JS-010 · UrlCredentialAssignment](#js-010--urlcredentialassignment)
+	- [JS-011 · NonHttpAuthObject](#js-011--nonhttpauthobject)
+	- [JS-012 · ClientAuthMethodSingleArgument](#js-012--clientauthmethodsingleargument)
+	- [JS-013 · UrlUserinfoHeldLiteral](#js-013--urluserinfoheldliteral)
+	- [JS-014 · JqueryAjaxCredentials](#js-014--jqueryajaxcredentials)
+	- [JS-015 · GotCredentialOptions](#js-015--gotcredentialoptions)
+	- [JS-016 · RequestChallengeDependentAuth](#js-016--requestchallengedependentauth)
+	- [JS-017 · AuthorizationHeaderValueHeldInVariable](#js-017--authorizationheadervalueheldinvariable)
+	- [JS-018 · AuthorizationHeaderValueFromEnvironment](#js-018--authorizationheadervaluefromenvironment)
+	- [JS-019 · AuthorizationHeaderValueFromSettingsProperty](#js-019--authorizationheadervaluefromsettingsproperty)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+	- [What the declared list does not say](#what-the-declared-list-does-not-say)
+
 Part A describes the Basic Authentication patterns to look for in JavaScript code, so that you can find them in your own source. Each pattern class has an identifier, such as `JS-004`, which a finding also carries, so a finding and this document can be matched.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own JavaScript code. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for JavaScript](part-c-javascript.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).
@@ -376,7 +409,7 @@ rg -n -i -g '*.{js,mjs,cjs,jsx}' '\.auth\s*\(\s*[^,)]+\)'
 rg -n -i -g '*.{js,mjs,cjs,jsx}' 'type.{1,4}auto'
 ```
 
-**Confidence.** **Medium.** The single-argument form defaults to Basic at the package version read, and the `auto` form does not fix the scheme in the text, and the same call with a `bearer` option is the migrated code, so the construct alone does not establish the scheme. A call that selects `bearer` is not read. The class has no literal credential position.
+**Confidence.** **Medium.** The single-argument form defaults to Basic in the documented package version, and the `auto` form does not fix the scheme in the text, and the same call with a `bearer` option is the migrated code, so the construct alone does not establish the scheme. A call that selects `bearer` is not read. The class has no literal credential position.
 
 **Which flow.** Look in the same file as the match for the signals listed under [Flow signals](#flow-signals). An interactive-user signal points to Authorization Code. A fixed-credential signal points to Client Credentials. When no signal is found, use Client Credentials unless something shows that a person signs in. Signals are read in the same file as the match only, so a prompt or a credential source in another file is not seen; follow the credential to where it comes from before you decide. See [the migration entries in Part C](part-c-javascript.md#js-012-migration).
 
@@ -445,7 +478,7 @@ rg -n -i -g '*.{js,mjs,cjs,jsx}' '\bgot(\.\w+)?\s*\('
 rg -n -i -g '*.{js,mjs,cjs,jsx}' '\busername\s*:'
 ```
 
-**Confidence.** **High.** The two options are documented as the Basic credential, so the construct is High in executable code that is not test code. The documentation was read for one package version, and earlier major versions are unchecked; whether `got` sends Basic on the first request is not stated in the page read. A literal password also holds an in-code secret. Not read: a header set through a hook of `got`. **Low** under the file and text rules of [How confidence is assigned](#how-confidence-is-assigned).
+**Confidence.** **High.** The two options are documented as the Basic credential, so the construct is High in executable code that is not test code. The documentation describes one package version, and earlier major versions may differ; the documentation does not state whether `got` sends Basic on the first request. A literal password also holds an in-code secret. Not read: a header set through a hook of `got`. **Low** under the file and text rules of [How confidence is assigned](#how-confidence-is-assigned).
 
 **Which flow.** Look in the same file as the match for the signals listed under [Flow signals](#flow-signals). An interactive-user signal points to Authorization Code. A fixed-credential signal points to Client Credentials. When no signal is found, use Client Credentials unless something shows that a person signs in. Signals are read in the same file as the match only, so a prompt or a credential source in another file is not seen; follow the credential to where it comes from before you decide. See [the migration entries in Part C](part-c-javascript.md#js-015-migration).
 
@@ -612,7 +645,7 @@ Some entries below describe limits that apply only to an automated scan, such as
 - **a request written by hand to a socket (net, tls or raw HTTP/2) with a literal Authorization: Basic line in the text**: the transports are an open set, and anchoring on the header text alone would make every file that mentions it a candidate; search such files separately for the literal header.
 - **an options object, authentication object or header object held in a variable, a module or a default export and handed to a client elsewhere, and an alias of a client or of the http module**: the call and the object are in different statements and the reading is of text, not of the program; the object is read only where a header carrier or an authentication object with a user and a password sits in the same text.
 - **a 'Basic ...' literal held in a variable with no header write in the same statement, and a header value held in an identifier that cannot be resolved**: a literal in a variable has no call to anchor on and its use is not in the statement; a name the file does not declare exactly once before its use is not resolved, and a value that resolves to another scheme is the migrated form. A header value that is an environment read (process.env, import.meta.env, Deno.env.get or Bun.env), alone, with a || or ?? literal fallback, or as the only hole of a template, is sent to manual review, and so is a name assigned from one in the same file. Left unread: an environment read held through another variable, a destructuring, an alias or a call; a name with two declarations, or one declared after its use; a fallback that is not a whole literal, and a chain of fallbacks; a template with other text or other holes; an object literal that only holds the key, such as const o = { Authorization: process.env.X }, which the carriers of the class do not read; and a header that has an explicit Bearer value written for an Authorization header within thirty lines of it, before or after, of at most 400 characters each, where a match is missed on purpose: the guard reads text and not code, so a comment or a string that spells the header name with a Bearer literal silences it too, and a Bearer literal held in a variable first and given to the header later is not read; a Bearer fallback of any environment read within the window silences it too, and the operator of a Bearer fallback must stand on the same line as its literal, so a Bearer fallback split over a line feed does not silence it.
-- **header-setting methods and hooks of third-party clients whose documentation was not read for them, and a header built by a function call**: an option or method name is read only after its documentation and version range were checked, so an unchecked name is left out rather than guessed.
+- **header-setting methods and hooks of third-party clients whose documentation was not read for them, and a header built by a function call**: an option or method name that the rules do not list is not read.
 - **a credentialed URL given directly to a jQuery or other XMLHttpRequest wrapper**: such a request sends the credential only after the server challenges for it, which is not how the target service behaves; a URL held in a variable is read as a held URL.
 - **calls to a wrapper function are not followed; the construct inside the wrapper is matched where the wrapper is defined, and a literal given to an aliased callee is not read**: following a call needs the mapping of a named parameter to its argument, which an expression cannot make; the construct is matched once, at the definition, and the call sites are not.
 - **computed property names, such as headers[name] or an object key written as [key], where the name is not a literal**: the name is not text at the call, so neither the header nor the option can be read.
@@ -663,4 +696,4 @@ Some entries below describe limits that apply only to an automated scan, such as
 
 Seven classes match at Low only, `JS-007`, `JS-009`, `JS-011`, `JS-014`, `JS-016`, `JS-018` and `JS-019`: they are for manual review, so they are not in the list above. A call that is challenge-dependent (`JS-009`, `JS-014` and `JS-016`) matches so that you see it, and a match is not a statement that the call authenticates to RelativityOne.
 
-**What was not run.** The statements about what a browser sends rest on the text of the web platform's specifications and were not run in a browser. The behaviour of the third-party clients rests on their documentation at the package version read, and is unchecked for any other version: `axios`, `undici`, `got` and `superagent` were read at their then-current release, and `node-fetch` and `request` at an earlier release than the latest. No third-party client was installed or executed, so the behaviour of the separately installed `undici` package is unchecked; the `fetch` built into Node.js was run on one version on Windows. Read the findings with that in mind, and check a client's option against the version you use.
+**Limits of these statements.** The statements about what a browser sends rest on the web platform's specifications and have not been tested in a browser. The behaviour of the third-party clients rests on their documentation and may differ in other package versions, and the behaviour of the separately installed `undici` package is unconfirmed. The documentation of `axios`, `undici`, `got` and `superagent` is that of their current release at the time it was read, and that of `node-fetch` and `request` is that of an earlier release than the latest. The `fetch` built into Node.js is confirmed only on one Node.js version, on Windows. Read the findings with that in mind, and check a client's option against the version you use.

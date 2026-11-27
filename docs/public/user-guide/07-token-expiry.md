@@ -1,5 +1,14 @@
 # Token expiry (User Guide, section 7 of 8)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [What the Access Token Lifetime controls](#what-the-access-token-lifetime-controls)
+- [What happens when a token expires](#what-happens-when-a-token-expires)
+- [How each flow handles expiry](#how-each-flow-handles-expiry)
+- [Handling an expired or rejected token in code](#handling-an-expired-or-rejected-token-in-code)
+
 An access token stops working after a fixed time. This section says what controls that time, what happens when a token expires, how each flow handles it, and how code should react to an expired or rejected token.
 
 ## What the Access Token Lifetime controls
@@ -18,7 +27,7 @@ A call made with an expired token is rejected for authentication. A token that w
 
 **Client Credentials: cache the token, and request a new one.** Keep the token for its lifetime. When it expires, or when a call is rejected for authentication, request a new token from the token endpoint with the client ID and the client secret. Client Credentials does not offer refresh tokens: this is **verified by NSerio against a live instance; not documented by Relativity**, because the Allow Refresh Tokens control does not appear for this grant in the RelativityOne user interface. Relativity's own tables and text on refresh tokens conflict with each other, so re-acquiring a token with the secret is the advice that holds whichever way they are read. Where the application uses the Relativity SDK and runs for a long time, rebuild the `ServiceFactory` and its proxies with a fresh token before the old one expires; Relativity's SDK exposes a settable token but documents no way to renew a token behind a factory.
 
-**Authorization Code: use the refresh token, or sign in again.** If Allow Refresh Tokens is enabled on the client and the application used PKCE, it holds a refresh token, and when the access token expires it sends a `grant_type=refresh_token` request with it and the client credentials in place of the code exchange. That flow follows the standard OAuth shape; it is inferred and has not been tested against RelativityOne. If there is no refresh token, the user signs in again. Relativity documents PKCE as required to obtain a refresh token. Relativity does not document a refresh token's lifetime, whether it rotates, how it is revoked, or whether a revocation endpoint exists, nor what disabling or deleting the client does to tokens already issued. Enable refresh tokens only if the application must keep a session beyond one token lifetime without asking the user to sign in again, and store a refresh token as a secret; see [Secrets](06-secrets.md).
+**Authorization Code: use the refresh token, or sign in again.** If Allow Refresh Tokens is enabled on the client and the application used PKCE, it holds a refresh token, and when the access token expires it sends a `grant_type=refresh_token` request with it and the client credentials in place of the code exchange. That flow follows the standard OAuth shape; it is inferred and has not been tested against RelativityOne. If there is no refresh token, the user signs in again. Relativity documents PKCE as required to obtain a refresh token. Relativity does not document a refresh token's lifetime, whether it rotates, how it is revoked, or whether a revocation endpoint exists, nor what disabling or deleting the client does to tokens already issued. Enable refresh tokens only if the application must keep a session beyond one token lifetime without asking the user to sign in again, and store a refresh token as a secret; see [Secrets](06-secrets.md). Renewing a token with a refresh token is described here in words only. The recommendations in Part C show how to acquire a token, keep it and call the API with it.
 
 ## Handling an expired or rejected token in code
 

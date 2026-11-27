@@ -1,5 +1,15 @@
 # Configuring the OAuth2 Client (User Guide, section 5 of 8)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Where to create it](#where-to-create-it)
+- [How each statement is marked](#how-each-statement-is-marked)
+- [Client Credentials](#client-credentials)
+- [Authorization Code](#authorization-code)
+- [After the client exists](#after-the-client-exists)
+
 Before an application can obtain a token, an OAuth2 Client has to exist in RelativityOne. This section lists the fields of the OAuth2 Client for each flow, with NSerio's recommended settings. It is the same text the tool prints under **OAuth2 Client** in every High or Medium recommendation.
 
 **The tool never creates or changes an OAuth2 Client.** It never connects to RelativityOne. Creating or changing the client is a manual step, done by a RelativityOne administrator, and everything below is guidance.
