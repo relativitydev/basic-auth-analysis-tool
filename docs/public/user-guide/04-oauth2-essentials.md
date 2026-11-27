@@ -1,18 +1,29 @@
 # OAuth 2.0 essentials (User Guide, section 4 of 8)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Why Basic Authentication is being replaced](#why-basic-authentication-is-being-replaced)
+- [What a Bearer token is](#what-a-bearer-token-is)
+- [The two flows the tool recommends](#the-two-flows-the-tool-recommends)
+- [Flows the tool does not recommend or cover](#flows-the-tool-does-not-recommend-or-cover)
+
 This section gives the OAuth 2.0 background you need to act on a report: why Basic Authentication is being replaced, what a Bearer token is, and how to choose between the two flows the tool recommends.
 
 ## Why Basic Authentication is being replaced
 
 Basic Authentication sends a user name and a password with every request. Anyone who obtains one request, one log line or one configuration file has the password, and the password is usually a person's password or that of a long-lived integration account. OAuth 2.0 replaces it with a short-lived access token that the application obtains from RelativityOne's identity service, so the password (or the client secret) travels only when a token is requested.
 
-**There is no date for the removal of Basic Authentication.** Relativity's public documentation gives none, and this guide does not assert one. What the documentation does say is per API and per page:
+Relativity deprecates Basic Authentication on March 31, 2027.
+
+**There is no date for the removal of Basic Authentication.** Relativity's public documentation gives no removal date, and this guide does not assert one. What the documentation does say is per API and per page:
 
 - The Usage Reports API page states: "Relativity aiR supports Bearer Token Authentication. Basic authentication is no longer supported." ([Usage Reports API](https://platform.relativity.com/RelativityOne/Content/BD_Usage_Report/Usage_Reports_API.htm))
 - The Staging Insights API (REST) page states: "Basic authentication is no longer supported." ([Staging Insights API (REST)](https://platform.relativity.com/RelativityOne/Content/BD_Staging/Staging_Insights_API__REST_.htm))
 - The Kepler framework page answers "What type of authentication should a Kepler service use?" with "A Kepler service must use bearer token authentication." ([Kepler framework](https://platform.relativity.com/RelativityOne/Content/Kepler_framework/Kepler_framework.htm)) That answer sits among questions about custom Kepler services, so it is guidance and not a dated removal for Relativity's own APIs.
 - The Kepler .NET page states: "Using Bearer Token is recommended over using username and password." ([Proxies and authentication](https://platform.relativity.com/RelativityOne/Content/Kepler_framework/Proxies_and_authentication.htm))
-- Other pages still describe Basic Authentication as a working option. That is a reason to plan the migration now, on your own schedule, and not to wait for a date.
+- Other pages still describe Basic Authentication as a working option. That is a reason to plan the migration now, on your own schedule, before the deprecation date.
 
 ## What a Bearer token is
 

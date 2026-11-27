@@ -1,5 +1,12 @@
 # Secrets (User Guide, section 6 of 8)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [What the new secrets are](#what-the-new-secrets-are)
+- [The basic rules](#the-basic-rules)
+
 Moving from Basic Authentication to OAuth 2.0 does not remove secrets. It changes what they are and how long they are valid. This section says what the new secrets are and the basic rules for them. The procedures are in [Secret Management (Part B of the Migration Documentation)](../migration/part-b-secret-management.md).
 
 ## What the new secrets are

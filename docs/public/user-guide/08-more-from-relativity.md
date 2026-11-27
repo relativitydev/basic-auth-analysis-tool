@@ -1,5 +1,7 @@
 # More information from Relativity (User Guide, section 8 of 8)
 
+[Documentation index](../README.md#documentation)
+
 The tool's guidance rests on these official Relativity pages. When this guide says a point is "not documented by Relativity", these pages do not state it.
 
 - [OAuth2 clients](https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm): the fields of the OAuth2 Client form for each flow, the recommended Access Token Lifetime, and the PKCE requirement for refresh tokens.

@@ -41,13 +41,13 @@ public sealed partial class UserGuideChecklistTests
 	private const char _CODE_SPAN_MARKER = '`';
 	private const string _CODE_SPAN_PATTERN = "`([^`]+)`";
 	private const string _TOKEN_SPLIT_PATTERN = "[^A-Za-z0-9]+";
-	private const string _YEAR_PATTERN = "\\b(19|20)\\d{2}\\b";
+	private const string _DEPRECATION_SENTENCE = "Relativity deprecates Basic Authentication on March 31, 2027.";
 	private const string _VERSION_LINE_FORMAT = "{0} {1} (catalog {2})";
 	private const string _PART_A_LINK = "../migration/part-a-csharp.md";
 	private const string _PART_C_LINK = "../migration/part-c-csharp.md";
 	private const string _OAUTH2_CLIENTS_URL = "https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm";
 	private const string _REST_AUTHENTICATION_URL = "https://platform.relativity.com/RelativityOne/Content/REST_API/REST_API_authentication.htm";
-	private const string _ALPHA_WORD = "alpha";
+	private const string _VERSION_HEADING_PREFIX = "## Version ";
 	private const string _CSRF_RULE = "X-CSRF-Header: -";
 	private const string _CSRF_CONSEQUENCE = "404";
 	private const string _EMPTY_RESULT_SENTENCE = "does not mean that no Basic Authentication was found";
@@ -69,8 +69,8 @@ public sealed partial class UserGuideChecklistTests
 	private static readonly string[] _knownIssuePhrases =
 	[
 		"verified by NSerio against a live RelativityOne instance", "desktop applications", "binaries are unsigned",
-		"continuous integration and delivery is deferred", "first launch of a freshly downloaded copy", "is not resumed",
-		"decomposed Unicode form", "the finding's own file", "planned after the alpha"
+		"first launch of a freshly downloaded copy", "is not resumed",
+		"decomposed Unicode form", "the finding's own file"
 	];
 
 	/// <summary>Every command the tool's <c>help</c> lists is in the guide's command table, and the table lists no other command.</summary>
@@ -162,25 +162,27 @@ public sealed partial class UserGuideChecklistTests
 		Assert.Contains("Run anyway", usingTheTool, StringComparison.Ordinal);
 	}
 
-	/// <summary>The release notes name the version, say alpha, list each known issue and state the empty-result sentence. The retired sentence that said a language is not analyzed in this release is checked absent from the current pages by <see cref="CurrentPagesLanguageStatementTests"/>.</summary>
+	/// <summary>The release notes name the version and open with its section, list each known issue and state the empty-result sentence. The retired sentence that said a language is not analyzed in this release is checked absent from the current pages by <see cref="CurrentPagesLanguageStatementTests"/>.</summary>
 	[Fact]
 	public void TheReleaseNotesNameTheVersionListTheKnownIssuesAndStateTheEmptyResultSentence()
 	{
 		string notes = PublicDocuments.ReadUserGuideRow(PublicDocuments.ROW_RELEASE_NOTES);
 
 		Assert.Contains(ToolVersion.CURRENT, notes, StringComparison.Ordinal);
-		Assert.Contains(_ALPHA_WORD, notes, StringComparison.Ordinal);
+		string currentHeading = _VERSION_HEADING_PREFIX + ToolVersion.CURRENT;
+		Assert.Contains(currentHeading, notes, StringComparison.Ordinal);
+		Assert.Equal(notes.IndexOf(_VERSION_HEADING_PREFIX, StringComparison.Ordinal), notes.IndexOf(currentHeading, StringComparison.Ordinal));
 		Assert.All(_knownIssuePhrases, phrase => Assert.Contains(phrase, notes, StringComparison.Ordinal));
 		Assert.Contains(_EMPTY_RESULT_SENTENCE, notes, StringComparison.Ordinal);
 	}
 
-	/// <summary>Row 4 gives no date for the removal of Basic, states the header rule with its 404 consequence, and cites public pages.</summary>
+	/// <summary>Row 4 states the deprecation date of Basic and gives no date for its removal, states the header rule with its 404 consequence, and cites public pages.</summary>
 	[Fact]
-	public void RowFourGivesNoRemovalDateAndStatesTheCsrfHeaderRule()
+	public void RowFourStatesTheDeprecationDateGivesNoRemovalDateAndStatesTheCsrfHeaderRule()
 	{
 		string essentials = PublicDocuments.ReadUserGuideRow(PublicDocuments.ROW_OAUTH2_ESSENTIALS);
 
-		Assert.DoesNotMatch(_YEAR_PATTERN, essentials);
+		Assert.Contains(_DEPRECATION_SENTENCE, essentials, StringComparison.Ordinal);
 		Assert.Contains(_CSRF_RULE, essentials, StringComparison.Ordinal);
 		Assert.Contains(_CSRF_CONSEQUENCE, essentials, StringComparison.Ordinal);
 		Assert.Contains("There is no date for the removal of Basic Authentication", essentials, StringComparison.Ordinal);

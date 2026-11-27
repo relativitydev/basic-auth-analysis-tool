@@ -13,13 +13,13 @@
 		ToolVersion.CURRENT, which stays a constant because the product code never reads the
 		assembly's attributes. The source revision is left out of the informational version so
 		that the product version the operating system shows reads exactly the release number.
-		FileVersion is numeric because the compiler rejects a pre-release string there; the
-		pre-release label is carried by the product version.
+		FileVersion is numeric because the compiler requires a numeric four-part value there;
+		it matches Version, with a final 0.
 		Copyright carries the notice that opens the licence text, and a test ties it to the first line of LICENSE.
 	-->
 	<PropertyGroup>
-		<Version>0.9.2-alpha</Version>
-		<FileVersion>0.9.2.0</FileVersion>
+		<Version>1.0.0</Version>
+		<FileVersion>1.0.0.0</FileVersion>
 		<Company>NSerio</Company>
 		<Product>migrate-auth</Product>
 		<Copyright>Copyright (c) 2026 Relativity ODA LLC</Copyright>

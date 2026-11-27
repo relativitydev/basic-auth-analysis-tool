@@ -51,7 +51,7 @@ public sealed class ReleaseVersionTests
 	}
 
 	[Fact]
-	public void TheNumericFileVersionIsTheProductVersionWithoutItsPreReleaseLabel()
+	public void TheNumericFileVersionIsTheReleaseNumberOfTheProductVersion()
 	{
 		string releaseNumber = ToolVersion.CURRENT.Split(_PRE_RELEASE_SEPARATOR)[0];
 

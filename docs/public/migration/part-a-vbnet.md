@@ -1,5 +1,37 @@
 # Rule Patterns for VB.NET (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [VB-001 · SdkUserNamePasswordCredentials](#vb-001--sdkusernamepasswordcredentials)
+	- [VB-002 · SdkLegacyRsapiCredentials](#vb-002--sdklegacyrsapicredentials)
+	- [VB-003 · CredentialCacheBasicScheme](#vb-003--credentialcachebasicscheme)
+	- [VB-004 · ThirdPartyBasicAuthenticatorType](#vb-004--thirdpartybasicauthenticatortype)
+	- [VB-005 · SchemeNamingExtensionMethod](#vb-005--schemenamingextensionmethod)
+	- [VB-006 · AuthorizationHeaderValueScheme](#vb-006--authorizationheadervaluescheme)
+	- [VB-007 · AuthorizationHeaderWrite](#vb-007--authorizationheaderwrite)
+	- [VB-008 · HttpRequestHeaderEnumAuthorization](#vb-008--httprequestheaderenumauthorization)
+	- [VB-009 · WcfBasicTransportCredential](#vb-009--wcfbasictransportcredential)
+	- [VB-010 · SdkConstructorWithUserAndPassword](#vb-010--sdkconstructorwithuserandpassword)
+	- [VB-011 · SdkSettingsCredentialProperties](#vb-011--sdksettingscredentialproperties)
+	- [VB-012 · NetworkCredentialOnHttpType](#vb-012--networkcredentialonhttptype)
+	- [VB-013 · NetworkCredentialConstruction](#vb-013--networkcredentialconstruction)
+	- [VB-014 · Base64UserPasswordPair](#vb-014--base64userpasswordpair)
+	- [VB-015 · TokenCarriedUnderBasicScheme](#vb-015--tokencarriedunderbasicscheme)
+	- [VB-016 · NetworkTransferWithCredentials](#vb-016--networktransferwithcredentials)
+	- [VB-017 · LateBoundHttpObjectCredentials](#vb-017--lateboundhttpobjectcredentials)
+	- [VB-018 · NonHttpCredentialSink](#vb-018--nonhttpcredentialsink)
+	- [VB-019 · AuthenticationHelperDefinition](#vb-019--authenticationhelperdefinition)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+
 Part A describes how to find the Basic Authentication patterns in your own VB.NET code. Each pattern class has an identifier, such as `VB-007`, that names its rule throughout the Migration Documentation, so a match you find by any means can be tied to the rule that describes it.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own VB.NET code. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for VB.NET](part-c-vbnet.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).

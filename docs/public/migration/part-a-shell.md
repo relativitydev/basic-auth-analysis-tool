@@ -1,5 +1,44 @@
 # Rule Patterns for Shell (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [SH-001 · CurlUserPassword](#sh-001--curluserpassword)
+	- [SH-002 · CurlUserWithoutPassword](#sh-002--curluserwithoutpassword)
+	- [SH-003 · AuthorizationHeaderBasic](#sh-003--authorizationheaderbasic)
+	- [SH-004 · WgetPreemptiveCredentials](#sh-004--wgetpreemptivecredentials)
+	- [SH-005 · CurlUrlUserinfo](#sh-005--curlurluserinfo)
+	- [SH-006 · CurlNetrcOption](#sh-006--curlnetrcoption)
+	- [SH-007 · EncodedCredentialPair](#sh-007--encodedcredentialpair)
+	- [SH-008 · BasicTokenInVariable](#sh-008--basictokeninvariable)
+	- [SH-009 · ArgumentArrayCredentials](#sh-009--argumentarraycredentials)
+	- [SH-010 · UrlUserinfoAssignment](#sh-010--urluserinfoassignment)
+	- [SH-011 · WgetChallengeDependentCredentials](#sh-011--wgetchallengedependentcredentials)
+	- [SH-012 · AuthenticationHelperDefinition](#sh-012--authenticationhelperdefinition)
+	- [SH-013 · HttpieAuthentication](#sh-013--httpieauthentication)
+	- [SH-014 · Aria2cCredentials](#sh-014--aria2ccredentials)
+	- [SH-015 · ChallengeDependentClientCredentials](#sh-015--challengedependentclientcredentials)
+	- [SH-016 · WgetExecuteCredentialsPreemptive](#sh-016--wgetexecutecredentialspreemptive)
+	- [SH-017 · WgetExecuteCredentialsChallengeDependent](#sh-017--wgetexecutecredentialschallengedependent)
+	- [SH-018 · HandBuiltBasicRequest](#sh-018--handbuiltbasicrequest)
+	- [SH-019 · CurlConfigurationWrittenByScript](#sh-019--curlconfigurationwrittenbyscript)
+	- [SH-020 · WgetConfigurationWrittenByScript](#sh-020--wgetconfigurationwrittenbyscript)
+	- [SH-021 · CurlViaSameFileAliasOrVariable](#sh-021--curlviasamefilealiasorvariable)
+	- [SH-022 · WgetViaSameFileAliasOrVariable](#sh-022--wgetviasamefilealiasorvariable)
+	- [SH-023 · CurlAnyauthWithUser](#sh-023--curlanyauthwithuser)
+	- [SH-024 · EncodedPairHeldInVariable](#sh-024--encodedpairheldinvariable)
+	- [SH-025 · OptionsHeldInStringVariable](#sh-025--optionsheldinstringvariable)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+	- [Shell run from a string](#shell-run-from-a-string)
+
 Part A describes how to find the Basic Authentication patterns in Shell scripts, so that you can find them in your own code. Each pattern class has an identifier, such as `SH-003`, so a match can be named and looked up in this document.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own Shell scripts. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for Shell](part-c-shell.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).

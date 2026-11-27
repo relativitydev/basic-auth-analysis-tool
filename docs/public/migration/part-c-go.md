@@ -1,5 +1,41 @@
 # Migration Suggestions for Go (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Choosing the variant for your application](#choosing-the-variant-for-your-application)
+	- [Client Credentials: two variants](#client-credentials-two-variants)
+	- [Authorization Code: two variants](#authorization-code-two-variants)
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [GO-010 · RoundTripperBasicAuthDefinition](#go-010--roundtripperbasicauthdefinition)
+	- [GO-011 · AuthenticationHelperDefinition](#go-011--authenticationhelperdefinition)
+	- [GO-012 · AuthorizationHeaderValueFromEnvironment](#go-012--authorizationheadervaluefromenvironment)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [GO-001 · RequestSetBasicAuth](#go-001--requestsetbasicauth)
+	- [GO-002 · AuthorizationHeaderBasicScheme](#go-002--authorizationheaderbasicscheme)
+	- [GO-003 · HeaderLiteralBasicScheme](#go-003--headerliteralbasicscheme)
+	- [GO-004 · MapLiteralBasicScheme](#go-004--mapliteralbasicscheme)
+	- [GO-005 · URLUserinfoInRequestCall](#go-005--urluserinfoinrequestcall)
+	- [GO-006 · Base64UserPasswordPair](#go-006--base64userpasswordpair)
+	- [GO-007 · UserinfoUserPassword](#go-007--userinfouserpassword)
+	- [GO-008 · URLUserinfoHeldLiteral](#go-008--urluserinfoheldliteral)
+	- [GO-009 · AuthorizationHeaderValueHeldInVariable](#go-009--authorizationheadervalueheldinvariable)
+	- [GO-013 · AuthorizationHeaderValueFromLocalHelper](#go-013--authorizationheadervaluefromlocalhelper)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-10)
+	- [Authorization Code](#authorization-code-10)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their Go code with [Part A](part-a-go.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:
@@ -17,7 +53,7 @@ The two flows are the only ones recommended here:
 
 These entries assume that Go reaches RelativityOne through its REST endpoints with the standard library's HTTP client, because they rely on no Relativity-published Go client or package. The text uses the standard library only (`net/http`, `net/url` and the packages it needs, with go1.13 or later) and names no third-party package in code. Where the entries show code, the blocks are fenced `go`, and a token is sent as `Authorization: Bearer`, with `X-CSRF-Header: -` on REST and Kepler calls. **Every entry asks first whether the destination is RelativityOne**, because the code does not show which host a call goes to: a Basic credential sent to another service is a real exposure, and the correct migration for that service is its own.
 
-**What was run and what was not.** The code blocks of the entries were compiled with the Go toolchain and the standard library alone, with no module fetched, and the token-acquisition blocks were run on Linux against a local test server that stands in for the token endpoint, never against RelativityOne. What the standard library does is described from its documentation at the version read and is unchecked for any other version. The token request's field placement and the token response's field names are the standard OAuth shape and are not verified against RelativityOne.
+**Status of the examples.** The code blocks of the entries were compiled with the Go toolchain and the standard library alone, with no module fetched, and the token-acquisition blocks have been run on Linux against a local test server that stands in for the token endpoint, never against RelativityOne. What the standard library does is described from its documentation and is unchecked for versions other than the one documented. The token request's field placement and the token response's field names are the standard OAuth shape and are not verified against RelativityOne.
 
 **Choosing the flow.** The "Which flow" paragraph of each class in Part A says when a match belongs to each flow. If your RelativityOne instance already has an OAuth2 Client for this integration, use the flow of that client. The flow is fixed when an OAuth2 Client is created and cannot be changed when the client is edited ([Relativity's OAuth2 clients help page](https://help.relativity.com/RelativityOne/Content/Relativity/Authentication/OAuth2_clients.htm)), so moving an integration from one flow to the other means creating a new OAuth2 Client.
 

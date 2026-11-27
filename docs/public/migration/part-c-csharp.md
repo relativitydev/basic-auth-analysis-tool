@@ -1,5 +1,46 @@
 # Migration Suggestions for C# (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [Conditional-compilation blocks](#conditional-compilation-blocks)
+	- [Colon-joined pairs without a credential name](#colon-joined-pairs-without-a-credential-name)
+	- [CS-011 · AuthenticationHelperDefinition](#cs-011--authenticationhelperdefinition)
+	- [CS-019 · NonHttpCredentialSink](#cs-019--nonhttpcredentialsink)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [CS-001 · SdkUserNamePasswordCredentials](#cs-001--sdkusernamepasswordcredentials)
+	- [CS-002 · SdkLegacyRsapiCredentials](#cs-002--sdklegacyrsapicredentials)
+	- [CS-003 · CredentialCacheBasicScheme](#cs-003--credentialcachebasicscheme)
+	- [CS-004 · ThirdPartyBasicAuthenticatorType](#cs-004--thirdpartybasicauthenticatortype)
+	- [CS-005 · AuthorizationHeaderValueScheme](#cs-005--authorizationheadervaluescheme)
+	- [CS-006 · AuthorizationHeaderStringLiteral](#cs-006--authorizationheaderstringliteral)
+	- [CS-007 · NetworkCredentialOnHttpHandler](#cs-007--networkcredentialonhttphandler)
+	- [CS-008 · NetworkCredentialConstruction](#cs-008--networkcredentialconstruction)
+	- [CS-009 · Base64UserPasswordPair](#cs-009--base64userpasswordpair)
+	- [CS-012 · HttpRequestHeaderEnumAuthorization](#cs-012--httprequestheaderenumauthorization)
+	- [CS-013 · WcfBasicTransportCredential](#cs-013--wcfbasictransportcredential)
+	- [CS-014 · SchemeNamingExtensionMethod](#cs-014--schemenamingextensionmethod)
+	- [CS-015 · SdkConstructorWithUserAndPassword](#cs-015--sdkconstructorwithuserandpassword)
+	- [CS-016 · CredentialAssembledAcrossStatements](#cs-016--credentialassembledacrossstatements)
+	- [CS-017 · SdkSettingsCredentialProperties](#cs-017--sdksettingscredentialproperties)
+	- [CS-018 · TokenCarriedUnderBasicScheme](#cs-018--tokencarriedunderbasicscheme)
+	- [CS-020 · SdkProxyFactoryWithUserAndPassword](#cs-020--sdkproxyfactorywithuserandpassword)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-17)
+	- [Authorization Code](#authorization-code-17)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their C# code with [Part A](part-a-csharp.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:

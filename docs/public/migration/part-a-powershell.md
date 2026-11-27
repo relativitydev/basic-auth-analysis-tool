@@ -1,5 +1,32 @@
 # Rule Patterns for PowerShell (Part A of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+- [Find your code](#find-your-code)
+- [How confidence is assigned](#how-confidence-is-assigned)
+- [Pattern classes](#pattern-classes)
+	- [PS-001 · SdkUserNamePasswordCredentials](#ps-001--sdkusernamepasswordcredentials)
+	- [PS-002 · SdkLegacyRsapiCredentials](#ps-002--sdklegacyrsapicredentials)
+	- [PS-003 · ExplicitBasicAuthenticationParameter](#ps-003--explicitbasicauthenticationparameter)
+	- [PS-004 · AuthorizationHeaderHashtableLiteral](#ps-004--authorizationheaderhashtableliteral)
+	- [PS-005 · AuthorizationHeaderStringKeyWrite](#ps-005--authorizationheaderstringkeywrite)
+	- [PS-006 · AuthorizationHeaderEnumWrite](#ps-006--authorizationheaderenumwrite)
+	- [PS-007 · AuthenticationHeaderValueScheme](#ps-007--authenticationheadervaluescheme)
+	- [PS-008 · CredentialCacheBasicScheme](#ps-008--credentialcachebasicscheme)
+	- [PS-009 · NetworkCredentialOnHttpType](#ps-009--networkcredentialonhttptype)
+	- [PS-010 · Base64UserPasswordPair](#ps-010--base64userpasswordpair)
+	- [PS-011 · TokenCarriedUnderBasicScheme](#ps-011--tokencarriedunderbasicscheme)
+	- [PS-012 · CredentialOnWebCmdletWithoutScheme](#ps-012--credentialonwebcmdletwithoutscheme)
+	- [PS-013 · NonHttpCredentialSink](#ps-013--nonhttpcredentialsink)
+	- [PS-014 · AuthenticationHelperDefinition](#ps-014--authenticationhelperdefinition)
+- [Flow signals](#flow-signals)
+	- [Interactive-user signals](#interactive-user-signals)
+	- [Fixed-credential signals](#fixed-credential-signals)
+	- [Choosing the flow by hand](#choosing-the-flow-by-hand)
+- [Declared unsupported coverage](#declared-unsupported-coverage)
+
 Part A describes how to find the Basic Authentication patterns in PowerShell code, so that you can find them in your own scripts. Each pattern class has an identifier, such as `PS-005`, so a match can be named and looked up in this document.
 
 This is Part A of the Migration Documentation, for developers who need to find Basic Authentication in their own PowerShell scripts. You use it without running anything: it lists every pattern class, how to search for it by hand, its confidence level and which flow it needs. When you have found a match and its class, go to [Part C for PowerShell](part-c-powershell.md) to change it, and to [Part B](part-b-secret-management.md) for where the new secrets go. New here? Start with the [Migration Documentation overview](README.md).
@@ -75,7 +102,7 @@ Five rules apply to every class:
 - **A Low match is for manual review, and no flow is decided for it.** It is not evidence that the code does not authenticate. Part C says how to judge each case.
 - **An argument may be an indexer, and an indexer argument is never a literal credential.** Wherever a class below reads a user name, a password, a token or an address from the call, the argument may be a quoted literal of any of the six string kinds, a variable in any spelling, an environment variable, a parenthesized expression, a `$( ... )` sub-expression, or one of those followed by a member chain with calls and by one or two bracket suffixes, such as `$settings['<key>']` or `$parts[1]`. The bracket holds a quoted literal or a short expression with no bracket, comma, quote, parenthesis or semicolon inside. A value read from configuration is code and not an in-code secret, so a match that captures an indexer is never an in-code secret.
 
-**Why a `NetworkCredential` on a handler is Medium and `-Credential` with no scheme is Low.** Both pass a credential and name no scheme, and they differ in what can be shown about what is sent. A web command called with `-Credential` and no `-Authentication` (PS-012) does not send Basic to RelativityOne: the call goes out without credentials, RelativityOne answers with a bearer challenge, and PowerShell sends nothing more. Local checks on Windows PowerShell 5.1 and on PowerShell 7 showed this, so the match is Low and goes to manual review. A `NetworkCredential` assigned to an HTTP handler, web client or web request (PS-009) is the usual way a script gives such an object a user name and a password, and it has not been shown that those types stay silent after a bearer challenge. The file does not show where the call goes either, so the class is Medium: confirm the destination. If the same assignment hands the credential to a mail client, a proxy or a directory object, it is PS-013 and Low.
+**Why a `NetworkCredential` on a handler is Medium and `-Credential` with no scheme is Low.** Both pass a credential and name no scheme, and they differ in what can be shown about what is sent. A web command called with `-Credential` and no `-Authentication` (PS-012) does not send Basic to RelativityOne: the call goes out without credentials, RelativityOne answers with a bearer challenge, and PowerShell sends nothing more. Checked on Windows PowerShell 5.1 and on PowerShell 7, this holds, so the match is Low and goes to manual review. A `NetworkCredential` assigned to an HTTP handler, web client or web request (PS-009) is the usual way a script gives such an object a user name and a password, and it has not been shown that those types stay silent after a bearer challenge. The file does not show where the call goes either, so the class is Medium: confirm the destination. If the same assignment hands the credential to a mail client, a proxy or a directory object, it is PS-013 and Low.
 
 What marks a file for demotion in PowerShell:
 

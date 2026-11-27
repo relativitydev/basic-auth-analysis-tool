@@ -1,5 +1,39 @@
 # Migration Suggestions for PowerShell (Part C of the Migration Documentation)
 
+[Documentation index](../README.md#documentation)
+
+**Contents**
+
+<!-- generated:begin table-of-contents -->
+- [Judging a Low-confidence match](#judging-a-low-confidence-match)
+	- [Comments](#comments)
+	- [Documentation strings](#documentation-strings)
+	- [Test fixtures and mocks](#test-fixtures-and-mocks)
+	- [Sample and example code](#sample-and-example-code)
+	- [Vendored and generated files](#vendored-and-generated-files)
+	- [Deployment folders](#deployment-folders)
+	- [PS-012 · CredentialOnWebCmdletWithoutScheme](#ps-012--credentialonwebcmdletwithoutscheme)
+	- [PS-013 · NonHttpCredentialSink](#ps-013--nonhttpcredentialsink)
+	- [PS-014 · AuthenticationHelperDefinition](#ps-014--authenticationhelperdefinition)
+- [Migration suggestions by pattern class](#migration-suggestions-by-pattern-class)
+	- [PS-001 · SdkUserNamePasswordCredentials](#ps-001--sdkusernamepasswordcredentials)
+	- [PS-002 · SdkLegacyRsapiCredentials](#ps-002--sdklegacyrsapicredentials)
+	- [PS-003 · ExplicitBasicAuthenticationParameter](#ps-003--explicitbasicauthenticationparameter)
+	- [PS-004 · AuthorizationHeaderHashtableLiteral](#ps-004--authorizationheaderhashtableliteral)
+	- [PS-005 · AuthorizationHeaderStringKeyWrite](#ps-005--authorizationheaderstringkeywrite)
+	- [PS-006 · AuthorizationHeaderEnumWrite](#ps-006--authorizationheaderenumwrite)
+	- [PS-007 · AuthenticationHeaderValueScheme](#ps-007--authenticationheadervaluescheme)
+	- [PS-008 · CredentialCacheBasicScheme](#ps-008--credentialcachebasicscheme)
+	- [PS-009 · NetworkCredentialOnHttpType](#ps-009--networkcredentialonhttptype)
+	- [PS-010 · Base64UserPasswordPair](#ps-010--base64userpasswordpair)
+	- [PS-011 · TokenCarriedUnderBasicScheme](#ps-011--tokencarriedunderbasicscheme)
+- [Generic suggestion](#generic-suggestion)
+	- [Client Credentials](#client-credentials-11)
+	- [Authorization Code](#authorization-code-11)
+- [OAuth2 Client for Client Credentials](#oauth2-client-for-client-credentials)
+- [OAuth2 Client for Authorization Code](#oauth2-client-for-authorization-code)
+<!-- generated:end table-of-contents -->
+
 This is Part C of the Migration Documentation, for developers who have found Basic Authentication in their PowerShell scripts with [Part A](part-a-powershell.md). You use it without running anything: for each pattern class and each OAuth 2.0 flow it shows the code to replace, the code that replaces it, how to obtain and cache the token, and the OAuth2 Client to create. Store the new secrets as [Part B](part-b-secret-management.md) describes. New here? Start with the [Migration Documentation overview](README.md).
 
 This document has three kinds of text:
